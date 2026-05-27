@@ -957,12 +957,12 @@ function renderAdminCollabs() {
   <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const p = posteById(c.PosteId);
-    const teamSelects = db.equipes.map(t =>
-      `<label style="display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:3px;cursor:pointer">
-        <input type="checkbox" ${(c.teamIds||[]).includes(String(t.id)) ? 'checked' : ''}
-          onchange="quickUpdateTeam('${c.Id}', '${t.id}', this.checked)"> ${t.name}
-      </label>`
-    ).join('');
+    const teamSelects = `<select multiple size="2" style="width:150px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px;padding:2px"
+  onchange="quickUpdateTeams('${c.Id}', this)">
+  ${db.equipes.map(t =>
+    `<option value="${t.id}" ${(c.teamIds||[]).includes(String(t.id)) ? 'selected' : ''}>${t.name}</option>`
+  ).join('')}
+</select>`;
     const teamManagerIds = (c.teamIds||[]).flatMap(tid => {
   const t = db.equipes.find(e => String(e.id) === String(tid));
   return t ? (t.managerIds||[]) : [];
@@ -1003,15 +1003,21 @@ async function quickUpdateManager(collabId, managerID) {
   } catch(e) { alert('Erreur : ' + e.message); }
 }
 
-async function quickUpdateTeam(collabId, teamId, checked) {
+async function quickUpdateTeams(collabId, selectEl) {
   try {
     showSave();
+    const selected = [...selectEl.selectedOptions].map(o => o.value);
+    if (selected.length > 2) {
+      alert('Maximum 2 équipes.');
+      await loadData();
+      renderAdminCollabs();
+      return;
+    }
     const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
     if (!c) return;
-    if (checked) { if (!c.teamIds.includes(String(teamId))) c.teamIds.push(String(teamId)); }
-    else { c.teamIds = c.teamIds.filter(t => t !== String(teamId)); }
-    await spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: c.teamIds.join(',') });
-    hideSave('Équipe mise à jour ✓');
+    c.teamIds = selected;
+    await spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: selected.join(',') });
+    hideSave('Équipes mises à jour ✓');
   } catch(e) { alert('Erreur : ' + e.message); }
 }
 
@@ -1037,14 +1043,20 @@ function openTeamModal(id) {
   document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? "Modifier l'équipe" : 'Nouvelle équipe';
   document.getElementById('m-sub').textContent = '';
-  const mgrChecks = db.collaborateurs
-    .slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')))
-    .map(c => `
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px 0">
-        <input type="checkbox" value="${c.Id}" ${(t.managerIds||[]).includes(String(c.Id)) ? 'checked' : ''}>
-        ${c.prenom} ${c.Nom||''}
-      </label>`
-    ).join('');
+
+  const renderMgrList = (filter = '') => {
+    return db.collaborateurs
+      .filter(c => filter === '' || `${c.prenom} ${c.Nom||''}`.toLowerCase().includes(filter.toLowerCase()))
+      .slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')))
+      .map(c => `
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px;hover:background:#f5f5f0">
+          <input type="checkbox" value="${c.Id}" ${(t.managerIds||[]).includes(String(c.Id)) ? 'checked' : ''}
+            style="width:14px;height:14px;flex-shrink:0;cursor:pointer">
+          <span>${c.prenom} ${c.Nom||''}</span>
+        </label>`
+      ).join('');
+  };
+
   document.getElementById('m-body').innerHTML = `
     <div class="field" style="margin-bottom:14px">
       <label>Nom de l'équipe</label>
@@ -1052,10 +1064,24 @@ function openTeamModal(id) {
     </div>
     <div class="field">
       <label>Managers de l'équipe</label>
-      <div id="t-managers" style="border:.5px solid #D3D1C7;border-radius:8px;padding:10px;max-height:250px;overflow-y:auto">
-        ${mgrChecks || '<span style="color:#aaa;font-size:12px">Aucun collaborateur</span>'}
+      <input type="text" id="t-mgr-search" placeholder="🔍 Rechercher un collaborateur…"
+        style="width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;margin-bottom:8px;outline:none"
+        oninput="document.getElementById('t-mgr-list').innerHTML = (function(){
+          const filter = this.value;
+          return ${JSON.stringify('placeholder')};
+        }).call(this)">
+      <div id="t-mgr-list" style="border:.5px solid #D3D1C7;border-radius:8px;padding:6px;max-height:250px;overflow-y:auto">
+        ${renderMgrList()}
       </div>
     </div>`;
+
+  // Branchement de la recherche après injection du DOM
+  setTimeout(() => {
+    document.getElementById('t-mgr-search').addEventListener('input', function() {
+      document.getElementById('t-mgr-list').innerHTML = renderMgrList(this.value);
+    });
+  }, 0);
+
   document.getElementById('m-footer').innerHTML = `
     <button class="btn" onclick="closeModal()">Annuler</button>
     <button class="btn btn-primary" onclick="saveTeam('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
