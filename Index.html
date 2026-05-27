@@ -488,7 +488,12 @@ if (postesRaw.length) {
   db.competences  = comps;
   db.commentaires = coms;
   db.historique   = hist;
-  db.equipes      = equipes.map(e => ({ ...e, id: String(e.Id), name: e.Title || e.Nom || '' }));
+  db.equipes = equipes.map(e => ({
+  ...e,
+  id: String(e.Id),
+  name: e.Title || e.Nom || '',
+  managerIds: e.ManagerIds ? e.ManagerIds.split(',').filter(Boolean) : []
+}));
 }
 
 // =====================================================================
@@ -958,12 +963,20 @@ function renderAdminCollabs() {
           onchange="quickUpdateTeam('${c.Id}', '${t.id}', this.checked)"> ${t.name}
       </label>`
     ).join('');
-    const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickUpdateManager('${c.Id}', this.value)">
-      <option value="">— Aucun —</option>
-      ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x =>
-        `<option value="${x.Id}" ${String(c.ManagerID||c.ManagerID||'') === String(x.Id) ? 'selected' : ''}>${x.prenom} ${x.Nom||''}</option>`
-      ).join('')}
-    </select>`;
+    const teamManagerIds = (c.teamIds||[]).flatMap(tid => {
+  const t = db.equipes.find(e => String(e.id) === String(tid));
+  return t ? (t.managerIds||[]) : [];
+});
+const mgrPool = teamManagerIds.length > 0
+  ? db.collaborateurs.filter(x => teamManagerIds.includes(String(x.Id)) && String(x.Id) !== String(c.Id))
+  : db.collaborateurs.filter(x => String(x.Id) !== String(c.Id));
+
+const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickUpdateManager('${c.Id}', this.value)">
+  <option value="">— Aucun —</option>
+  ${mgrPool.map(x =>
+    `<option value="${x.Id}" ${String(c.ManagerID||c.ManagerId||'') === String(x.Id) ? 'selected' : ''}>${x.prenom} ${x.Nom||''}</option>`
+  ).join('')}
+</select>`;
     h += `<tr>
       <td style="font-weight:500">${c.prenom||''} ${c.Nom||''}</td>
       <td style="font-size:12px;color:#5F5E5A">${c.Email||'—'}</td>
@@ -1020,20 +1033,41 @@ function renderAdminTeams() {
   document.getElementById('content').innerHTML = h;
 }
 function openTeamModal(id) {
-  const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'' };
+  const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'', managerIds:[] };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? "Modifier l'équipe" : 'Nouvelle équipe';
   document.getElementById('m-sub').textContent = '';
-  document.getElementById('m-body').innerHTML = `<div class="field"><label>Nom</label><input type="text" id="t-name" value="${t.name}" placeholder="Ex: Conseil RSE…"></div>`;
-  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveTeam('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  const mgrChecks = db.collaborateurs
+    .slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')))
+    .map(c => `
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px 0">
+        <input type="checkbox" value="${c.Id}" ${(t.managerIds||[]).includes(String(c.Id)) ? 'checked' : ''}>
+        ${c.prenom} ${c.Nom||''}
+      </label>`
+    ).join('');
+  document.getElementById('m-body').innerHTML = `
+    <div class="field" style="margin-bottom:14px">
+      <label>Nom de l'équipe</label>
+      <input type="text" id="t-name" value="${t.name}" placeholder="Ex: Conseil RSE…">
+    </div>
+    <div class="field">
+      <label>Managers de l'équipe</label>
+      <div id="t-managers" style="border:.5px solid #D3D1C7;border-radius:8px;padding:10px;max-height:250px;overflow-y:auto">
+        ${mgrChecks || '<span style="color:#aaa;font-size:12px">Aucun collaborateur</span>'}
+      </div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveTeam('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
   document.getElementById('modal').style.display = 'flex';
 }
 async function saveTeam(id) {
   const name = document.getElementById('t-name').value.trim();
   if (!name) return alert('Nom requis.');
+  const managerIds = [...document.querySelectorAll('#t-managers input:checked')].map(i => i.value).join(',');
   showSave();
-  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name });
-  else    await spPost(CONFIG.lists.equipes, { Title: name });
+  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagerIds: managerIds });
+  else    await spPost(CONFIG.lists.equipes, { Title: name, ManagerIds: managerIds });
   await loadData();
   hideSave('Enregistré ✓');
   closeModal();
