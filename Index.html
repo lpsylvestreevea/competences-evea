@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Matrice des compétences — EVEA</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;font-size:14px;background:#f5f5f0;color:#1a1a18}
+.app{display:flex;height:100vh;overflow:hidden}
+.loading{position:fixed;inset:0;background:#f5f5f0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300}
+.loading i{font-size:48px;color:#534AB7;margin-bottom:16px;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{font-size:15px;color:#5F5E5A;margin-top:8px}
+.sidebar{width:220px;min-width:220px;background:#fff;border-right:.5px solid #D3D1C7;display:flex;flex-direction:column}
+.sidebar-logo{padding:14px 16px;border-bottom:.5px solid #D3D1C7;display:flex;align-items:center;gap:8px}
+.sidebar-logo i{color:#534AB7;font-size:20px}
+.sidebar-logo span{font-weight:600;font-size:15px}
+.sidebar-user{padding:10px 14px;border-bottom:.5px solid #D3D1C7;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.sidebar-nav{padding:6px;flex:1;overflow-y:auto}
+.nav-section{padding:8px 10px 2px;font-size:10px;font-weight:600;letter-spacing:.06em;color:#aaa;text-transform:uppercase;margin-top:4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;color:#5F5E5A;font-size:13px;transition:background .15s}
+.nav-item:hover{background:#f5f5f0}
+.nav-item.active{background:#EEEDFE;color:#534AB7;font-weight:500}
+.nav-item i{font-size:16px;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:.5px solid #D3D1C7;padding:11px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar-title{font-weight:500;font-size:16px;flex:1}
+.search-box{display:flex;align-items:center;gap:6px;background:#f5f5f0;border:.5px solid #D3D1C7;border-radius:8px;padding:6px 10px;width:200px}
+.search-box input{border:none;background:none;outline:none;font-size:13px;width:100%}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:.5px solid #D3D1C7;background:#fff;font-size:13px;cursor:pointer;color:#1a1a18;font-family:inherit;transition:background .15s;white-space:nowrap}
+.btn:hover{background:#f5f5f0}
+.btn-primary{background:#534AB7;color:#fff;border-color:#534AB7}
+.btn-primary:hover{background:#3C3489}
+.btn-danger{color:#A32D2D;border-color:#F7C1C1}
+.btn-danger:hover{background:#FCEBEB}
+.btn-sm{padding:4px 8px;font-size:12px}
+.content{flex:1;overflow-y:auto;padding:18px}
+.rb{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:500}
+.rb-admin{background:#EEEDFE;color:#3C3489}
+.rb-manager{background:#E6F1FB;color:#042C53}
+.rb-collab{background:#E1F5EE;color:#085041}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+select{padding:6px 10px;border-radius:8px;border:.5px solid #D3D1C7;background:#fff;font-size:13px;color:#1a1a18;font-family:inherit;cursor:pointer;outline:none}
+.twrap{position:relative;display:inline}
+.twrap .tt{display:none;position:absolute;z-index:50;background:#1a1a18;color:#fff;font-size:12px;border-radius:8px;padding:8px 11px;min-width:200px;max-width:280px;line-height:1.5;left:50%;transform:translateX(-50%);top:calc(100% + 6px);white-space:normal;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.twrap .tt.tup{top:auto;bottom:calc(100% + 6px)}
+.twrap:hover .tt{display:block}
+.tt-title{font-weight:500;margin-bottom:4px}
+.matrix-wrap{overflow:auto;border:.5px solid #D3D1C7;border-radius:12px;background:#fff;max-height:calc(100vh - 200px)}
+table.mx{border-collapse:collapse;min-width:100%}
+table.mx th,table.mx td{border:.5px solid #e8e7e0;padding:0}
+table.mx thead th{background:#f5f5f0;font-size:11px;font-weight:500;color:#5F5E5A;padding:7px 10px;white-space:nowrap;position:sticky;top:0;z-index:10}
+table.mx thead th:first-child{position:sticky;left:0;z-index:20;background:#f5f5f0;min-width:200px;text-align:left}
+table.mx tbody td:first-child{position:sticky;left:0;background:#fff;z-index:5;min-width:185px;max-width:225px;padding:5px 10px;font-size:12px;border-right:.5px solid #D3D1C7}
+table.mx tbody td:first-child.dr{background:#EEEDFE;color:#534AB7;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+table.mx tbody td{text-align:center;min-width:38px;height:34px}
+.cell{display:flex;align-items:center;justify-content:center;height:100%;cursor:pointer}
+.cell:hover{background:#f5f5f0}
+.lb{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500}
+.l1{background:#E1F5EE;color:#085041}.l2{background:#EEEDFE;color:#3C3489}
+.l3{background:#FAEEDA;color:#633806}.l4{background:#FAECE7;color:#4A1B0C}
+.l-ring{outline:2px solid #534AB7;outline-offset:1px;border-radius:50%}
+.sk-rare{color:#7A3A28}
+.rare-pill{background:#F5E6E3;color:#7A3A28;border-radius:4px;font-size:9px;padding:1px 4px;margin-left:3px;font-weight:600}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#5F5E5A;margin-bottom:10px;align-items:center}
+.legend-item{display:flex;align-items:center;gap:4px}
+.ldot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500}
+.collab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
+.collab-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:13px;cursor:pointer;transition:border-color .15s}
+.collab-card:hover{border-color:#534AB7}
+.av{width:36px;height:36px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:#534AB7;margin-bottom:8px}
+.cname{font-weight:500;font-size:13px;margin-bottom:2px}
+.cposte{font-size:11px;color:#5F5E5A;margin-bottom:6px}
+.stat-pill{background:#f5f5f0;border-radius:6px;padding:2px 7px;font-size:11px;color:#5F5E5A}
+.team-tag{background:#E6F1FB;color:#042C53;border-radius:6px;padding:2px 6px;font-size:11px}
+.pbar{height:3px;background:#e8e7e0;border-radius:2px;overflow:hidden;margin-top:5px}
+.pfill{height:100%;background:#534AB7;border-radius:2px}
+.admin-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;overflow:hidden;margin-bottom:18px}
+.admin-hdr{padding:13px 17px;border-bottom:.5px solid #D3D1C7;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.admin-hdr h3{font-size:14px;font-weight:500}
+table.adm{width:100%;border-collapse:collapse}
+table.adm th{background:#f5f5f0;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:#5F5E5A;padding:7px 13px;text-align:left;border-bottom:.5px solid #D3D1C7}
+table.adm td{padding:8px 13px;border-bottom:.5px solid #f0efe8;font-size:13px;vertical-align:middle}
+table.adm tr:last-child td{border-bottom:none}
+table.adm tr:hover td{background:#fafaf8}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;width:700px;max-width:96vw;max-height:92vh;overflow:hidden;display:flex;flex-direction:column}
+.mhead{padding:16px 20px;border-bottom:.5px solid #D3D1C7;display:flex;align-items:center;gap:11px}
+.mavat{width:42px;height:42px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#534AB7;flex-shrink:0}
+.mtitle{flex:1}.mtitle h2{font-size:15px;font-weight:500}.mtitle p{font-size:12px;color:#5F5E5A}
+.mbody{overflow-y:auto;padding:18px 20px;flex:1}
+.mfooter{padding:11px 20px;border-top:.5px solid #D3D1C7;display:flex;justify-content:flex-end;gap:8px;align-items:center}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.field label{font-size:12px;color:#5F5E5A;display:block;margin-bottom:3px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1a18;background:#fff}
+.field input:focus,.field select:focus{border-color:#534AB7}
+.field.full{grid-column:span 2}
+.csect{margin-bottom:16px}
+.csect-lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.crow{border-bottom:.5px solid #f0efe8}
+.crow:last-child{border-bottom:none}
+.crow-main{display:flex;align-items:center;gap:8px;padding:7px 0}
+.crow-name{flex:1;font-size:13px;line-height:1.3}
+.lp{display:flex;gap:3px}
+.lvl-btn{width:26px;height:26px;border-radius:50%;border:.5px solid #D3D1C7;background:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.lvl-btn:hover{border-color:#534AB7;color:#534AB7}
+.lvl-btn.a1{background:#E1F5EE;border-color:#0F6E56;color:#085041;font-weight:500}
+.lvl-btn.a2{background:#EEEDFE;border-color:#534AB7;color:#3C3489;font-weight:500}
+.lvl-btn.a3{background:#FAEEDA;border-color:#854F0B;color:#633806;font-weight:500}
+.lvl-btn.a4{background:#FAECE7;border-color:#993C1D;color:#4A1B0C;font-weight:500}
+.tt-tag{font-size:10px;color:#5F5E5A;background:#f5f5f0;border-radius:4px;padding:1px 5px;flex-shrink:0}
+.cm-btn{width:26px;height:26px;border-radius:6px;border:.5px solid #D3D1C7;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;flex-shrink:0}
+.cm-btn:hover{border-color:#534AB7;color:#534AB7}
+.cm-btn.has{border-color:#534AB7;background:#EEEDFE;color:#534AB7}
+.cm-panel{display:none;background:#fafaf8;border-radius:8px;margin-bottom:6px;padding:10px;font-size:12px}
+.cm-panel.open{display:block}
+.cm-block{margin-bottom:8px}
+.cm-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.cm-lbl.mgr{color:#3C3489}.cm-lbl.col{color:#085041}
+.cm-existing{background:#fff;border:.5px solid #e0ded8;border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.4;margin-bottom:4px;color:#444}
+.cm-meta{font-size:10px;color:#aaa;margin-bottom:2px}
+textarea.cm-input{width:100%;padding:6px 8px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;min-height:48px;outline:none;background:#fff}
+textarea.cm-input:focus{border-color:#534AB7}
+.hist-item{display:flex;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:12px}
+.hist-item:last-child{border-bottom:none}
+.hist-dot{width:7px;height:7px;border-radius:50%;background:#534AB7;margin-top:4px;flex-shrink:0}
+.hist-date{color:#aaa;font-size:11px;min-width:110px}
+.team-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.tcheck{display:flex;align-items:center;gap:5px;padding:4px 10px;border:.5px solid #D3D1C7;border-radius:8px;cursor:pointer;font-size:12px;background:#fff}
+.tcheck.checked{border-color:#534AB7;background:#EEEDFE;color:#534AB7}
+.tcheck input{display:none}
+.psr{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid #f0efe8}
+.psr:last-child{border-bottom:none}
+.psr-name{flex:1;font-size:13px}
+.tsel{padding:4px 7px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px;font-family:inherit;background:#fff;outline:none}
+.empty{text-align:center;padding:44px 20px;color:#aaa}
+.empty i{font-size:36px;display:block;margin-bottom:10px;color:#D3D1C7}
+.import-zone{border:1.5px dashed #D3D1C7;border-radius:12px;padding:34px;text-align:center;color:#888;background:#fafaf8;cursor:pointer}
+.import-zone:hover{border-color:#534AB7;color:#534AB7}
+.import-zone i{font-size:30px;margin-bottom:8px;display:block}
+.fb-ok{background:#E1F5EE;border-radius:8px;padding:11px;font-size:13px;color:#085041;margin-top:10px}
+.fb-err{background:#FCEBEB;border-radius:8px;padding:11px;font-size:13px;color:#A32D2D;margin-top:10px}
+.save-indicator{position:fixed;bottom:20px;right:20px;background:#534AB7;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;display:none;align-items:center;gap:8px;z-index:200;box-shadow:0 4px 16px rgba(83,74,183,.3)}
+.save-indicator.show{display:flex}
+.color-swatch{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+.color-swatch.sel{border-color:#1a1a18}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <i class="ti ti-refresh"></i>
+  <p id="loading-msg">Connexion à Microsoft...</p>
+</div>
+
+<div class="app" id="app" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-logo"><i class="ti ti-chart-grid-dots"></i><span>Compétences</span></div>
+    <div class="sidebar-user" id="sidebar-user"></div>
+    <div class="sidebar-nav" id="sidebar-nav"></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Matrice globale</div>
+      <div class="search-box" id="search-wrap" style="display:none"><i class="ti ti-search"></i><input type="text" id="search-input" placeholder="Rechercher…" oninput="applyFilters()"></div>
+      <button class="btn" id="btn-export" onclick="exportExcel()" style="display:none"><i class="ti ti-download"></i>Exporter</button>
+      <button class="btn btn-primary" id="btn-add" onclick="handleAddBtn()" style="display:none"><i class="ti ti-plus"></i><span id="btn-add-label">Ajouter</span></button>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal" style="display:none" onclick="maybeClose(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="mhead">
+      <div class="mavat" id="m-av">?</div>
+      <div class="mtitle"><h2 id="m-title"></h2><p id="m-sub"></p></div>
+      <button class="btn btn-sm" onclick="closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="mbody" id="m-body"></div>
+    <div class="mfooter" id="m-footer"></div>
+  </div>
+</div>
+
+<div class="save-indicator" id="save-indicator">
+  <i class="ti ti-cloud-upload"></i><span id="save-msg">Enregistrement...</span>
+</div>
+
+<script>
+// =====================================================================
+// CONFIG — remplacez les valeurs ci-dessous
+// =====================================================================
+const CONFIG = {
+  clientId: '1a14a45e-5e2d-4dc9-b09a-faae6b2c89f2',        // ID d'application Azure
+  tenantId: '66314798-99de-48f9-9cc0-006167b79041',        // ID de l'annuaire Azure
+  siteUrl:   'https://jbpuyou.sharepoint.com/sites/evea-intranet',
+  adminEmails: ['lp.sylvestre@evea-conseil.com','a.filliatre@evea-conseil.com','l.nerdeux@evea-conseil.com','g.martinho@evea-conseil.com'], // ajoutez vos adresses admin ici
+  lists: {
+    collaborateurs: 'Collaborateurs',
+    competences:    'Competences',
+    commentaires:   'Commentaires',
+    historique:     'Historique',
+    equipes:        'Equipes',
+    postes:         'Postes'
+  }
+};
+// =====================================================================
+
+// =====================================================================
+// MSAL — authentification Microsoft
+// =====================================================================
+const msalInstance = new msal.PublicClientApplication({
+  auth: {
+    clientId:    CONFIG.clientId,
+    authority:   `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: { cacheLocation: 'sessionStorage' }
+});
+
+const SCOPES_GRAPH = ['User.Read'];
+const SCOPES_SP    = ['https://jbpuyou.sharepoint.com/.default'];
+
+async function getToken() {
+  const account = msalInstance.getAllAccounts()[0];
+  if (!account) {
+    await msalInstance.loginRedirect({ scopes: SCOPES_GRAPH });
+    return null;
+  }
+  try {
+    const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES_SP, account });
+    return r.accessToken;
+  } catch {
+    await msalInstance.acquireTokenRedirect({ scopes: SCOPES_SP });
+    return null;
+  }
+}
+
+// =====================================================================
+// SHAREPOINT API
+// =====================================================================
+async function spGet(listName, filter = '', select = '') {
+  const token = await getToken();
+  if (!token) return [];
+  let url = `${CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$top=5000`;
+  if (filter) url += `&$filter=${encodeURIComponent(filter)}`;
+  if (select) url += `&$select=${select}`;
+  const r = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json;odata=nometadata'
+    }
+  });
+  if (!r.ok) throw new Error(`spGet ${listName} → ${r.status}`);
+  const d = await r.json();
+  return d.value || [];
+}
+
+async function spPost(listName, data) {
+  const token = await getToken();
+  if (!token) return null;
+  const r = await fetch(`${CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json;odata=nometadata',
+      'Content-Type': 'application/json;odata=nometadata'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) {
+    const errBody = await r.text();
+    console.error(`spPost ${listName} erreur détail :`, errBody);
+    throw new Error(`spPost ${listName} → ${r.status}`);
+  }
+  return await r.json();
+}
+
+async function spPatch(listName, id, data) {
+  const token = await getToken();
+  if (!token) return;
+  const r = await fetch(`${CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${id})`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json;odata=nometadata',
+      'Content-Type': 'application/json;odata=nometadata',
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'MERGE'
+    },
+    body: JSON.stringify(data)
+  });
+if (!r.ok) {
+  const errBody = await r.text();
+  console.error(`spPatch ${listName}(${id}) erreur détail :`, errBody);
+  throw new Error(`spPatch ${listName}(${id}) → ${r.status}`);
+}
+}
+
+async function spDelete(listName, id) {
+  const token = await getToken();
+  if (!token) return;
+  const r = await fetch(`${CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${id})`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'DELETE'
+    }
+  });
+  if (!r.ok) throw new Error(`spDelete ${listName}(${id}) → ${r.status}`);
+}
+
+// =====================================================================
+// SAVE INDICATOR
+// =====================================================================
+function showSave(msg = 'Enregistrement...') {
+  document.getElementById('save-msg').textContent = msg;
+  document.getElementById('save-indicator').classList.add('show');
+}
+function hideSave(msg = 'Enregistré ✓') {
+  document.getElementById('save-msg').textContent = msg;
+  setTimeout(() => document.getElementById('save-indicator').classList.remove('show'), 2000);
+}
+
+// =====================================================================
+// RÉFÉRENTIEL STATIQUE
+// =====================================================================
+const PAL = [
+  {c:'#085041',bg:'#E1F5EE'},{c:'#3C3489',bg:'#EEEDFE'},{c:'#633806',bg:'#FAEEDA'},
+  {c:'#4A1B0C',bg:'#FAECE7'},{c:'#042C53',bg:'#E6F1FB'},{c:'#173404',bg:'#EAF3DE'},
+  {c:'#2C2C2A',bg:'#F1EFE8'},{c:'#185FA5',bg:'#B5D4F4'},{c:'#A32D2D',bg:'#F7C1C1'}
+];
+
+const DOMAINS = [
+  {id:'DOM_01',name:'Soft-skill',  c:'#085041',bg:'#E1F5EE'},
+  {id:'DOM_02',name:'Métier',      c:'#3C3489',bg:'#EEEDFE'},
+  {id:'DOM_03',name:'Projet',      c:'#633806',bg:'#FAEEDA'},
+  {id:'DOM_04',name:'Commercial',  c:'#4A1B0C',bg:'#FAECE7'},
+  {id:'DOM_05',name:'Management',  c:'#042C53',bg:'#E6F1FB'},
+  {id:'DOM_06',name:'Pilotage',    c:'#173404',bg:'#EAF3DE'},
+  {id:'DOM_07',name:'Formation',   c:'#2C2C2A',bg:'#F1EFE8'}
+];
+
+const SKILLS = [
+  {id:'COMP_001',did:'DOM_01',name:"Actualiser ses connaissances et s'adapter",levels:{1:"Analyser et comprendre les évolutions dans son domaine",2:"Mener un apprentissage autonome et être réactif",3:"Créer des contenus actualisés et les diffuser",4:"Coordonner une démarche d'adaptation dans un réseau professionnel"}},
+  {id:'COMP_002',did:'DOM_02',name:'Analyser des données environnementales',levels:{1:"Identifier les principales sources de données",2:"Réaliser le tri et les vérifications de cohérence",3:"Interpréter pour en extraire des tendances",4:"Concevoir une méthodologie d'analyse adaptée"}},
+  {id:'COMP_003',did:'DOM_02',name:'Analyser des données sociales',levels:{1:"Identifier les principales sources de données sociales",2:"Réaliser le tri et vérifications de cohérence",3:"Interpréter les données sociales",4:"Concevoir une méthodologie d'analyse adaptée"}},
+  {id:'COMP_004',did:'DOM_03',name:'Analyser et gérer les risques',levels:{1:"Actualiser le référentiel des risques",2:"Rédiger un plan de gestion des risques",3:"Piloter les ressources face aux risques",4:"Donner du sens aux mesures et accompagner"}},
+  {id:'COMP_005',did:'DOM_02',name:'Analyser un cycle de vie',levels:{1:"Recenser les étapes du cycle de vie",2:"Cartographier les étapes",3:"Rendre une solution résiliente à long terme",4:"Donner du sens à la solution sur le long terme"}},
+  {id:'COMP_006',did:'DOM_04',name:'Animer une démarche commerciale',levels:{1:"Définir et suivre des cibles et objectifs",2:"Concevoir la démarche et les ressources",3:"Piloter et accompagner l'équipe commerciale",4:"Intégrer la stratégie dans la stratégie d'entreprise"}},
+  {id:'COMP_007',did:'DOM_03',name:'Collecter et exploiter les informations liées au projet',levels:{1:"Identifier les informations nécessaires",2:"Agréger et organiser les informations",3:"Délivrer une analyse synthétique",4:"Anticiper la gestion du cycle de vie des informations"}},
+  {id:'COMP_008',did:'DOM_01',name:'Communiquer efficacement',levels:{1:"Écouter activement et partager une information",2:"Adapter et rédiger un support de communication",3:"Synthétiser une présentation adaptée au public",4:"Coordonner une communication en situation complexe"}},
+  {id:'COMP_009',did:'DOM_02',name:'Concevoir et animer une démarche de communication environnementale',levels:{1:"Identifier les principes",2:"Participer à la préparation",3:"Animer une démarche",4:"Concevoir et sécuriser la démarche"}},
+  {id:'COMP_010',did:'DOM_04',name:'Conduire un cycle de vente',levels:{1:"Comprendre les étapes",2:"Mener les étapes simples",3:"Réaliser de bout en bout un cycle de vente",4:"Conduire des ventes complexes"}},
+  {id:'COMP_011',did:'DOM_05',name:'Coordonner une équipe',levels:{1:"Identifier les rôles et interactions",2:"Organiser la répartition des tâches",3:"Assurer la coordination et favoriser la collaboration",4:"Donner du sens à la coordination"}},
+  {id:'COMP_012',did:'DOM_04',name:'Créer et maintenir une relation client favorable',levels:{1:"Maintenir une relation respectueuse",2:"Adapter sa posture à la situation",3:"Anticiper les points de difficulté",4:"Co-piloter une vision de la finalité projet"}},
+  {id:'COMP_013',did:'DOM_02',name:'Définir et déployer une politique RSE',levels:{1:"Cartographier les enjeux et parties prenantes",2:"Adapter les processus aux enjeux RSE",3:"Définir et piloter une politique RSE",4:"Promouvoir une culture d'entreprise responsable"}},
+  {id:'COMP_014',did:'DOM_04',name:'Développer la prospection commerciale',levels:{1:"Identifier les cibles",2:"Réaliser des actions simples",3:"Construire un plan de prospection",4:"Structurer une stratégie avancée"}},
+  {id:'COMP_015',did:'DOM_04',name:"Développer l'attractivité de son entreprise",levels:{1:"Identifier les parties prenantes clés",2:"Adapter une communication",3:"Piloter des partenariats valorisant",4:"Coordonner une vision de la mission"}},
+  {id:'COMP_016',did:'DOM_02',name:'Développer une vision globale des enjeux',levels:{1:"Identifier les conséquences d'une analyse globale",2:"Mobiliser les scénarios démographiques et climatiques",3:"Anticiper les risques et opportunités",4:"Donner du sens aux décisions stratégiques"}},
+  {id:'COMP_017',did:'DOM_03',name:'Dimensionner les moyens humains et matériels pour un projet',levels:{1:"Identifier les besoins",2:"Préparer et organiser les aspects techniques",3:"Mettre en place et coordonner les équipes",4:"Assurer la conformité sécuritaire et budgétaire"}},
+  {id:'COMP_018',did:'DOM_02',name:'Écoconcevoir une solution ou un équipement',levels:{1:"Maximiser la durée de vie",2:"Concevoir en anticipant les évolutions normatives",3:"Recourir aux solutions technologiques avec discernement",4:"Coordonner et optimiser les processus"}},
+  {id:'COMP_019',did:'DOM_05',name:'Encadrer une équipe',levels:{1:"Identifier les forces et axes d'amélioration",2:"Mettre en place les moyens pour atteindre les objectifs",3:"Accompagner la montée en compétences",4:"Donner du sens au travail d'équipe"}},
+  {id:'COMP_020',did:'DOM_02',name:"Evaluer l'empreinte carbone",levels:{1:"Identifier le périmètre réglementaire d'un BEGES",2:"Collecter et structurer les données",3:"Réaliser un BEGES complet",4:"Adapter la méthodologie au client"}},
+  {id:'COMP_021',did:'DOM_02',name:'Faciliter les projets et transformations',levels:{1:"Décrypter les objectifs du projet",2:"Adapter les messages et modalités",3:"Anticiper les points de difficultés",4:"Faire converger les acteurs"}},
+  {id:'COMP_022',did:'DOM_04',name:'Gérer et fidéliser un portefeuille clients',levels:{1:"Comprendre les principes",2:"Assurer le suivi régulier",3:"Piloter de manière autonome",4:"Structurer la stratégie et piloter les comptes clés"}},
+  {id:'COMP_023',did:'DOM_03',name:'Gérer la production de livrables',levels:{1:"Définir les critères de coût, délai et qualité",2:"Mettre en place les outils et process",3:"Anticiper la charge et la rentabilité",4:"Superviser la production et l'adaptation"}},
+  {id:'COMP_024',did:'DOM_02',name:'Gérer les logiciels métiers',levels:{1:"Saisir et interpréter des données",2:"Administrer et paramétrer",3:"Anticiper les processus post-intégration",4:"Coordonner les évolutions métiers et techniques"}},
+  {id:'COMP_025',did:'DOM_03',name:'Gérer un projet',levels:{1:"Suivre les étapes, délais et coûts",2:"Adapter et optimiser les caractéristiques",3:"Piloter une ou plusieurs phases et équipes",4:"Coordonner plusieurs projets stratégiques"}},
+  {id:'COMP_026',did:'DOM_04',name:'Gérer une proposition commerciale',levels:{1:"Détecter et approfondir les besoins",2:"Produire les éléments d'une proposition",3:"Piloter et équilibrer les phases",4:"Identifier ses facteurs de succès"}},
+  {id:'COMP_027',did:'DOM_01',name:'Influencer et convaincre',levels:{1:"Identifier et décrypter les positions",2:"Adapter son discours aux interlocuteurs",3:"Synthétiser une argumentation percutante",4:"Équilibrer un discours fidèle à la finalité partagée"}},
+  {id:'COMP_028',did:'DOM_02',name:"Innover et animer un processus d'innovation",levels:{1:"Analyser le besoin et rechercher des idées",2:"Adapter des solutions éprouvées",3:"Piloter le déploiement",4:"Donner du sens et coordonner les acteurs"}},
+  {id:'COMP_029',did:'DOM_03',name:"Intégrer des méthodes d'optimisation de production",levels:{1:"Analyser les flux et hiérarchiser les améliorations",2:"Adapter des outils aux objectifs",3:"Piloter le déploiement",4:"Coordonner différents outils et former les équipes"}},
+  {id:'COMP_030',did:'DOM_03',name:'Intégrer des moyens technologiques et humains',levels:{1:"Identifier les alternatives",2:"Adapter un process pour intégrer une solution",3:"Arbitrer l'investissement humain et technologique",4:"Donner du sens à l'intégration"}},
+  {id:'COMP_031',did:'DOM_03',name:'Intégrer des outils IA/Data Science',levels:{1:"Identifier les outils applicables",2:"Préconiser et intégrer un outil adapté",3:"Anticiper l'intégration dans l'organisation",4:"Déterminer l'opportunité dans le modèle d'affaires"}},
+  {id:'COMP_032',did:'DOM_02',name:"Maîtriser et appliquer les enjeux de l'affichage environnemental",levels:{1:"Identifier les principes",2:"Collecter et structurer les données",3:"Réaliser un affichage complet",4:"Adapter et sécuriser la démarche"}},
+  {id:'COMP_033',did:'DOM_02',name:'Manager la connaissance',levels:{1:"Identifier et catégoriser les connaissances",2:"Concevoir une architecture de classification",3:"Piloter l'intégration",4:"Valoriser et pérenniser les connaissances"}},
+  {id:'COMP_034',did:'DOM_06',name:'Mener et exploiter une analyse stratégique',levels:{1:"Identifier les éléments différenciants",2:"Interpréter et rédiger les résultats",3:"Définir plusieurs options stratégiques",4:"Piloter une transformation sur la durée"}},
+  {id:'COMP_035',did:'DOM_06',name:"Mener un audit ou test de conformité",levels:{1:"Identifier les normes applicables",2:"Adapter l'audit et rédiger un rapport",3:"Synthétiser des préconisations",4:"Superviser un ensemble d'audits"}},
+  {id:'COMP_036',did:'DOM_02',name:'Mener un diagnostic environnemental',levels:{1:"Identifier le besoin et le contexte",2:"Adapter le diagnostic aux processus",3:"Délivrer un conseil technique",4:"Intégrer dans une stratégie RSE"}},
+  {id:'COMP_037',did:'DOM_03',name:'Mettre en place et exploiter une étude',levels:{1:"Analyser la cohérence de résultats",2:"Concevoir un questionnaire",3:"Produire un conseil et plan d'accompagnement",4:"Définir une stratégie d'étude multi-outils"}},
+  {id:'COMP_038',did:'DOM_03',name:'Mettre en place et gérer un partenariat',levels:{1:"Identifier les champs d'expertise",2:"Définir les règles contractuelles",3:"Mettre en valeur une complémentarité",4:"Intégrer dans une stratégie d'ensemble"}},
+  {id:'COMP_039',did:'DOM_03',name:'Mettre en place et intégrer des ressources humaines',levels:{1:"Identifier les caractéristiques d'un besoin",2:"Identifier les types de ressources adaptées",3:"Anticiper un plan d'intégration",4:"Adapter une stratégie aux contraintes"}},
+  {id:'COMP_040',did:'DOM_02',name:'Modéliser des données',levels:{1:"Identifier la logique de modélisation",2:"Structurer un jeu de données et créer un modèle simple",3:"Construire un modèle complet et fiable",4:"Optimiser ou concevoir des modèles complexes"}},
+  {id:'COMP_041',did:'DOM_04',name:'Négocier et gérer une relation contractuelle',levels:{1:"Suivre l'application des règles",2:"Appliquer et négocier les compléments",3:"Anticiper les points de difficulté",4:"Définir une stratégie multi-prestations"}},
+  {id:'COMP_042',did:'DOM_05',name:"Participer et animer un travail d'équipe",levels:{1:"Collaborer et partager des informations",2:"Animer les prises de paroles",3:"Animer une équipe complète sur un projet",4:"Coordonner plusieurs équipes"}},
+  {id:'COMP_043',did:'DOM_06',name:"Piloter la performance d'une organisation",levels:{1:"Définir les critères de performance",2:"Mettre en place les process de reporting",3:"Conduire une réorganisation",4:"Refondre un modèle d'affaires"}},
+  {id:'COMP_044',did:'DOM_04',name:'Positionner une offre ou une entité',levels:{1:"Identifier les standards et facteurs clés",2:"Mettre en place les ressources",3:"Piloter un positionnement et valoriser",4:"Mettre en cohérence stratégie et communication"}},
+  {id:'COMP_045',did:'DOM_03',name:'Réaliser un chiffrage et un budget',levels:{1:"Lister les postes budgétaires",2:"Organiser les activités comptables",3:"Piloter le financement",4:"Relier aux obligations de l'entreprise"}},
+  {id:'COMP_046',did:'DOM_02',name:'Réaliser une prestation de life cycle costing (LCC)',levels:{1:"Comprendre les principes",2:"Collecter les données économiques",3:"Réaliser un LCC complet",4:"Concevoir une méthodologie adaptée"}},
+  {id:'COMP_047',did:'DOM_02',name:'Scénariser un impact environnemental',levels:{1:"Évaluer la pression sur les écosystèmes",2:"Déterminer les conséquences socio-écologiques",3:"Interroger la complexité et viser la simplification",4:"Faire converger les parties prenantes"}},
+  {id:'COMP_048',did:'DOM_02',name:'Se conformer aux normes et à la réglementation',levels:{1:"Cartographier les exigences",2:"Adapter les processus et informer",3:"Anticiper les conséquences et piloter",4:"Contribuer à la révision de la réglementation"}},
+  {id:'COMP_049',did:'DOM_01',name:"Utiliser l'anglais en contexte professionnel",levels:{1:"Utiliser de la documentation technique",2:"Converser en anglais professionnel courant",3:"Délivrer et soutenir des livrables complexes",4:"Diriger des débats techniques et un projet"}},
+  {id:'COMP_050',did:'DOM_01',name:'Utiliser les outils bureautiques',levels:{1:"Traiter des données avec les outils",2:"Concevoir des outils/supports complexes",3:"Créer des automatisations",4:"Accompagner des acteurs dans l'articulation des outils"}},
+  {id:'COMP_051',did:'DOM_07',name:'Adapter la pédagogie aux publics',levels:{1:"Identifier le niveau des apprenants",2:"Adapter le contenu au public",3:"Concevoir des parcours différenciés",4:"Concevoir des dispositifs multi-niveaux"}},
+  {id:'COMP_052',did:'DOM_07',name:'Animer une formation et évaluer les acquis des apprenants',levels:{1:"Animer une séquence simple",2:"Évaluer les acquis",3:"Animer en multimodalité",4:"Concevoir et superviser des dispositifs complexes"}},
+  {id:'COMP_053',did:'DOM_07',name:'Concevoir et préparer la formation',levels:{1:"Concevoir une séquence simple",2:"Préparer un module complet",3:"Concevoir des activités intégrant la multimodalité",4:"Concevoir des programmes structurés"}},
+  {id:'COMP_054',did:'DOM_07',name:'Évaluer les acquis',levels:{1:"Concevoir une évaluation simple",2:"Évaluer en cours et en fin de formation",3:"Concevoir des grilles multi-critères",4:"Concevoir des dispositifs multi-niveaux"}}
+];
+
+const POSTES = [
+  {id:'POST_001',name:'Chef de projet',targets:{COMP_004:2,COMP_008:3,COMP_011:3,COMP_012:3,COMP_016:3,COMP_017:3,COMP_025:4,COMP_027:3,COMP_029:2,COMP_030:3,COMP_031:1,COMP_041:3,COMP_042:3,COMP_050:3}},
+  {id:'POST_002',name:'Commercial',targets:{COMP_006:2,COMP_010:3,COMP_014:3,COMP_022:2,COMP_026:4,COMP_044:1,COMP_050:2}},
+  {id:'POST_003',name:'Consultant ACV & éco-conception',targets:{COMP_001:2,COMP_002:3,COMP_003:3,COMP_005:3,COMP_007:3,COMP_008:3,COMP_012:2,COMP_023:2,COMP_024:3,COMP_025:1,COMP_027:2,COMP_031:1,COMP_033:2,COMP_040:4,COMP_048:3,COMP_049:3,COMP_050:3}},
+  {id:'POST_004',name:'Dépendant Prestation',targets:{COMP_009:null,COMP_018:null,COMP_020:null,COMP_032:null,COMP_035:null,COMP_036:null,COMP_046:null,COMP_047:null}},
+  {id:'POST_005',name:'Directeur de BU',targets:{COMP_004:3,COMP_006:3,COMP_008:4,COMP_019:4,COMP_026:4,COMP_027:3,COMP_034:4,COMP_038:3,COMP_039:4,COMP_041:4,COMP_043:4,COMP_044:4,COMP_050:3}},
+  {id:'POST_006',name:'Formateur',targets:{COMP_051:3,COMP_052:4,COMP_053:3,COMP_054:3,COMP_050:3}},
+  {id:'POST_007',name:'Manager de proximité',targets:{COMP_019:3,COMP_025:3,COMP_027:3,COMP_029:2,COMP_039:3,COMP_043:2,COMP_050:3}},
+  {id:'POST_008',name:'Responsable de cercle',targets:{COMP_008:3,COMP_019:2,COMP_028:3,COMP_029:3,COMP_034:3,COMP_038:2,COMP_039:3,COMP_043:3,COMP_050:3}},
+  {id:'POST_009',name:'Responsable de compte',targets:{COMP_006:2,COMP_010:4,COMP_014:3,COMP_022:4,COMP_026:4,COMP_044:3}},
+  {id:'POST_010',name:"Responsable d'offre",targets:{COMP_004:2,COMP_011:3,COMP_012:3,COMP_017:3,COMP_025:3,COMP_027:2,COMP_029:2,COMP_031:1,COMP_042:3,COMP_045:3,COMP_049:3,COMP_050:2}},
+  {id:'POST_011',name:'Juriste',targets:{}}
+];
+
+// =====================================================================
+// STATE
+// =====================================================================
+let currentUser = null;
+let currentView = 'matrix';
+let filterDomain = '', filterTeam = '', filterPoste = '';
+let collabEdit = {}, editCtx = {};
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[] };
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+const fmtDate = ts => new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const posteById  = id => POSTES.find(p => p.id === id);
+const teamById   = id => db.equipes.find(t => String(t.Id) === String(id));
+const skillById  = id => SKILLS.find(s => s.id === id);
+const skillByName = n  => SKILLS.find(s => s.name.toLowerCase().trim() === n.toLowerCase().trim());
+function domTag(d) { return `<span class="tag" style="background:${d.bg};color:${d.c}">${d.name}</span>`; }
+
+function skillTT(sk, dir = '') {
+  const rows = [1,2,3,4].map(n =>
+    `<div style="display:flex;gap:5px;align-items:flex-start;margin-bottom:2px">
+      <span class="lb l${n}" style="width:14px;height:14px;font-size:9px;flex-shrink:0">${n}</span>
+      <span style="font-size:11px">${sk.levels && sk.levels[n] ? sk.levels[n] : '—'}</span>
+    </div>`
+  ).join('');
+  return `<div class="tt${dir ? ' '+dir : ''}" style="min-width:220px"><div class="tt-title">${sk.name}</div>${rows}</div>`;
+}
+function levelTT(sk, lvl, dir = '') {
+  if (!sk || !lvl) return '';
+  const d = sk.levels && sk.levels[lvl] ? sk.levels[lvl] : '';
+  return `<div class="tt${dir ? ' '+dir : ''}" style="min-width:160px"><div class="tt-title">Niveau ${lvl}</div><span style="font-size:11px">${d}</span></div>`;
+}
+
+// =====================================================================
+// LOAD DATA
+// =====================================================================
+async function loadData() {
+  document.getElementById('loading-msg').textContent = 'Chargement des données...';
+  const [collabs, comps, coms, hist, equipes, postesRaw] = await Promise.all([
+  spGet(CONFIG.lists.collaborateurs),
+  spGet(CONFIG.lists.competences),
+  spGet(CONFIG.lists.commentaires),
+  spGet(CONFIG.lists.historique),
+  spGet(CONFIG.lists.equipes),
+  spGet(CONFIG.lists.postes)
+]);
+
+// Remplace le tableau POSTES statique si des données existent en base
+if (postesRaw.length) {
+  POSTES.length = 0;
+  postesRaw.forEach(p => {
+    POSTES.push({
+      id:      String(p.Id),
+      name:    p.Title || '',
+      targets: p.Targets ? JSON.parse(p.Targets) : {}
+    });
+  });
+  POSTES_STATE.length = 0;
+  POSTES_STATE.push(...POSTES);
+}
+  db.collaborateurs = collabs.map(c => ({
+    ...c,
+    prenom:  c.Title || '',
+    Nom:     c.Prenom || '',
+    teamIds: c.TeamIds ? c.TeamIds.split(',').filter(Boolean) : []
+  }));
+  db.competences  = comps;
+  db.commentaires = coms;
+  db.historique   = hist;
+  db.equipes      = equipes.map(e => ({ ...e, id: String(e.Id), name: e.Title || e.Nom || '' }));
+}
+
+// =====================================================================
+// HELPERS DATA
+// =====================================================================
+function getCollabComps(collabId) {
+  const r = {};
+  db.competences.filter(c => String(c.CollabId) === String(collabId)).forEach(c => {
+    r[c.SkillId] = parseInt(c.Niveau) || 0;
+  });
+  return r;
+}
+
+function getCollabComments(collabId) {
+  const r = {};
+  db.commentaires.filter(c => String(c.Title) === String(collabId)).forEach(c => {
+    if (!r[c.SkillId]) r[c.SkillId] = {};
+    r[c.SkillId][c.TypeAuteur] = c.Contenu;
+    r[c.SkillId][c.TypeAuteur + 'Ts'] = new Date(c.DateSaisie).getTime();
+    r[c.SkillId][c.TypeAuteur + 'SpId'] = c.Id;
+  });
+  return r;
+}
+
+function getCollabHistory(collabId) {
+  return db.historique
+    .filter(h => String(h.Title) === String(collabId))
+    .map(h => ({ ts: new Date(h.DateAction).getTime(), role: h.Role, desc: h.Description }))
+    .sort((a, b) => b.ts - a.ts);
+}
+
+function getUserRole(email) {
+  if (CONFIG.adminEmails.map(e => e.toLowerCase()).includes(email.toLowerCase())) return 'admin';
+  const c = db.collaborateurs.find(c => (c.Email || '').toLowerCase() === email.toLowerCase());
+  if (!c) return 'collaborateur';
+  const manages = db.collaborateurs.some(x => String(x.ManagerID) === String(c.Id));
+  return manages ? 'manager' : 'collaborateur';
+}
+
+function visibleCollabs() {
+  if (!currentUser) return [];
+  if (currentUser.role === 'admin') return db.collaborateurs;
+  if (currentUser.role === 'manager') {
+    const me = db.collaborateurs.find(c => (c.Email || '').toLowerCase() === currentUser.email.toLowerCase());
+    const myTeams = me ? (me.teamIds || []) : [];
+    return db.collaborateurs.filter(c =>
+      (c.Email || '').toLowerCase() === currentUser.email.toLowerCase() ||
+      c.teamIds.some(t => myTeams.includes(t)) ||
+      String(c.ManagerID) === String(me?.Id)
+    );
+  }
+  return db.collaborateurs.filter(c => (c.Email || '').toLowerCase() === currentUser.email.toLowerCase());
+}
+
+function getRareSkills() {
+  const total = db.collaborateurs.length;
+  const threshold = Math.max(2, Math.round(total * 0.2));
+  const counts = {};
+  db.competences.forEach(c => { if (c.Niveau > 0) counts[c.SkillId] = (counts[c.SkillId] || 0) + 1; });
+  const rare = {};
+  Object.entries(counts).forEach(([sid, n]) => { if (n <= threshold) rare[sid] = n; });
+  return rare;
+}
+
+// =====================================================================
+// SIDEBAR & NAV
+// =====================================================================
+function buildSidebar() {
+  const roleLabel = { admin:'Administrateur', manager:'Manager', collaborateur:'Collaborateur' };
+  const roleClass = { admin:'rb-admin', manager:'rb-manager', collaborateur:'rb-collab' };
+  document.getElementById('sidebar-user').innerHTML = `
+    <span class="rb ${roleClass[currentUser.role]}">${roleLabel[currentUser.role]}</span>
+    <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${currentUser.name}</span>
+    <button class="btn btn-sm" onclick="logout()" title="Déconnexion"><i class="ti ti-logout"></i></button>`;
+
+  const isAdmin   = currentUser.role === 'admin';
+  const isManager = currentUser.role === 'manager' || isAdmin;
+  let nav = `
+    <div class="nav-section">Vues</div>
+    <div class="nav-item active" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
+    <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
+  if (isManager) {
+    nav += `<div class="nav-section">Administration</div>`;
+    if (isAdmin) nav += `<div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-user-cog"></i>Collaborateurs</div>`;
+    nav += `
+      <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
+  }
+ if (isAdmin) {
+  nav += `
+    <div class="nav-section">Données</div>
+    <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
+    <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
+}
+  document.getElementById('sidebar-nav').innerHTML = nav;
+}
+
+function showView(v) {
+  currentView = v;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-' + v)?.classList.add('active');
+  const titles = {
+    matrix:'Matrice globale', collabs:'Collaborateurs',
+    'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
+    'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export'
+  };
+  document.getElementById('topbar-title').textContent = titles[v] || v;
+  const addLabels = {
+    matrix:'Collaborateur', collabs:'Collaborateur',
+    'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Poste'
+  };
+  document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
+  document.getElementById('btn-add').style.display    = v === 'import' ? 'none' : 'inline-flex';
+  document.getElementById('btn-export').style.display = ['matrix','collabs','import'].includes(v) ? 'inline-flex' : 'none';
+  document.getElementById('search-wrap').style.display = ['matrix','collabs'].includes(v) ? 'flex' : 'none';
+  if      (v === 'matrix')        renderMatrix();
+  else if (v === 'collabs')       renderCollabs();
+  else if (v === 'admin-collabs') renderAdminCollabs();
+  else if (v === 'admin-teams')   renderAdminTeams();
+  else if (v === 'admin-postes')  renderAdminPostes();
+  else if (v === 'admin-skills') renderAdminSkills();
+  else if (v === 'import')        renderImport();
+}
+
+function handleAddBtn() {
+  const map = {
+    matrix:         () => openCollabModal(null),
+    collabs:        () => openCollabModal(null),
+    'admin-collabs':() => openCollabModal(null),
+    'admin-teams':  () => openTeamModal(null),
+    'admin-postes': () => openPosteModal(null)
+  };
+  (map[currentView] || function(){})();
+}
+function applyFilters() {
+  if (currentView === 'matrix')  renderMatrix();
+  else if (currentView === 'collabs') renderCollabs();
+}
+
+// =====================================================================
+// MATRIX
+// =====================================================================
+function renderMatrix() {
+  const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
+  const rareMap = getRareSkills();
+  const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!q || s.name.toLowerCase().includes(q)));
+  let collabs = visibleCollabs();
+  if (filterTeam) collabs = collabs.filter(c => c.teamIds && c.teamIds.includes(filterTeam));
+  const grouped = {};
+  skills.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+
+  let h = `<div class="legend">
+    <span class="legend-item"><span class="ldot l1">1</span>Débutant</span>
+    <span class="legend-item"><span class="ldot l2">2</span>Inter.</span>
+    <span class="legend-item"><span class="ldot l3">3</span>Avancé</span>
+    <span class="legend-item"><span class="ldot l4">4</span>Expert</span>
+    <span style="font-size:11px;color:#7A3A28;margin-left:6px">■ compétence rare</span>
+    <span style="font-size:11px;color:#aaa;margin-left:6px">● encerclé = cible du poste</span>
+  </div>
+  <div class="filters">
+    <select onchange="filterTeam=this.value;applyFilters()">
+      <option value="">Toutes les équipes</option>
+      ${db.equipes.map(t => `<option value="${t.id}"${filterTeam===t.id?' selected':''}>${t.name}</option>`).join('')}
+    </select>
+    <select onchange="filterDomain=this.value;applyFilters()">
+      <option value="">Tous les domaines</option>
+      ${DOMAINS.map(d => `<option value="${d.id}"${filterDomain===d.id?' selected':''}>${d.name}</option>`).join('')}
+    </select>
+  </div>
+  <div class="matrix-wrap"><table class="mx"><thead><tr>
+    <th>Compétence</th>
+    ${collabs.map(c => `<th title="${c.prenom} ${c.Nom||''}">${(c.prenom||'?')[0]}${(c.Nom||'?')[0]}<br><span style="font-size:10px;font-weight:400">${c.prenom}</span></th>`).join('')}
+  </tr></thead><tbody>`;
+
+  DOMAINS.forEach(dom => {
+    const list = grouped[dom.id];
+    if (!list || !list.length) return;
+    h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}">${dom.name}</td></tr>`;
+    list.forEach(sk => {
+      const isRare = !!rareMap[sk.id];
+      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${sk.name}${isRare?`<span class="rare-pill">rare</span>`:''}${skillTT(sk)}</span></td>`;
+      collabs.forEach(c => {
+        const comps  = getCollabComps(c.Id);
+        const lvl    = comps[sk.id] || 0;
+        const poste  = posteById(c.PosteId);
+        const target = poste && poste.targets[sk.id] !== undefined ? poste.targets[sk.id] : null;
+        h += `<td><div class="cell" onclick="openCollabModal('${c.Id}','${sk.id}')">`;
+        if (lvl > 0)      h += `<span class="twrap"><span class="lb l${lvl}${target!=null&&lvl===target?' l-ring':''}">${lvl}</span>${levelTT(sk,lvl,'tup')}</span>`;
+        else if (target!=null) h += `<span class="lb" style="border:1.5px dashed #ccc;color:#ccc;font-size:10px">—</span>`;
+        else              h += `<span style="color:#e0ded8;font-size:18px">·</span>`;
+        h += `</div></td>`;
+      });
+      h += `</tr>`;
+    });
+  });
+  h += `</tbody></table></div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+// =====================================================================
+// COLLABS
+// =====================================================================
+function renderCollabs() {
+  const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
+  let list = visibleCollabs().filter(c => {
+    const fn = ((c.prenom||'') + ' ' + (c.Nom||'')).toLowerCase();
+    const p  = posteById(c.PosteId);
+    return (!filterTeam || c.teamIds && c.teamIds.includes(filterTeam))
+        && (!filterPoste || c.PosteId === filterPoste)
+        && (!q || fn.includes(q) || (p && p.name.toLowerCase().includes(q)));
+  });
+  let h = `<div class="filters">
+    <select onchange="filterTeam=this.value;applyFilters()">
+      <option value="">Toutes les équipes</option>
+      ${db.equipes.map(t => `<option value="${t.id}"${filterTeam===t.id?' selected':''}>${t.name}</option>`).join('')}
+    </select>
+    <select onchange="filterPoste=this.value;applyFilters()">
+      <option value="">Tous les postes</option>
+      ${POSTES.map(p => `<option value="${p.id}"${filterPoste===p.id?' selected':''}>${p.name}</option>`).join('')}
+    </select>
+  </div><div class="collab-grid">`;
+  list.forEach(c => {
+    const p = posteById(c.PosteId);
+    const comps   = getCollabComps(c.Id);
+    const targets = p ? Object.entries(p.targets).filter(([,v]) => v != null) : [];
+    const ok  = targets.filter(([k,v]) => (comps[k]||0) >= v).length;
+    const pct = targets.length ? Math.round(ok / targets.length * 100) : null;
+    const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? `<span class="team-tag">${t.name}</span>` : ''; }).join('');
+    h += `<div class="collab-card" onclick="openCollabModal('${c.Id}')">
+      <div class="av">${(c.prenom||'?')[0]}${(c.Nom||'?')[0]}</div>
+      <div class="cname">${c.prenom||''} ${c.Nom||''}</div>
+      <div class="cposte">${p ? p.name : '—'}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${teams}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <span class="stat-pill">${Object.keys(comps).length} compétences</span>
+        ${pct != null ? `<span class="stat-pill">${pct}% objectifs</span>` : ''}
+      </div>
+      ${pct != null ? `<div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>` : ''}
+    </div>`;
+  });
+  if (!list.length) h += `<div class="empty" style="grid-column:1/-1"><i class="ti ti-users"></i>Aucun collaborateur trouvé</div>`;
+  h += `</div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+// =====================================================================
+// COLLAB MODAL
+// =====================================================================
+function openCollabModal(id, focusSkill) {
+  if (currentUser.role === 'collaborateur' && id && String(id) !== String(db.collaborateurs.find(c => (c.Email||'').toLowerCase() === currentUser.email.toLowerCase())?.Id)) return;
+  const c = id ? db.collaborateurs.find(x => String(x.Id) === String(id)) : null;
+  collabEdit = c ? JSON.parse(JSON.stringify(c)) : { Id:null, prenom:'', Nom:'', Email:'', PosteId:'', teamIds:[], ManagerID:'' };
+  collabEdit._comps    = id ? getCollabComps(id) : {};
+  collabEdit._comments = id ? getCollabComments(id) : {};
+  collabEdit._history  = id ? getCollabHistory(id) : [];
+  collabEdit._changes  = {};
+
+  document.getElementById('m-av').textContent = (collabEdit.prenom||'?')[0] + (collabEdit.Nom||'?')[0];
+  document.getElementById('m-title').textContent = id ? `${collabEdit.prenom} ${collabEdit.Nom||''}` : 'Nouveau collaborateur';
+  const p = posteById(collabEdit.PosteId);
+  document.getElementById('m-sub').textContent = p ? p.name : '—';
+  renderCollabBody(focusSkill);
+  document.getElementById('m-footer').innerHTML = `
+    ${id && currentUser.role === 'admin' ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveCollab('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+  if (focusSkill) setTimeout(() => document.querySelector('[data-focus]')?.scrollIntoView({block:'center',behavior:'smooth'}), 80);
+}
+
+function renderCollabBody(focusSkill) {
+  const c     = collabEdit;
+  const poste = posteById(c.PosteId) || { targets:{} };
+  const grouped = {};
+  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  const tchecks = db.equipes.map(t => {
+    const ck = (c.teamIds||[]).includes(String(t.id));
+    return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeam('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
+  }).join('');
+
+  let h = `<div class="fg">
+    <div class="field"><label>Prénom</label><input type="text" id="c-prenom" value="${c.prenom||''}" oninput="collabEdit.prenom=this.value"></div>
+    <div class="field"><label>Nom</label><input type="text" id="c-nom" value="${c.Nom||''}" oninput="collabEdit.Nom=this.value"></div>
+    <div class="field"><label>Email</label><input type="text" id="c-email" value="${c.Email||''}" oninput="collabEdit.Email=this.value"></div>
+    <div class="field"><label>Poste</label>
+      <select id="c-poste" onchange="collabEdit.PosteId=this.value;renderCollabBody()">
+        <option value="">— Sélectionner —</option>
+        ${POSTES.map(p => `<option value="${p.id}"${c.PosteId===p.id?' selected':''}>${p.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field full"><label>Équipes</label><div class="team-checks">${tchecks}</div></div>
+    <div class="field full"><label>Manager</label>
+      <select id="c-manager">
+        <option value="">— Aucun —</option>
+        ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x => `<option value="${x.Id}"${String(c.ManagerID)===String(x.Id)?' selected':''}>${x.prenom} ${x.Nom||''}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Niveaux de compétences — survolez pour voir la description.</div>`;
+
+  DOMAINS.forEach(dom => {
+    const list = grouped[dom.id] || [];
+    const display = c.PosteId ? list.filter(s => poste.targets[s.id] !== undefined || c._comps[s.id] || (c._comments[s.id] && (c._comments[s.id].manager || c._comments[s.id].collaborateur))) : list;
+    if (c.PosteId && !display.length) return;
+    h += `<div class="csect"><div class="csect-lbl">${domTag(dom)}</div>`;
+    (c.PosteId ? display : list).forEach(sk => {
+      const lvl    = c._comps[sk.id] || 0;
+      const target = poste.targets[sk.id];
+      const isFocus = sk.id === focusSkill;
+      const cm     = c._comments[sk.id] || {};
+      const hasCm  = cm.manager || cm.collaborateur;
+      h += `<div class="crow"${isFocus?' data-focus="1"':''}>
+        <div class="crow-main"${isFocus?' style="background:#EEEDFE;border-radius:8px;margin:0 -6px;padding:6px"':''}>
+          <span class="crow-name twrap">${sk.name}${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}${skillTT(sk,'tup')}</span>
+          <div class="lp">
+            <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"><i class="ti ti-x" style="font-size:11px"></i></button>
+            ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup')}</span></button>`).join('')}
+          </div>
+          <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
+        </div>
+        <div class="cm-panel" id="cp-${sk.id}">
+          ${currentUser.role==='manager'||currentUser.role==='admin' ? `<div class="cm-block">
+            <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
+            ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div><div class="cm-existing">${cm.manager}</div>` : ''}
+            <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"></textarea>
+          </div>` : ''}
+          <div class="cm-block">
+            <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur</div>
+            ${cm.collaborateur ? `<div class="cm-meta">${fmtDate(cm.collaborateurTs||0)}</div><div class="cm-existing">${cm.collaborateur}</div>` : ''}
+            <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"></textarea>
+          </div>
+        </div>
+      </div>`;
+    });
+    h += `</div>`;
+  });
+
+  const hist = collabEdit._history.slice(0, 20);
+  h += `<div style="margin-top:18px;border-top:.5px solid #e8e7e0;padding-top:14px">
+    <div style="font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-history" style="color:#534AB7"></i>Historique</div>`;
+  if (!hist.length) h += `<div style="font-size:12px;color:#aaa">Aucune modification enregistrée.</div>`;
+  hist.forEach(h2 => { h += `<div class="hist-item"><div class="hist-dot"></div><div><div class="hist-date">${fmtDate(h2.ts)}</div><div>${h2.desc}</div></div></div>`; });
+  h += `</div>`;
+  document.getElementById('m-body').innerHTML = h;
+}
+
+function toggleTeam(id, label) {
+  const sid = String(id);
+  const idx = (collabEdit.teamIds||[]).indexOf(sid);
+  if (idx > -1) { collabEdit.teamIds.splice(idx, 1); label.classList.remove('checked'); }
+  else          { if (!collabEdit.teamIds) collabEdit.teamIds = []; collabEdit.teamIds.push(sid); label.classList.add('checked'); }
+}
+function toggleCm(sid) { document.getElementById('cp-' + sid)?.classList.toggle('open'); }
+
+function setLvl(sid, lvl) {
+  const old = collabEdit._comps[sid] || 0;
+  if (lvl === 0) delete collabEdit._comps[sid]; else collabEdit._comps[sid] = lvl;
+  if (old !== lvl) {
+    const sk = skillById(sid);
+    collabEdit._changes[sid] = { old, new: lvl };
+  }
+  const poste  = posteById(collabEdit.PosteId) || { targets:{} };
+  const target = poste.targets[sid];
+  document.querySelectorAll(`[onclick^="setLvl('${sid}'"]`).forEach((btn, i) => {
+    btn.className = 'lvl-btn';
+    if (i === 0) return;
+    const n = i;
+    if ((collabEdit._comps[sid] || 0) === n) btn.className = `lvl-btn a${n}`;
+    btn.style.outline = target === n ? '2px solid #534AB7' : '';
+  });
+}
+
+async function saveCollab(id) {
+  const prenom = document.getElementById('c-prenom').value.trim();
+  const nom    = document.getElementById('c-nom').value.trim();
+  if (!prenom || !nom) { alert('Veuillez renseigner prénom et nom.'); return; }
+  showSave('Enregistrement...');
+  try {
+    const collabData = {
+      Title:     prenom,
+      Prenom:       nom,
+      Email:     document.getElementById('c-email').value.trim(),
+      PosteId:   document.getElementById('c-poste').value,
+      TeamIds:   (collabEdit.teamIds || []).join(','),
+      ManagerID: document.getElementById('c-manager').value || ''
+    };
+    let collabSpId = id;
+    if (id) {
+      await spPatch(CONFIG.lists.collaborateurs, id, collabData);
+    } else {
+      const res = await spPost(CONFIG.lists.collaborateurs, collabData);
+      collabSpId = res.Id;
+    }
+
+    // Compétences
+    for (const [sid, lvl] of Object.entries(collabEdit._comps)) {
+      const existing = db.competences.find(c => String(c.CollabId) === String(collabSpId) && c.SkillId === sid);
+      if (existing) {
+        if (parseInt(existing.Niveau) !== lvl) await spPatch(CONFIG.lists.competences, existing.Id, { Niveau: lvl });
+      } else {
+        await spPost(CONFIG.lists.competences, { Title: sid, CollabId: String(collabSpId), Niveau: lvl });
+      }
+    }
+    // Supprime les compétences retirées
+    for (const c of db.competences.filter(c => String(c.CollabId) === String(collabSpId) && !collabEdit._comps[c.SkillId])) {
+      await spDelete(CONFIG.lists.competences, c.Id);
+    }
+
+    // Commentaires
+    for (const sk of SKILLS) {
+      const mgrEl = document.getElementById('cm-mgr-' + sk.id);
+      const colEl = document.getElementById('cm-col-' + sk.id);
+      if (mgrEl && mgrEl.value.trim()) {
+        await spPost(CONFIG.lists.commentaires, { Title: String(collabSpId), SkillId: sk.id, TypeAuteur: 'manager', Contenu: mgrEl.value.trim(), DateSaisie: new Date().toISOString() });
+      }
+      if (colEl && colEl.value.trim()) {
+        await spPost(CONFIG.lists.commentaires, { Title: String(collabSpId), SkillId: sk.id, TypeAuteur: 'collaborateur', Contenu: colEl.value.trim(), DateSaisie: new Date().toISOString() });
+      }
+    }
+
+    // Historique
+    for (const [sid, ch] of Object.entries(collabEdit._changes)) {
+      const sk = skillById(sid);
+      await spPost(CONFIG.lists.historique, {
+        Title:       String(collabSpId),
+        Role:        currentUser.role,
+        Description: `"${sk ? sk.name : sid}" : ${ch.old ? 'niveau '+ch.old : '—'} → ${ch.new ? 'niveau '+ch.new : 'retiré'}`,
+        DateAction:  new Date().toISOString()
+      });
+    }
+
+    await loadData();
+    hideSave('Enregistré ✓');
+    closeModal();
+    if (currentView === 'matrix') renderMatrix();
+    else if (currentView === 'admin-collabs') renderAdminCollabs();
+    else renderCollabs();
+  } catch (e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l\'enregistrement : ' + e.message);
+  }
+}
+
+async function deleteCollab(id) {
+  if (!confirm('Supprimer ce collaborateur ?')) return;
+  showSave('Suppression...');
+  await spDelete(CONFIG.lists.collaborateurs, id);
+  await loadData();
+  hideSave('Supprimé ✓');
+  closeModal();
+  if (currentView === 'matrix') renderMatrix(); else renderCollabs();
+}
+
+// =====================================================================
+// ADMIN COLLABS
+// =====================================================================
+function renderAdminCollabs() {
+  let list = db.collaborateurs.slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')));
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Collaborateurs (${list.length})</h3></div>
+  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th></th></tr></thead><tbody>`;
+  list.forEach(c => {
+    const p = posteById(c.PosteId);
+    const teamSelects = db.equipes.map(t =>
+      `<label style="display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:3px;cursor:pointer">
+        <input type="checkbox" ${(c.teamIds||[]).includes(String(t.id)) ? 'checked' : ''}
+          onchange="quickUpdateTeam('${c.Id}', '${t.id}', this.checked)"> ${t.name}
+      </label>`
+    ).join('');
+    const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickUpdateManager('${c.Id}', this.value)">
+      <option value="">— Aucun —</option>
+      ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x =>
+        `<option value="${x.Id}" ${String(c.ManagerID||c.ManagerID||'') === String(x.Id) ? 'selected' : ''}>${x.prenom} ${x.Nom||''}</option>`
+      ).join('')}
+    </select>`;
+    h += `<tr>
+      <td style="font-weight:500">${c.prenom||''} ${c.Nom||''}</td>
+      <td style="font-size:12px;color:#5F5E5A">${c.Email||'—'}</td>
+      <td>${p ? p.name : '—'}</td>
+      <td>${teamSelects || '—'}</td>
+      <td>${mgrSelect}</td>
+      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="openCollabModal('${c.Id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCollab('${c.Id}')"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+async function quickUpdateManager(collabId, managerID) {
+  try {
+    showSave();
+    await spPatch(CONFIG.lists.collaborateurs, collabId, { ManagerID: managerID });
+    const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+    if (c) c.ManagerID = managerID;
+    hideSave('Manager mis à jour ✓');
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+async function quickUpdateTeam(collabId, teamId, checked) {
+  try {
+    showSave();
+    const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+    if (!c) return;
+    if (checked) { if (!c.teamIds.includes(String(teamId))) c.teamIds.push(String(teamId)); }
+    else { c.teamIds = c.teamIds.filter(t => t !== String(teamId)); }
+    await spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: c.teamIds.join(',') });
+    hideSave('Équipe mise à jour ✓');
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+// =====================================================================
+// ADMIN TEAMS
+// =====================================================================
+function renderAdminTeams() {
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Équipes (${db.equipes.length})</h3></div>
+  <table class="adm"><thead><tr><th>Nom</th><th>Membres</th><th></th></tr></thead><tbody>`;
+  db.equipes.forEach(t => {
+    const nb = db.collaborateurs.filter(c => c.teamIds && c.teamIds.includes(String(t.id))).length;
+    h += `<tr><td style="font-weight:500">${t.name}</td><td><span class="stat-pill">${nb}</span></td>
+    <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
+      <button class="btn btn-sm" onclick="openTeamModal('${t.id}')"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm btn-danger" onclick="deleteTeam('${t.id}')"><i class="ti ti-trash"></i></button>
+    </td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  document.getElementById('content').innerHTML = h;
+}
+function openTeamModal(id) {
+  const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'' };
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? "Modifier l'équipe" : 'Nouvelle équipe';
+  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-body').innerHTML = `<div class="field"><label>Nom</label><input type="text" id="t-name" value="${t.name}" placeholder="Ex: Conseil RSE…"></div>`;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveTeam('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+async function saveTeam(id) {
+  const name = document.getElementById('t-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  showSave();
+  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name });
+  else    await spPost(CONFIG.lists.equipes, { Title: name });
+  await loadData();
+  hideSave('Enregistré ✓');
+  closeModal();
+  renderAdminTeams();
+}
+async function deleteTeam(id) {
+  if (!confirm('Supprimer cette équipe ?')) return;
+  showSave('Suppression...');
+  await spDelete(CONFIG.lists.equipes, id);
+  await loadData();
+  hideSave('Supprimé ✓');
+  renderAdminTeams();
+}
+
+// =====================================================================
+// ADMIN POSTES — édition complète
+// =====================================================================
+let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
+
+function renderAdminPostes() {
+  const btnLabel = currentUser.role === 'admin' ? `<button class="btn btn-primary" style="margin-left:auto" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>${btnLabel}</div>
+  <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateurs</th><th></th></tr></thead><tbody>`;
+  POSTES_STATE.forEach(p => {
+    const nt = Object.keys(p.targets||{}).length;
+    const nc = db.collaborateurs.filter(c => c.PosteId === p.id).length;
+    h += `<tr>
+      <td style="font-weight:500">${p.name}</td>
+      <td><span class="stat-pill">${nt} compétence(s)</span></td>
+      <td><span class="stat-pill">${nc}</span></td>
+      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="openPosteModal('${p.id}')"><i class="ti ti-edit"></i></button>
+        ${nc === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
+      </td>
+    </tr>`;
+  });
+  h += `</tbody></table></div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+function openPosteModal(id) {
+  const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {} };
+  const targets = p.targets || {};
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier le poste' : 'Nouveau poste';
+  document.getElementById('m-sub').textContent = '';
+  let skillRows = DOMAINS.map(dom => {
+    const domSkills = SKILLS.filter(s => s.did === dom.id);
+    const rows = domSkills.map(sk => {
+      const cur = targets[sk.id] !== undefined ? targets[sk.id] : '';
+      return `<tr>
+        <td style="font-size:12px;padding:5px 8px">${sk.name}</td>
+        <td style="padding:5px 8px">
+          <select class="tsel" id="pt-${sk.id}">
+            <option value="">—</option>
+            ${[1,2,3,4].map(n => `<option value="${n}"${cur==n?' selected':''}>${n}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`;
+    }).join('');
+    return `<tr><td colspan="2" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
+  }).join('');
+  document.getElementById('m-body').innerHTML = `
+    <div class="field" style="margin-bottom:14px"><label>Nom du poste</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
+    <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé)</div>
+    <div style="overflow:auto;max-height:400px;border:.5px solid #D3D1C7;border-radius:8px">
+      <table style="width:100%;border-collapse:collapse">${skillRows}</table>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="savePoste('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function savePoste(id) {
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  const targets = {};
+  SKILLS.forEach(sk => {
+    const v = document.getElementById('pt-' + sk.id).value;
+    if (v !== '') targets[sk.id] = parseInt(v);
+  });
+  showSave();
+  try {
+    const data = { Title: name, Targets: JSON.stringify(targets) };
+    if (id) {
+      await spPatch(CONFIG.lists.postes, id, data);
+    } else {
+      const res = await spPost(CONFIG.lists.postes, data);
+      id = String(res.Id);
+    }
+    await loadData();
+    closeModal();
+    renderAdminPostes();
+    hideSave('Poste enregistré ✓');
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+async function deletePoste(id) {
+  if (!confirm('Supprimer ce poste ?')) return;
+  showSave('Suppression...');
+  try {
+    await spDelete(CONFIG.lists.postes, id);
+    await loadData();
+    hideSave('Supprimé ✓');
+    renderAdminPostes();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+// =====================================================================
+// ADMIN SKILLS
+// =====================================================================
+function renderAdminSkills() {
+  const grouped = {};
+  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Compétences (${SKILLS.length})</h3>
+    <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
+  </div>`;
+  DOMAINS.forEach(dom => {
+    const list = grouped[dom.id] || [];
+    h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-top:.5px solid #D3D1C7">${dom.name}</div>`;
+    h += `<table class="adm"><tbody>`;
+    list.forEach(sk => {
+      h += `<tr>
+        <td style="font-weight:500;max-width:280px">${sk.name}</td>
+        <td style="font-size:11px;color:#5F5E5A">${[1,2,3,4].map(n => `<b>${n}.</b> ${sk.levels[n]||'—'}`).join(' &nbsp;·&nbsp; ')}</td>
+        <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="openSkillModal('${sk.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSkill('${sk.id}')"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+    h += `</tbody></table>`;
+  });
+  h += `</div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+function openSkillModal(id) {
+  const sk = id ? SKILLS.find(s => s.id === id) : { id:null, name:'', did:'DOM_01', levels:{1:'',2:'',3:'',4:''} };
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-award" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier la compétence' : 'Nouvelle compétence';
+  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Nom de la compétence</label><input type="text" id="sk-name" value="${sk.name}" placeholder="Ex: Gérer un projet"></div>
+      <div class="field full"><label>Domaine</label>
+        <select id="sk-did">
+          ${DOMAINS.map(d => `<option value="${d.id}"${sk.did===d.id?' selected':''}>${d.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field full"><label>Niveau 1</label><input type="text" id="sk-l1" value="${sk.levels[1]||''}" placeholder="Description niveau 1"></div>
+      <div class="field full"><label>Niveau 2</label><input type="text" id="sk-l2" value="${sk.levels[2]||''}" placeholder="Description niveau 2"></div>
+      <div class="field full"><label>Niveau 3</label><input type="text" id="sk-l3" value="${sk.levels[3]||''}" placeholder="Description niveau 3"></div>
+      <div class="field full"><label>Niveau 4</label><input type="text" id="sk-l4" value="${sk.levels[4]||''}" placeholder="Description niveau 4"></div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveSkill('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function saveSkill(id) {
+  const name = document.getElementById('sk-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  const did = document.getElementById('sk-did').value;
+  const levels = { 1: document.getElementById('sk-l1').value.trim(), 2: document.getElementById('sk-l2').value.trim(), 3: document.getElementById('sk-l3').value.trim(), 4: document.getElementById('sk-l4').value.trim() };
+  if (id) {
+    const idx = SKILLS.findIndex(s => s.id === id);
+    if (idx >= 0) { SKILLS[idx].name = name; SKILLS[idx].did = did; SKILLS[idx].levels = levels; }
+  } else {
+    const newId = 'COMP_' + String(Date.now()).slice(-6);
+    SKILLS.push({ id: newId, did, name, levels });
+  }
+  closeModal();
+  renderAdminSkills();
+  hideSave('Compétence enregistrée ✓');
+  document.getElementById('save-indicator').classList.add('show');
+}
+
+function deleteSkill(id) {
+  if (!confirm('Supprimer cette compétence ? Les données associées en base ne seront pas supprimées.')) return;
+  const idx = SKILLS.findIndex(s => s.id === id);
+  if (idx >= 0) SKILLS.splice(idx, 1);
+  renderAdminSkills();
+}
+
+// =====================================================================
+// IMPORT / EXPORT
+// =====================================================================
+function renderImport() {
+  document.getElementById('content').innerHTML = `<div style="max-width:580px">
+  <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Importer des collaborateurs</h3>
+  <p style="font-size:13px;color:#5F5E5A;margin-bottom:6px">Format attendu : une ligne par compétence, avec les colonnes :</p>
+  <p style="font-size:12px;color:#888;background:#f5f5f0;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-family:monospace">Prénom | NOM | Mail | Poste | Compétence | Niveau | Commentaire</p>
+  <div class="import-zone" onclick="document.getElementById('fi').click()">
+    <i class="ti ti-file-spreadsheet"></i>
+    <div style="font-weight:500;margin-bottom:4px">Cliquer pour importer (.xlsx, .xls)</div>
+    <div style="font-size:12px">Une ligne par compétence — plusieurs lignes par collaborateur acceptées</div>
+  </div>
+  <input type="file" id="fi" style="display:none" accept=".xlsx,.xls" onchange="handleImport(event)">
+  <div id="fb"></div>
+  <h3 style="font-size:15px;font-weight:500;margin:26px 0 6px">Exporter la matrice</h3>
+  <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px">Format exporté : une colonne par compétence.</p>
+  <button class="btn btn-primary" onclick="exportExcel()"><i class="ti ti-download"></i>Télécharger (.xlsx)</button>
+  </div>`;
+}
+
+async function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const wb   = XLSX.read(ev.target.result, { type:'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+      showSave('Import en cours...');
+
+      // Regrouper par email (ou prénom+nom si pas d'email)
+      const collabMap = {};
+      rows.forEach(row => {
+        const prenom     = (row['Prénom'] || row['prenom'] || '').toString().trim();
+        const nom        = (row['NOM']    || row['Nom']    || row['nom'] || '').toString().trim();
+        const email      = (row['Mail']   || row['Email']  || row['email'] || '').toString().trim().toLowerCase();
+        const posteName  = (row['Poste']  || row['poste']  || '').toString().trim();
+        const skillName  = (row['Compétence'] || row['Competence'] || row['competence'] || '').toString().trim();
+        const niveau     = parseInt(row['Niveau'] || row['niveau'] || 0);
+        const commentaire = (row['Commentaire'] || row['commentaire'] || '').toString().trim();
+
+        if (!prenom && !email) return;
+        const key = email || `${prenom}_${nom}`;
+        if (!collabMap[key]) collabMap[key] = { prenom, nom, email, posteName, comps:{}, comments:{} };
+
+        // Résolution par nom de compétence
+        const sk = skillByName(skillName);
+        if (sk && niveau >= 1 && niveau <= 4) {
+          // Garder le niveau le plus élevé si plusieurs lignes
+          if (!collabMap[key].comps[sk.id] || collabMap[key].comps[sk.id] < niveau) {
+            collabMap[key].comps[sk.id] = niveau;
+          }
+          if (commentaire && !collabMap[key].comments[sk.id]) {
+            collabMap[key].comments[sk.id] = commentaire;
+          }
+        }
+      });
+
+      let added = 0, updated = 0;
+      for (const c of Object.values(collabMap)) {
+        const poste = POSTES.find(p => p.name.toLowerCase().trim() === c.posteName.toLowerCase().trim());
+        const ex    = db.collaborateurs.find(x =>
+          (c.email && (x.Email||'').toLowerCase() === c.email) ||
+          ((x.prenom||'').toLowerCase() === c.prenom.toLowerCase() && (x.Nom||'').toLowerCase() === c.nom.toLowerCase())
+        );
+        let cid;
+        if (ex) {
+          await spPatch(CONFIG.lists.collaborateurs, ex.Id, {
+            Title: c.prenom, Prenom: c.nom, Email: c.email,
+            PosteId: poste ? poste.id : (ex.PosteId || '')
+          });
+          cid = ex.Id;
+          updated++;
+        } else {
+          const res = await spPost(CONFIG.lists.collaborateurs, {
+            Title: c.prenom, Prenom: c.nom, Email: c.email,
+            PosteId: poste ? poste.id : '', TeamIds: '', ManagerID: ''
+          });
+          cid = res.Id;
+          added++;
+        }
+
+        // Compétences
+        for (const [sid, lvl] of Object.entries(c.comps)) {
+          const existing = db.competences.find(x => String(x.CollabId) === String(cid) && x.SkillId === sid);
+          if (existing) {
+            if (parseInt(existing.Niveau) !== lvl) await spPatch(CONFIG.lists.competences, existing.Id, { Niveau: lvl });
+          } else {
+            await spPost(CONFIG.lists.competences, { Title: sid, CollabId: String(cid), Niveau: lvl });
+          }
+        }
+
+        // Commentaires manager
+        for (const [sid, com] of Object.entries(c.comments)) {
+          const alreadyExists = db.commentaires.find(x => String(x.Title) === String(cid) && x.SkillId === sid && x.TypeAuteur === 'manager');
+          if (!alreadyExists) {
+            await spPost(CONFIG.lists.commentaires, {
+              Title: String(cid), SkillId: sid,
+              TypeAuteur: 'manager', Contenu: com,
+              DateSaisie: new Date().toISOString()
+            });
+          }
+        }
+      }
+
+      await loadData();
+      hideSave('Import terminé ✓');
+      document.getElementById('fb').innerHTML = `<div class="fb-ok"><i class="ti ti-check"></i> ${added} collaborateur(s) ajouté(s), ${updated} mis à jour.</div>`;
+    } catch (err) {
+      hideSave('Erreur !');
+      document.getElementById('fb').innerHTML = `<div class="fb-err"><i class="ti ti-alert-triangle"></i> Erreur : ${err.message}</div>`;
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function exportExcel() {
+  const headers = ['Prénom','Nom','Email','Poste','Équipes', ...SKILLS.map(s => s.id)];
+  const rows = db.collaborateurs.map(c => {
+    const p     = posteById(c.PosteId);
+    const comps = getCollabComps(c.Id);
+    const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean).join(', ');
+    return [c.prenom||'', c.Nom||'', c.Email||'', p ? p.name : '', teams, ...SKILLS.map(s => comps[s.id] || '')];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, 'Matrice', ws);
+  XLSX.writeFile(wb, 'matrice_competences_evea.xlsx');
+}
+
+// =====================================================================
+// MODAL
+// =====================================================================
+function maybeClose(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+function closeModal()  { document.getElementById('modal').style.display = 'none'; }
+
+// =====================================================================
+// LOGOUT
+// =====================================================================
+async function logout() {
+  await msalInstance.logoutRedirect();
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
+async function init() {
+  document.getElementById('loading').style.display = 'flex';
+  try {
+    await msalInstance.handleRedirectPromise();
+    let account = msalInstance.getAllAccounts()[0];
+    if (!account) {
+    await msalInstance.loginRedirect({ scopes: SCOPES_GRAPH });  // ← Graph pour le login
+    return;
+}
+const tokenGraph = await msalInstance.acquireTokenSilent({ scopes: SCOPES_GRAPH, account });
+const meResp     = await fetch('https://graph.microsoft.com/v1.0/me', {
+    headers: { Authorization: `Bearer ${tokenGraph.accessToken}` }  // ← token Graph pour /me
+});
+    if (!meResp.ok) throw new Error('Impossible de récupérer le profil Microsoft');
+    const me = await meResp.json();
+
+    // Chargement des données SharePoint
+    await loadData();
+
+    // Définition du rôle
+    const email = me.mail || me.userPrincipalName || '';
+    currentUser = { email, name: me.displayName || email, role: getUserRole(email) };
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    buildSidebar();
+    showView('matrix');
+  } catch (e) {
+    document.getElementById('loading-msg').textContent = 'Erreur : ' + e.message;
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
