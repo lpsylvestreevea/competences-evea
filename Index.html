@@ -1001,8 +1001,6 @@ const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickU
   document.getElementById('content').innerHTML = h;
 }
 
-let pendingSaves = 0;
-
 // Avertissement si fermeture pendant une sauvegarde
 window.addEventListener('beforeunload', e => {
   if (pendingSaves > 0) {
