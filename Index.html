@@ -1083,11 +1083,7 @@ function openTeamModal(id) {
     <div class="field">
       <label>Managers de l'équipe</label>
       <input type="text" id="t-mgr-search" placeholder="🔍 Rechercher un collaborateur…"
-        style="width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;margin-bottom:8px;outline:none"
-        oninput="document.getElementById('t-mgr-list').innerHTML = (function(){
-          const filter = this.value;
-          return ${JSON.stringify('placeholder')};
-        }).call(this)">
+  style="width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;margin-bottom:8px;outline:none">
       <div id="t-mgr-list" style="border:.5px solid #D3D1C7;border-radius:8px;padding:6px;max-height:250px;overflow-y:auto">
         ${renderMgrList()}
       </div>
@@ -1108,7 +1104,7 @@ function openTeamModal(id) {
 async function saveTeam(id) {
   const name = document.getElementById('t-name').value.trim();
   if (!name) return alert('Nom requis.');
-  const managerIds = [...document.querySelectorAll('#t-managers input:checked')].map(i => i.value).join(',');
+  const managerIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
   showSave();
   if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagerIds: managerIds });
   else    await spPost(CONFIG.lists.equipes, { Title: name, ManagerIds: managerIds });
