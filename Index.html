@@ -426,6 +426,14 @@ let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '';
 let collabEdit = {}, editCtx = {};
 let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[] };
+let pendingSaves = 0; // ← ici
+
+window.addEventListener('beforeunload', e => {
+  if (pendingSaves > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // =====================================================================
 // HELPERS
@@ -993,35 +1001,45 @@ const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickU
   document.getElementById('content').innerHTML = h;
 }
 
+let pendingSaves = 0;
+
+// Avertissement si fermeture pendant une sauvegarde
+window.addEventListener('beforeunload', e => {
+  if (pendingSaves > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 async function quickUpdateManager(collabId, managerId) {
-  try {
-    showSave();
-    await spPatch(CONFIG.lists.collaborateurs, collabId, { ManagerID: managerId });
-    const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-    if (c) c.ManagerID = managerId;
-    hideSave('Manager mis à jour ✓');
-    // Pas de loadData() — on met à jour uniquement en mémoire
-  } catch(e) { alert('Erreur : ' + e.message); }
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+  if (c) c.ManagerID = managerId;
+  hideSave('Manager mis à jour ✓');
+
+  pendingSaves++;
+  spPatch(CONFIG.lists.collaborateurs, collabId, { ManagerID: managerId })
+    .catch(e => alert('Erreur enregistrement manager : ' + e.message))
+    .finally(() => pendingSaves--);
 }
 
 async function quickUpdateTeams(collabId, selectEl) {
-  try {
-    showSave();
-    const selected = [...selectEl.selectedOptions].map(o => o.value);
-    if (selected.length > 2) {
-      alert('Maximum 2 équipes.');
-      const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-      if (c) selectEl.querySelectorAll('option').forEach(o => o.selected = c.teamIds.includes(o.value));
-      return;
-    }
+  const selected = [...selectEl.selectedOptions].map(o => o.value);
+  if (selected.length > 2) {
+    alert('Maximum 2 équipes.');
     const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-    if (!c) return;
-    c.teamIds = selected;
-    await spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: selected.join(',') });
-    hideSave('Équipes mises à jour ✓');
-  } catch(e) { alert('Erreur : ' + e.message); }
-}
+    if (c) selectEl.querySelectorAll('option').forEach(o => o.selected = c.teamIds.includes(o.value));
+    return;
+  }
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+  if (!c) return;
+  c.teamIds = selected;
+  hideSave('Équipes mises à jour ✓');
 
+  pendingSaves++;
+  spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: selected.join(',') })
+    .catch(e => alert('Erreur enregistrement équipes : ' + e.message))
+    .finally(() => pendingSaves--);
+}
 // =====================================================================
 // ADMIN TEAMS
 // =====================================================================
