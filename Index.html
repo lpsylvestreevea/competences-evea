@@ -426,7 +426,8 @@ let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '';
 let collabEdit = {}, editCtx = {};
 let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[] };
-let pendingSaves = 0; // ← ici
+let collabEdit = null;
+let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
   if (pendingSaves > 0) {
@@ -1040,6 +1041,7 @@ async function quickUpdateTeams(collabId, selectEl) {
     .catch(e => alert('Erreur enregistrement équipes : ' + e.message))
     .finally(() => pendingSaves--);
 }
+
 // =====================================================================
 // ADMIN TEAMS
 // =====================================================================
