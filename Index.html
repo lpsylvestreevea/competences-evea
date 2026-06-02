@@ -1157,7 +1157,7 @@ function openTeamModal(id) {
 async function saveTeam(id) {
   const name = document.getElementById('t-name').value.trim();
   if (!name) return alert('Nom requis.');
-  const ManagersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
+  const managersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
   showSave();
   if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagersIds: managerIds });
   else    await spPost(CONFIG.lists.equipes, { Title: name, ManagersIds: managerIds });
