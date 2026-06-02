@@ -583,6 +583,7 @@ function buildSidebar() {
   let nav = `
     <div class="nav-section">Vues</div>
     <div class="nav-item active" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
+    <div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>
     <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
   if (isManager) {
     nav += `<div class="nav-section">Administration</div>`;
@@ -607,7 +608,8 @@ function showView(v) {
   const titles = {
     matrix:'Matrice globale', collabs:'Collaborateurs',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
-    'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export'
+    'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
+    'search-skills':'Recherche par compétence'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
@@ -619,6 +621,7 @@ function showView(v) {
   document.getElementById('btn-export').style.display = ['matrix','collabs','import'].includes(v) ? 'inline-flex' : 'none';
   document.getElementById('search-wrap').style.display = ['matrix','collabs'].includes(v) ? 'flex' : 'none';
   if      (v === 'matrix')        renderMatrix();
+  else if (v === 'search-skills') renderSearchSkills();  
   else if (v === 'collabs')       renderCollabs();
   else if (v === 'admin-collabs') renderAdminCollabs();
   else if (v === 'admin-teams')   renderAdminTeams();
@@ -1483,6 +1486,149 @@ function exportExcel() {
 function maybeClose(e) { if (e.target === document.getElementById('modal')) closeModal(); }
 function closeModal()  { document.getElementById('modal').style.display = 'none'; }
 
+// =====================================================================
+// RECHERCHE PAR COMPÉTENCE
+// =====================================================================
+function renderSearchSkills() {
+  const grouped = {};
+  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+
+  // Calcul du nombre de personnes par compétence et par niveau
+  function getStats(skillId) {
+    const stats = { 1:[], 2:[], 3:[], 4:[] };
+    db.collaborateurs.forEach(c => {
+      const comps = getCollabComps(c.Id);
+      const lvl = comps[skillId];
+      if (lvl && stats[lvl]) stats[lvl].push(c);
+    });
+    return stats;
+  }
+
+  let h = `
+    <div style="margin-bottom:14px">
+      <div class="search-box" style="width:100%;max-width:400px">
+        <i class="ti ti-search" style="color:#aaa"></i>
+        <input type="text" id="skill-search-input" placeholder="Rechercher une compétence…"
+          oninput="filterSkillSearch(this.value)" style="width:100%">
+      </div>
+    </div>
+    <div id="skill-search-results"></div>
+    <div id="skill-search-all">`;
+
+  DOMAINS.forEach(dom => {
+    const list = grouped[dom.id] || [];
+    if (!list.length) return;
+    h += `<div class="admin-card" style="margin-bottom:14px">
+      <div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
+        letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-radius:8px 8px 0 0">${dom.name}</div>
+      <table class="adm"><thead>
+        <tr><th>Compétence</th><th style="text-align:center">Niveau 1</th><th style="text-align:center">Niveau 2</th>
+        <th style="text-align:center">Niveau 3</th><th style="text-align:center">Niveau 4</th><th style="text-align:center">Total</th></tr>
+      </thead><tbody>`;
+    list.forEach(sk => {
+      const stats = getStats(sk.id);
+      const total = Object.values(stats).flat().length;
+      h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
+        <td style="font-weight:500">${sk.name}</td>
+        ${[1,2,3,4].map(n => `
+          <td style="text-align:center">
+            ${stats[n].length > 0
+              ? `<span class="stat-pill lb l${n}" style="cursor:pointer">${stats[n].length}</span>`
+              : '<span style="color:#ccc">—</span>'}
+          </td>`).join('')}
+        <td style="text-align:center"><span class="stat-pill">${total}</span></td>
+      </tr>`;
+    });
+    h += `</tbody></table></div>`;
+  });
+
+  h += `</div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+function filterSkillSearch(query) {
+  const resultsEl = document.getElementById('skill-search-results');
+  const allEl = document.getElementById('skill-search-all');
+  if (!query.trim()) {
+    resultsEl.innerHTML = '';
+    allEl.style.display = '';
+    return;
+  }
+  allEl.style.display = 'none';
+  const matches = SKILLS.filter(s => s.name.toLowerCase().includes(query.toLowerCase()));
+  if (!matches.length) {
+    resultsEl.innerHTML = `<p style="color:#aaa;font-size:13px">Aucune compétence trouvée.</p>`;
+    return;
+  }
+  let h = `<div class="admin-card">
+    <table class="adm"><thead>
+      <tr><th>Compétence</th><th style="text-align:center">Niveau 1</th><th style="text-align:center">Niveau 2</th>
+      <th style="text-align:center">Niveau 3</th><th style="text-align:center">Niveau 4</th><th style="text-align:center">Total</th></tr>
+    </thead><tbody>`;
+  matches.forEach(sk => {
+    const stats = {};
+    [1,2,3,4].forEach(n => { stats[n] = []; });
+    db.collaborateurs.forEach(c => {
+      const comps = getCollabComps(c.Id);
+      const lvl = comps[sk.id];
+      if (lvl && stats[lvl]) stats[lvl].push(c);
+    });
+    const total = Object.values(stats).flat().length;
+    h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
+      <td style="font-weight:500">${sk.name}</td>
+      ${[1,2,3,4].map(n => `
+        <td style="text-align:center">
+          ${stats[n].length > 0
+            ? `<span class="stat-pill lb l${n}" style="cursor:pointer">${stats[n].length}</span>`
+            : '<span style="color:#ccc">—</span>'}
+        </td>`).join('')}
+      <td style="text-align:center"><span class="stat-pill">${total}</span></td>
+    </tr>`;
+  });
+  h += `</tbody></table></div>`;
+  resultsEl.innerHTML = h;
+}
+
+function showSkillDetail(skillId) {
+  const sk = SKILLS.find(s => s.id === skillId);
+  if (!sk) return;
+  const dom = DOMAINS.find(d => d.id === sk.did);
+  const byLevel = { 1:[], 2:[], 3:[], 4:[] };
+  db.collaborateurs.forEach(c => {
+    const comps = getCollabComps(c.Id);
+    const lvl = comps[skillId];
+    if (lvl && byLevel[lvl]) byLevel[lvl].push(c);
+  });
+  const total = Object.values(byLevel).flat().length;
+  document.getElementById('m-av').innerHTML = `<i class="ti ti-award" style="font-size:20px"></i>`;
+  document.getElementById('m-title').textContent = sk.name;
+  document.getElementById('m-sub').textContent = `${dom ? dom.name : ''} · ${total} personne(s)`;
+  let body = '';
+  [4,3,2,1].forEach(n => {
+    if (!byLevel[n].length) return;
+    body += `<div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span class="lb l${n}" style="width:20px;height:20px;font-size:11px">${n}</span>
+        <span style="font-size:12px;font-weight:600;color:#5F5E5A">${sk.levels && sk.levels[n] ? sk.levels[n] : 'Niveau '+n}</span>
+        <span class="stat-pill">${byLevel[n].length}</span>
+      </div>`;
+    byLevel[n].forEach(c => {
+      const p = posteById(c.PosteId);
+      body += `<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;background:#f5f5f0;margin-bottom:4px">
+        <div style="flex:1">
+          <div style="font-weight:500;font-size:13px">${c.prenom} ${c.Nom||''}</div>
+          <div style="font-size:11px;color:#5F5E5A">${p ? p.name : '—'}</div>
+        </div>
+      </div>`;
+    });
+    body += `</div>`;
+  });
+  if (!total) body = `<p style="color:#aaa;font-size:13px">Personne n'a encore cette compétence.</p>`;
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+  
 // =====================================================================
 // LOGOUT
 // =====================================================================
