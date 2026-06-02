@@ -1159,8 +1159,8 @@ async function saveTeam(id) {
   if (!name) return alert('Nom requis.');
   const ManagersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
   showSave();
-  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagersIds: ManagerIds });
-  else    await spPost(CONFIG.lists.equipes, { Title: name, ManagersIds: ManagerIds });
+  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagersIds: managerIds });
+  else    await spPost(CONFIG.lists.equipes, { Title: name, ManagersIds: managerIds });
   await loadData();
   hideSave('Enregistré ✓');
   closeModal();
