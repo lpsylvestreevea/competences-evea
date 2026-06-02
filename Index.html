@@ -500,7 +500,7 @@ if (postesRaw.length) {
   ...e,
   id: String(e.Id),
   name: e.Title || e.Nom || '',
-  ManagersIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : []
+  managerIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : []
 }));
 }
 
@@ -959,18 +959,28 @@ async function deleteCollab(id) {
 // =====================================================================
 // ADMIN COLLABS
 // =====================================================================
-function renderAdminCollabs() {
+function renderAdminCollabs(filterPoste = '') {
   let list = db.collaborateurs.slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')));
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Collaborateurs (${list.length})</h3></div>
+  if (filterPoste) list = list.filter(c => c.PosteId === filterPoste);
+  const posteOptions = POSTES.map(p => `<option value="${p.id}" ${filterPoste===p.id?'selected':''}>${p.name}</option>`).join('');
+  let h = `<div class="admin-card">
+    <div class="admin-hdr"><h3>Collaborateurs (${list.length})</h3>
+      <select onchange="renderAdminCollabs(this.value)" style="font-size:13px">
+        <option value="">— Tous les postes —</option>
+        ${posteOptions}
+      </select>
+    </div>
   <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const p = posteById(c.PosteId);
-    const teamSelects = `<select multiple size="2" style="width:150px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px;padding:2px"
-  onchange="quickUpdateTeams('${c.Id}', this)">
-  ${db.equipes.map(t =>
-    `<option value="${t.id}" ${(c.teamIds||[]).includes(String(t.id)) ? 'selected' : ''}>${t.name}</option>`
-  ).join('')}
-</select>`;
+    const teamSelects = db.equipes.map(t => {
+  const isSelected = (c.teamIds||[]).includes(String(t.id));
+  return `<span onclick="toggleTeam('${c.Id}', '${t.id}', this)"
+    style="display:inline-block;margin:2px;padding:2px 8px;border-radius:6px;font-size:11px;cursor:pointer;
+    border:.5px solid ${isSelected ? '#534AB7' : '#D3D1C7'};
+    background:${isSelected ? '#EEEDFE' : '#fff'};
+    color:${isSelected ? '#534AB7' : '#5F5E5A'}">${t.name}</span>`;
+}).join('');
     const teamManagersIds = (c.teamIds||[]).flatMap(tid => {
   const t = db.equipes.find(e => String(e.id) === String(tid));
   return t ? (t.ManagersIds||[]) : [];
@@ -1019,23 +1029,28 @@ async function quickUpdateManager(collabId, managerId) {
     .catch(e => alert('Erreur enregistrement manager : ' + e.message))
     .finally(() => pendingSaves--);
 }
-
-async function quickUpdateTeams(collabId, selectEl) {
-  const selected = [...selectEl.selectedOptions].map(o => o.value);
-  if (selected.length > 2) {
-    alert('Maximum 2 équipes.');
-    const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-    if (c) selectEl.querySelectorAll('option').forEach(o => o.selected = c.teamIds.includes(o.value));
-    return;
-  }
+  async function toggleTeam(collabId, teamId, el) {
   const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
   if (!c) return;
-  c.teamIds = selected;
-  hideSave('Équipes mises à jour ✓');
-
+  const isSelected = c.teamIds.includes(String(teamId));
+  if (!isSelected && c.teamIds.length >= 2) {
+    alert('Maximum 2 équipes.');
+    return;
+  }
+  if (isSelected) {
+    c.teamIds = c.teamIds.filter(t => t !== String(teamId));
+    el.style.background = '#fff';
+    el.style.borderColor = '#D3D1C7';
+    el.style.color = '#5F5E5A';
+  } else {
+    c.teamIds.push(String(teamId));
+    el.style.background = '#EEEDFE';
+    el.style.borderColor = '#534AB7';
+    el.style.color = '#534AB7';
+  }
   pendingSaves++;
-  spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: selected.join(',') })
-    .catch(e => alert('Erreur enregistrement équipes : ' + e.message))
+  spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: c.teamIds.join(',') })
+    .catch(e => alert('Erreur : ' + e.message))
     .finally(() => pendingSaves--);
 }
 
@@ -1043,18 +1058,53 @@ async function quickUpdateTeams(collabId, selectEl) {
 // ADMIN TEAMS
 // =====================================================================
 function renderAdminTeams() {
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Équipes (${db.equipes.length})</h3></div>
-  <table class="adm"><thead><tr><th>Nom</th><th>Membres</th><th></th></tr></thead><tbody>`;
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Équipes (${db.equipes.length})</h3>
+    <button class="btn btn-primary" onclick="openTeamModal(null)"><i class="ti ti-plus"></i>Nouvelle équipe</button>
+  </div>
+  <table class="adm"><thead><tr><th>Nom</th><th>Managers</th><th>Membres</th><th></th></tr></thead><tbody>`;
   db.equipes.forEach(t => {
-    const nb = db.collaborateurs.filter(c => c.teamIds && c.teamIds.includes(String(t.id))).length;
-    h += `<tr><td style="font-weight:500">${t.name}</td><td><span class="stat-pill">${nb}</span></td>
-    <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
-      <button class="btn btn-sm" onclick="openTeamModal('${t.id}')"><i class="ti ti-edit"></i></button>
-      <button class="btn btn-sm btn-danger" onclick="deleteTeam('${t.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`;
+    const membres = db.collaborateurs.filter(c => c.teamIds && c.teamIds.includes(String(t.id)));
+    const managers = (t.managerIds||[]).map(mid => {
+      const m = db.collaborateurs.find(x => String(x.Id) === String(mid));
+      return m ? `<span class="stat-pill">${m.prenom} ${m.Nom||''}</span>` : '';
+    }).join(' ');
+    h += `<tr>
+      <td style="font-weight:500">${t.name}</td>
+      <td>${managers || '<span style="color:#aaa;font-size:12px">—</span>'}</td>
+      <td>
+        <span class="stat-pill" style="cursor:pointer;text-decoration:underline"
+          onclick="showTeamMembers('${t.id}')">${membres.length} membre(s)</span>
+      </td>
+      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="openTeamModal('${t.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteTeam('${t.id}')"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`;
   });
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
+}
+
+function showTeamMembers(teamId) {
+  const t = db.equipes.find(x => String(x.id) === String(teamId));
+  if (!t) return;
+  const membres = db.collaborateurs.filter(c => c.teamIds && c.teamIds.includes(String(teamId)));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = t.name;
+  document.getElementById('m-sub').textContent = `${membres.length} membre(s)`;
+  document.getElementById('m-body').innerHTML = membres.length
+    ? membres.map(c => {
+        const p = posteById(c.PosteId);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid #D3D1C7">
+          <div style="flex:1">
+            <div style="font-weight:500">${c.prenom} ${c.Nom||''}</div>
+            <div style="font-size:12px;color:#5F5E5A">${p ? p.name : '—'}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<p style="color:#aaa;font-size:13px">Aucun membre dans cette équipe.</p>';
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
 }
 function openTeamModal(id) {
   const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'', ManagersIds:[] };
@@ -1106,8 +1156,8 @@ async function saveTeam(id) {
   if (!name) return alert('Nom requis.');
   const ManagersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
   showSave();
-  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagersIds: ManagersIds });
-  else    await spPost(CONFIG.lists.equipes, { Title: name, ManagersIds: ManagersIds });
+  if (id) await spPatch(CONFIG.lists.equipes, id, { Title: name, ManagersIds: ManagerIds });
+  else    await spPost(CONFIG.lists.equipes, { Title: name, ManagersIds: ManagerIds });
   await loadData();
   hideSave('Enregistré ✓');
   closeModal();
