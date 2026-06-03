@@ -822,7 +822,10 @@ function renderCollabBody(focusSkill) {
   const tchecks = db.equipes.map(t => {
   const ck = (c.teamIds||[]).includes(String(t.id));
   if (!showAllTeams && !ck) return '';
-  return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
+  return `<div class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}')" style="cursor:pointer;user-select:none">
+    <span style="display:inline-block;width:14px;height:14px;border:.5px solid #D3D1C7;border-radius:3px;background:${ck?'#534AB7':'#fff'};vertical-align:middle;margin-right:5px"></span>
+    ${t.name}
+  </div>`;
 }).join('');
   const showAllBtn = `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" 
   onclick="collabEdit._showAllTeams=!collabEdit._showAllTeams;renderCollabBody()">
@@ -921,7 +924,7 @@ h += `</div>`;
   document.getElementById('m-body').innerHTML = h;
 }
 
-function toggleTeamModal(id, label) {
+function toggleTeamModal(id) {
   const sid = String(id);
   const idx = (collabEdit.teamIds||[]).indexOf(sid);
   if (idx > -1) { 
