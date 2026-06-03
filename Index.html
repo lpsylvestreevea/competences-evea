@@ -466,7 +466,7 @@ function levelTT(sk, lvl, dir = '') {
 // =====================================================================
 async function loadData() {
   document.getElementById('loading-msg').textContent = 'Chargement des données...';
-  const [collabs, comps, coms, hist, equipes, postesRaw] = await Promise.all([
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
