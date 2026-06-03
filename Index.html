@@ -109,10 +109,10 @@ table.adm tr:hover td{background:#fafaf8}
 .lp{display:flex;gap:3px}
 .lvl-btn{width:26px;height:26px;border-radius:50%;border:.5px solid #D3D1C7;background:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .lvl-btn:hover{border-color:#534AB7;color:#534AB7}
-.lvl-btn.a1{background:#E1F5EE;border-color:#0F6E56;color:#085041;font-weight:500}
-.lvl-btn.a2{background:#EEEDFE;border-color:#534AB7;color:#3C3489;font-weight:500}
-.lvl-btn.a3{background:#FAEEDA;border-color:#854F0B;color:#633806;font-weight:500}
-.lvl-btn.a4{background:#FAECE7;border-color:#993C1D;color:#4A1B0C;font-weight:500}
+.lvl-btn.a1{background:#FFF3CD;border-color:#856404;color:#856404;font-weight:500}  /* jaune */
+.lvl-btn.a2{background:#FFF3CD;border-color:#856404;color:#856404;font-weight:500}  /* jaune */
+.lvl-btn.a3{background:#D1E7DD;border-color:#0A3622;color:#0A3622;font-weight:500}  /* vert */
+.lvl-btn.a4{background:#D1E7DD;border-color:#0A3622;color:#0A3622;font-weight:500}  /* vert */
 .tt-tag{font-size:10px;color:#5F5E5A;background:#f5f5f0;border-radius:4px;padding:1px 5px;flex-shrink:0}
 .cm-btn{width:26px;height:26px;border-radius:6px;border:.5px solid #D3D1C7;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;flex-shrink:0}
 .cm-btn:hover{border-color:#534AB7;color:#534AB7}
@@ -530,7 +530,7 @@ function getCollabComments(collabId) {
 function getCollabHistory(collabId) {
   return db.historique
     .filter(h => String(h.Title) === String(collabId))
-    .map(h => ({ ts: new Date(h.DateAction).getTime(), role: h.Role, desc: h.Description }))
+    .map(h => ({ spId: h.Id, ts: new Date(h.DateAction).getTime(), role: h.Role, desc: h.Description }))
     .sort((a, b) => b.ts - a.ts);
 }
 
@@ -775,16 +775,57 @@ function openCollabModal(id, focusSkill) {
   document.getElementById('modal').style.display = 'flex';
   if (focusSkill) setTimeout(() => document.querySelector('[data-focus]')?.scrollIntoView({block:'center',behavior:'smooth'}), 80);
 }
-
+  
+function renderSkillRow(sk, c, poste, focusSkill, isExtra) {
+  const lvl    = c._comps[sk.id] || 0;
+  const target = poste.targets[sk.id];
+  const isFocus = sk.id === focusSkill;
+  const cm     = c._comments[sk.id] || {};
+  const hasCm  = cm.manager || cm.collaborateur;
+  return `<div class="crow"${isFocus?' data-focus="1"':''} ${isExtra?'style="opacity:0.75;border-left:2px dashed #D3D1C7;padding-left:6px"':''}>
+    <div class="crow-main"${isFocus?' style="background:#EEEDFE;border-radius:8px;margin:0 -6px;padding:6px"':''}>
+      <span class="crow-name twrap">${sk.name}
+        ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors poste)</span>' : ''}
+        ${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}
+        ${skillTT(sk,'tup')}
+      </span>
+      <div class="lp">
+        <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"><i class="ti ti-x" style="font-size:11px"></i></button>
+        ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup')}</span></button>`).join('')}
+      </div>
+      <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
+    </div>
+    <div class="cm-panel" id="cp-${sk.id}">
+      ${currentUser.role==='manager'||currentUser.role==='admin' ? `<div class="cm-block">
+        <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
+        ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div>
+          <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…">${cm.manager}</textarea>`
+          : `<textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"></textarea>`}
+      </div>` : ''}
+      <div class="cm-block">
+        <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur</div>
+        ${cm.collaborateur ? `<div class="cm-meta">${fmtDate(cm.collaborateurTs||0)}</div>
+          <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Modifier le commentaire…">${cm.collaborateur}</textarea>`
+          : `<textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"></textarea>`}
+      </div>
+    </div>
+  </div>`;
+}
+  
 function renderCollabBody(focusSkill) {
   const c     = collabEdit;
   const poste = posteById(c.PosteId) || { targets:{} };
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  const hasTeams = (c.teamIds||[]).length > 0;
   const tchecks = db.equipes.map(t => {
-    const ck = (c.teamIds||[]).includes(String(t.id));
-    return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeam('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
-  }).join('');
+  const ck = (c.teamIds||[]).includes(String(t.id));
+  if (hasTeams && !ck) return ''; // masquer les équipes non sélectionnées
+  return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
+}).join('');
+  const showAllBtn = `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" onclick="renderCollabBody()">
+  ${hasTeams ? '✎ modifier' : '+ ajouter une équipe'}
+</span>`;
 
   let h = `<div class="fg">
     <div class="field"><label>Prénom</label><input type="text" id="c-prenom" value="${c.prenom||''}" oninput="collabEdit.prenom=this.value"></div>
@@ -796,7 +837,13 @@ function renderCollabBody(focusSkill) {
         ${POSTES.map(p => `<option value="${p.id}"${c.PosteId===p.id?' selected':''}>${p.name}</option>`).join('')}
       </select>
     </div>
-    <div class="field full"><label>Équipes</label><div class="team-checks">${tchecks}</div></div>
+    <div class="field full"><label>Équipes</label><div class="team-checks" id="team-checks-wrap">
+  ${hasTeams ? tchecks + showAllBtn : db.equipes.map(t => {
+    const ck = (c.teamIds||[]).includes(String(t.id));
+    return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
+  }).join('') + showAllBtn}
+</div></div>
+
     <div class="field full"><label>Manager</label>
       <select id="c-manager">
         <option value="">— Aucun —</option>
@@ -806,57 +853,82 @@ function renderCollabBody(focusSkill) {
   </div>
   <div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Niveaux de compétences — survolez pour voir la description.</div>`;
 
-  DOMAINS.forEach(dom => {
-    const list = grouped[dom.id] || [];
-    const display = c.PosteId ? list.filter(s => poste.targets[s.id] !== undefined || c._comps[s.id] || (c._comments[s.id] && (c._comments[s.id].manager || c._comments[s.id].collaborateur))) : list;
-    if (c.PosteId && !display.length) return;
-    h += `<div class="csect"><div class="csect-lbl">${domTag(dom)}</div>`;
-    (c.PosteId ? display : list).forEach(sk => {
-      const lvl    = c._comps[sk.id] || 0;
-      const target = poste.targets[sk.id];
-      const isFocus = sk.id === focusSkill;
-      const cm     = c._comments[sk.id] || {};
-      const hasCm  = cm.manager || cm.collaborateur;
-      h += `<div class="crow"${isFocus?' data-focus="1"':''}>
-        <div class="crow-main"${isFocus?' style="background:#EEEDFE;border-radius:8px;margin:0 -6px;padding:6px"':''}>
-          <span class="crow-name twrap">${sk.name}${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}${skillTT(sk,'tup')}</span>
-          <div class="lp">
-            <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"><i class="ti ti-x" style="font-size:11px"></i></button>
-            ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup')}</span></button>`).join('')}
-          </div>
-          <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
-        </div>
-        <div class="cm-panel" id="cp-${sk.id}">
-          ${currentUser.role==='manager'||currentUser.role==='admin' ? `<div class="cm-block">
-            <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
-            ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div><div class="cm-existing">${cm.manager}</div>` : ''}
-            <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"></textarea>
-          </div>` : ''}
-          <div class="cm-block">
-            <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur</div>
-            ${cm.collaborateur ? `<div class="cm-meta">${fmtDate(cm.collaborateurTs||0)}</div><div class="cm-existing">${cm.collaborateur}</div>` : ''}
-            <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"></textarea>
-          </div>
-        </div>
-      </div>`;
-    });
-    h += `</div>`;
+const showExtra = collabEdit._showExtra || false;
+
+DOMAINS.forEach(dom => {
+  const list = grouped[dom.id] || [];
+
+  // Compétences liées au poste (dans targets) ou déjà renseignées
+  const posteSkills = c.PosteId
+    ? list.filter(s => poste.targets[s.id] !== undefined || c._comps[s.id] ||
+        (c._comments[s.id] && (c._comments[s.id].manager || c._comments[s.id].collaborateur)))
+    : list;
+
+  // Compétences hors poste (pas dans targets mais potentiellement renseignées)
+  const extraSkills = c.PosteId
+    ? list.filter(s => poste.targets[s.id] === undefined && !posteSkills.includes(s))
+    : [];
+
+  if (c.PosteId && !posteSkills.length && !extraSkills.length) return;
+
+  h += `<div class="csect"><div class="csect-lbl">${domTag(dom)}</div>`;
+
+  // Affichage des compétences du poste
+  (c.PosteId ? posteSkills : list).forEach(sk => {
+    h += renderSkillRow(sk, c, poste, focusSkill, false);
   });
 
-  const hist = collabEdit._history.slice(0, 20);
-  h += `<div style="margin-top:18px;border-top:.5px solid #e8e7e0;padding-top:14px">
-    <div style="font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-history" style="color:#534AB7"></i>Historique</div>`;
-  if (!hist.length) h += `<div style="font-size:12px;color:#aaa">Aucune modification enregistrée.</div>`;
-  hist.forEach(h2 => { h += `<div class="hist-item"><div class="hist-dot"></div><div><div class="hist-date">${fmtDate(h2.ts)}</div><div>${h2.desc}</div></div></div>`; });
+  // Affichage des compétences hors poste si activé
+  if (showExtra && extraSkills.length) {
+    h += `<div style="margin:8px 0 4px;font-size:11px;color:#aaa;border-top:.5px dashed #D3D1C7;padding-top:6px">
+      — Compétences hors poste —
+    </div>`;
+    extraSkills.forEach(sk => {
+      h += renderSkillRow(sk, c, poste, focusSkill, true);
+    });
+  }
+
   h += `</div>`;
+});
+
+// Bouton afficher/masquer les compétences hors poste
+if (c.PosteId) {
+  h += `<div style="text-align:center;margin:10px 0">
+    <button class="btn btn-sm" onclick="collabEdit._showExtra=!collabEdit._showExtra;renderCollabBody()">
+      <i class="ti ti-${showExtra ? 'eye-off' : 'eye'}"></i>
+      ${showExtra ? 'Masquer les compétences hors poste' : 'Afficher les compétences hors poste'}
+    </button>
+  </div>`;
+}
+
+  const hist = collabEdit._history.slice(0, 20);
+h += `<div style="margin-top:18px;border-top:.5px solid #e8e7e0;padding-top:14px">
+  <div style="font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+    <i class="ti ti-history" style="color:#534AB7"></i>Historique
+  </div>`;
+if (!hist.length) h += `<div style="font-size:12px;color:#aaa">Aucune modification enregistrée.</div>`;
+hist.forEach(h2 => {
+  h += `<div class="hist-item">
+    <div class="hist-dot"></div>
+    <div style="flex:1">
+      <div class="hist-date">${fmtDate(h2.ts)}</div>
+      <div>${h2.desc}</div>
+    </div>
+    ${currentUser.role === 'admin' ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px"
+      onclick="deleteHistItem(${h2.spId})"><i class="ti ti-trash"></i></button>` : ''}
+  </div>`;
+});
+h += `</div>`;
   document.getElementById('m-body').innerHTML = h;
 }
 
-function toggleTeam(id, label) {
+function toggleTeamModal(id, label) {
   const sid = String(id);
   const idx = (collabEdit.teamIds||[]).indexOf(sid);
   if (idx > -1) { collabEdit.teamIds.splice(idx, 1); label.classList.remove('checked'); }
-  else          { if (!collabEdit.teamIds) collabEdit.teamIds = []; collabEdit.teamIds.push(sid); label.classList.add('checked'); }
+  else { if (!collabEdit.teamIds) collabEdit.teamIds = []; collabEdit.teamIds.push(sid); label.classList.add('checked'); }
+  // Rafraîchir l'affichage pour masquer/afficher les équipes
+  renderCollabBody();
 }
 function toggleCm(sid) { document.getElementById('cp-' + sid)?.classList.toggle('open'); }
 
@@ -870,12 +942,24 @@ function setLvl(sid, lvl) {
   const poste  = posteById(collabEdit.PosteId) || { targets:{} };
   const target = poste.targets[sid];
   document.querySelectorAll(`[onclick^="setLvl('${sid}'"]`).forEach((btn, i) => {
-    btn.className = 'lvl-btn';
-    if (i === 0) return;
-    const n = i;
-    if ((collabEdit._comps[sid] || 0) === n) btn.className = `lvl-btn a${n}`;
-    btn.style.outline = target === n ? '2px solid #534AB7' : '';
-  });
+  btn.className = 'lvl-btn';
+  btn.style.outline = '';
+  btn.style.background = '';
+  btn.style.color = '';
+  if (i === 0) return;
+  const n = i;
+  const lvlActuel = collabEdit._comps[sid] || 0;
+  if (lvlActuel === n) {
+    if (target != null && lvlActuel >= target) {
+      btn.style.background = '#D1E7DD'; btn.style.color = '#0A3622'; // vert
+    } else if (target != null && lvlActuel < target) {
+      btn.style.background = '#FFF3CD'; btn.style.color = '#856404'; // jaune
+    } else {
+      btn.className = `lvl-btn a${n}`; // couleur par défaut si pas de cible
+    }
+  }
+  if (target === n) btn.style.outline = '2px solid #534AB7';
+});
 }
 
 async function saveCollab(id) {
@@ -957,6 +1041,16 @@ async function deleteCollab(id) {
   hideSave('Supprimé ✓');
   closeModal();
   if (currentView === 'matrix') renderMatrix(); else renderCollabs();
+}
+  async function deleteHistItem(spId) {
+  if (!confirm('Supprimer cet élément d\'historique ?')) return;
+  showSave('Suppression...');
+  await spDelete(CONFIG.lists.historique, spId);
+  await loadData();
+  // Rafraîchir l'historique dans collabEdit
+  collabEdit._history = getCollabHistory(collabEdit.Id);
+  hideSave('Supprimé ✓');
+  renderCollabBody();
 }
 
 // =====================================================================
