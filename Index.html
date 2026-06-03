@@ -818,12 +818,14 @@ function renderCollabBody(focusSkill) {
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasTeams = (c.teamIds||[]).length > 0;
+  const showAllTeams = collabEdit._showAllTeams || !hasTeams;
   const tchecks = db.equipes.map(t => {
   const ck = (c.teamIds||[]).includes(String(t.id));
-  if (hasTeams && !ck) return ''; // masquer les équipes non sélectionnées
+  if (!showAllTeams && !ck) return '';
   return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
 }).join('');
-  const showAllBtn = `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" onclick="renderCollabBody()">
+  const showAllBtn = `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" 
+  onclick="collabEdit._showAllTeams=!collabEdit._showAllTeams;renderCollabBody()">
   ${hasTeams ? '✎ modifier' : '+ ajouter une équipe'}
 </span>`;
 
@@ -838,10 +840,7 @@ function renderCollabBody(focusSkill) {
       </select>
     </div>
     <div class="field full"><label>Équipes</label><div class="team-checks" id="team-checks-wrap">
-  ${hasTeams ? tchecks + showAllBtn : db.equipes.map(t => {
-    const ck = (c.teamIds||[]).includes(String(t.id));
-    return `<label class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}',this)"><input type="checkbox"${ck?' checked':''}>${t.name}</label>`;
-  }).join('') + showAllBtn}
+  ${tchecks}${showAllBtn}
 </div></div>
 
     <div class="field full"><label>Manager</label>
@@ -925,9 +924,12 @@ h += `</div>`;
 function toggleTeamModal(id, label) {
   const sid = String(id);
   const idx = (collabEdit.teamIds||[]).indexOf(sid);
-  if (idx > -1) { collabEdit.teamIds.splice(idx, 1); label.classList.remove('checked'); }
-  else { if (!collabEdit.teamIds) collabEdit.teamIds = []; collabEdit.teamIds.push(sid); label.classList.add('checked'); }
-  // Rafraîchir l'affichage pour masquer/afficher les équipes
+  if (idx > -1) { 
+    collabEdit.teamIds.splice(idx, 1); 
+  } else { 
+    if (!collabEdit.teamIds) collabEdit.teamIds = []; 
+    collabEdit.teamIds.push(sid); 
+  }
   renderCollabBody();
 }
 function toggleCm(sid) { document.getElementById('cp-' + sid)?.classList.toggle('open'); }
