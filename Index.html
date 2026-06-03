@@ -504,7 +504,6 @@ if (postesRaw.length) {
   name: e.Title || e.Nom || '',
   managerIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : []
 }));
-}
 
 // Remplace le tableau DOMAINS statique si des données existent en base
 if (domainesRaw.length) {
@@ -517,6 +516,7 @@ if (domainesRaw.length) {
       bg:   d.Fond || '#F5F5F5'
     });
   });
+}
 }
 
 // =====================================================================
