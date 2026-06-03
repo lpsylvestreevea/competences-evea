@@ -206,7 +206,8 @@ const CONFIG = {
     commentaires:   'Commentaires',
     historique:     'Historique',
     equipes:        'Equipes',
-    postes:         'Postes'
+    postes:         'Postes',
+    domaines: 'Domaines'
   }
 };
 // =====================================================================
@@ -471,7 +472,8 @@ async function loadData() {
   spGet(CONFIG.lists.commentaires),
   spGet(CONFIG.lists.historique),
   spGet(CONFIG.lists.equipes),
-  spGet(CONFIG.lists.postes)
+  spGet(CONFIG.lists.postes),
+  spGet(CONFIG.lists.domaines)
 ]);
 
 // Remplace le tableau POSTES statique si des données existent en base
@@ -502,6 +504,19 @@ if (postesRaw.length) {
   name: e.Title || e.Nom || '',
   managerIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : []
 }));
+}
+
+// Remplace le tableau DOMAINS statique si des données existent en base
+if (domainesRaw.length) {
+  DOMAINS.length = 0;
+  domainesRaw.forEach(d => {
+    DOMAINS.push({
+      id:   String(d.Id),
+      name: d.Title || '',
+      c:    d.Couleur || '#333333',
+      bg:   d.Fond || '#F5F5F5'
+    });
+  });
 }
 
 // =====================================================================
@@ -1280,24 +1295,97 @@ async function deleteTeam(id) {
 let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
 
 function renderAdminPostes() {
-  const btnLabel = currentUser.role === 'admin' ? `<button class="btn btn-primary" style="margin-left:auto" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
+  const btnLabel = currentUser.role === 'admin' ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>${btnLabel}</div>
   <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateurs</th><th></th></tr></thead><tbody>`;
   POSTES_STATE.forEach(p => {
     const nt = Object.keys(p.targets||{}).length;
-    const nc = db.collaborateurs.filter(c => c.PosteId === p.id).length;
+    const collabs = db.collaborateurs.filter(c => c.PosteId === p.id);
     h += `<tr>
       <td style="font-weight:500">${p.name}</td>
-      <td><span class="stat-pill">${nt} compétence(s)</span></td>
-      <td><span class="stat-pill">${nc}</span></td>
+      <td>
+        <span class="stat-pill" style="cursor:pointer;text-decoration:underline"
+          onclick="showPosteSkills('${p.id}')">
+          ${nt} compétence(s)
+        </span>
+      </td>
+      <td>
+        <span class="stat-pill" style="cursor:pointer;text-decoration:underline"
+          onclick="showPosteCollabs('${p.id}')">
+          ${collabs.length} collaborateur(s)
+        </span>
+      </td>
       <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
         <button class="btn btn-sm" onclick="openPosteModal('${p.id}')"><i class="ti ti-edit"></i></button>
-        ${nc === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
+        ${collabs.length === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
       </td>
     </tr>`;
   });
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
+}
+  
+  function showPosteSkills(id) {
+  const p = POSTES_STATE.find(x => x.id === id);
+  if (!p) return;
+  const targets = Object.entries(p.targets||{});
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = p.name;
+  document.getElementById('m-sub').textContent = `${targets.length} compétence(s) cible(s)`;
+  let body = '';
+  if (!targets.length) {
+    body = `<p style="color:#aaa;font-size:13px">Aucune compétence cible définie.</p>`;
+  } else {
+    DOMAINS.forEach(dom => {
+      const domTargets = targets.filter(([sid]) => {
+        const sk = SKILLS.find(s => s.id === sid);
+        return sk && sk.did === dom.id;
+      });
+      if (!domTargets.length) return;
+      body += `<div style="padding:5px 8px;font-size:11px;font-weight:600;text-transform:uppercase;
+        background:${dom.bg};color:${dom.c};border-radius:6px;margin-bottom:6px">${dom.name}</div>`;
+      domTargets.forEach(([sid, lvl]) => {
+        const sk = SKILLS.find(s => s.id === sid);
+        body += `<div style="display:flex;align-items:center;justify-content:space-between;
+          padding:6px 8px;border-bottom:.5px solid #f0f0e8">
+          <span style="font-size:13px">${sk ? sk.name : sid}</span>
+          <span class="lb l${lvl}" style="width:20px;height:20px;font-size:11px">${lvl}</span>
+        </div>`;
+      });
+    });
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function showPosteCollabs(id) {
+  const p = POSTES_STATE.find(x => x.id === id);
+  if (!p) return;
+  const collabs = db.collaborateurs.filter(c => c.PosteId === id);
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-users" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = p.name;
+  document.getElementById('m-sub').textContent = `${collabs.length} collaborateur(s)`;
+  const body = collabs.length
+    ? collabs.map(c => {
+        const teams = (c.teamIds||[]).map(tid => {
+          const t = db.equipes.find(e => String(e.id) === String(tid));
+          return t ? `<span class="team-tag">${t.name}</span>` : '';
+        }).join('');
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid #D3D1C7">
+          <div class="av" style="width:32px;height:32px;font-size:13px;flex-shrink:0">
+            ${(c.prenom||'?')[0]}${(c.Nom||'?')[0]}
+          </div>
+          <div style="flex:1">
+            <div style="font-weight:500">${c.prenom} ${c.Nom||''}</div>
+            <div style="font-size:12px;color:#5F5E5A;display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${teams||'—'}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : `<p style="color:#aaa;font-size:13px">Aucun collaborateur sur ce poste.</p>`;
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
 }
 
 function openPosteModal(id) {
@@ -1375,11 +1463,22 @@ function renderAdminSkills() {
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Compétences (${SKILLS.length})</h3>
-    <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn" onclick="openDomainModal(null)"><i class="ti ti-folder-plus"></i>Nouveau domaine</button>
+      <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
+    </div>
   </div>`;
   DOMAINS.forEach(dom => {
     const list = grouped[dom.id] || [];
-    h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-top:.5px solid #D3D1C7">${dom.name}</div>`;
+    h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
+      letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-top:.5px solid #D3D1C7;
+      display:flex;align-items:center;justify-content:space-between">
+      <span>${dom.name}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" style="padding:2px 6px" onclick="openDomainModal('${dom.id}')"><i class="ti ti-edit"></i></button>
+        ${list.length === 0 ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="deleteDomain('${dom.id}')"><i class="ti ti-trash"></i></button>` : ''}
+      </div>
+    </div>`;
     h += `<table class="adm"><tbody>`;
     list.forEach(sk => {
       h += `<tr>
@@ -1395,6 +1494,79 @@ function renderAdminSkills() {
   });
   h += `</div>`;
   document.getElementById('content').innerHTML = h;
+}
+  
+  function openDomainModal(id) {
+  const dom = id ? DOMAINS.find(d => d.id === id) : { id:null, name:'', c:'#333333', bg:'#F5F5F5' };
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-folder" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier le domaine' : 'Nouveau domaine';
+  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Nom du domaine</label>
+        <input type="text" id="dom-name" value="${dom.name}" placeholder="Ex: Marketing">
+      </div>
+      <div class="field"><label>Couleur du texte</label>
+        <input type="color" id="dom-color" value="${dom.c}" style="height:38px;width:100%;cursor:pointer">
+      </div>
+      <div class="field"><label>Couleur de fond</label>
+        <input type="color" id="dom-bg" value="${dom.bg}" style="height:38px;width:100%;cursor:pointer">
+      </div>
+      <div class="field full"><label>Aperçu</label>
+        <div id="dom-preview" style="padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;
+          background:${dom.bg};color:${dom.c};display:inline-block">${dom.name||'Aperçu'}</div>
+      </div>
+    </div>`;
+  // Mise à jour de l'aperçu en temps réel
+  setTimeout(() => {
+    const updatePreview = () => {
+      const p = document.getElementById('dom-preview');
+      p.style.background = document.getElementById('dom-bg').value;
+      p.style.color = document.getElementById('dom-color').value;
+      p.textContent = document.getElementById('dom-name').value || 'Aperçu';
+    };
+    document.getElementById('dom-name').addEventListener('input', updatePreview);
+    document.getElementById('dom-color').addEventListener('input', updatePreview);
+    document.getElementById('dom-bg').addEventListener('input', updatePreview);
+  }, 0);
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveDomain('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveDomain(id) {
+  const name = document.getElementById('dom-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  const c  = document.getElementById('dom-color').value;
+  const bg = document.getElementById('dom-bg').value;
+  showSave();
+  try {
+    const data = { Title: name, Couleur: c, Fond: bg };
+    if (id) {
+      await spPatch(CONFIG.lists.domaines, id, data);
+    } else {
+      const res = await spPost(CONFIG.lists.domaines, data);
+      id = String(res.Id);
+    }
+    await loadData();
+    closeModal();
+    renderAdminSkills();
+    hideSave('Domaine enregistré ✓');
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+async function deleteDomain(id) {
+  const hasSkills = SKILLS.some(s => s.did === id);
+  if (hasSkills) return alert('Ce domaine contient des compétences. Supprimez-les d\'abord.');
+  if (!confirm('Supprimer ce domaine ?')) return;
+  showSave('Suppression...');
+  try {
+    await spDelete(CONFIG.lists.domaines, id);
+    await loadData();
+    hideSave('Supprimé ✓');
+    renderAdminSkills();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
 function openSkillModal(id) {
