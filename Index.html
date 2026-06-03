@@ -1543,7 +1543,9 @@ async function saveDomain(id) {
   showSave();
   try {
     const data = { Title: name, Couleur: c, Fond: bg };
-    if (id) {
+    // Si l'ID est numérique c'est un enregistrement SharePoint, sinon c'est un domaine statique à créer
+    const isSpId = id && !isNaN(Number(id));
+    if (isSpId) {
       await spPatch(CONFIG.lists.domaines, id, data);
     } else {
       const res = await spPost(CONFIG.lists.domaines, data);
