@@ -467,7 +467,7 @@ function levelTT(sk, lvl, dir = '') {
 // =====================================================================
 async function loadData() {
   document.getElementById('loading-msg').textContent = 'Chargement des données...';
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw] = await Promise.all([
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -617,44 +617,39 @@ function getRareSkills() {
 // SIDEBAR & NAV
 // =====================================================================
 function buildSidebar() {
-  const roleLabel = { admin:'Administrateur', manager:'Manager', collaborateur:'Collaborateur' };
-  const roleClass = { admin:'rb-admin', manager:'rb-manager', collaborateur:'rb-collab' };
+  const roleLabel = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
+  const roleClass = { admin:'rb-admin', directeur:'rb-manager', manager:'rb-manager', collaborateur:'rb-collab' };
   document.getElementById('sidebar-user').innerHTML = `
-    <span class="rb ${roleClass[currentUser.role]}">${roleLabel[currentUser.role]}</span>
+    <span class="rb ${roleClass[currentUser.role]||'rb-collab'}">${roleLabel[currentUser.role]||'Collaborateur'}</span>
     <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${currentUser.name}</span>
     <button class="btn btn-sm" onclick="logout()" title="Déconnexion"><i class="ti ti-logout"></i></button>`;
 
-  const isAdmin    = currentUser.role === 'admin';
+  const isAdmin     = currentUser.role === 'admin';
   const isDirecteur = currentUser.role === 'directeur';
-  const isManager  = currentUser.role === 'manager';
+  const isManager   = currentUser.role === 'manager';
+
   let nav = `
     <div class="nav-section">Vues</div>
-    <div class="nav-item active" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
+    <div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
     <div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>
     <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
-  if (isManager) {
+
+  if (isAdmin || isDirecteur || isManager) {
     nav += `<div class="nav-section">Administration</div>`;
-    if (isAdmin) nav += `<div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-user-cog"></i>Collaborateurs</div>`;
-    nav += `
-      <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
+    if (isAdmin) {
+      nav += `
+        <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
+        <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+        <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
+        <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
+        <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
+        <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
+    } else if (isManager) {
+      nav += `
+        <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+        <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
+    }
   }
- if (isAdmin || isDirecteur || isManager) {
-  nav += `<div class="nav-section">Vues</div>
-    <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>
-    <div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-grid-dots"></i>Matrice</div>
-    <div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>`;
-}
-if (isAdmin) {
-  nav += `
-    <div class="nav-section">Administration</div>
-    <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
-    <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-    <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
-    <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
-    <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
-    <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
-}
   document.getElementById('sidebar-nav').innerHTML = nav;
 }
 
@@ -666,7 +661,7 @@ function showView(v) {
     matrix:'Matrice globale', collabs:'Collaborateurs',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
     'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
-    'search-skills':'Recherche par compétence'
+    'search-skills':'Recherche par compétence',
     'admin-roles': 'Administration des rôles'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
@@ -678,15 +673,15 @@ function showView(v) {
   document.getElementById('btn-add').style.display    = v === 'import' ? 'none' : 'inline-flex';
   document.getElementById('btn-export').style.display = ['matrix','collabs','import'].includes(v) ? 'inline-flex' : 'none';
   document.getElementById('search-wrap').style.display = ['matrix','collabs'].includes(v) ? 'flex' : 'none';
-  if      (v === 'matrix')        renderMatrix();
-  else if (v === 'search-skills') renderSearchSkills();  
-  else if (v === 'collabs')       renderCollabs();
-  else if (v === 'admin-collabs') renderAdminCollabs();
-  else if (v === 'admin-teams')   renderAdminTeams();
-  else if (v === 'admin-postes')  renderAdminPostes();
-  else if (v === 'admin-skills') renderAdminSkills();
-  else if (v === 'import')        renderImport();
-  else if (v === 'admin-roles') renderAdminRoles();
+if      (v === 'matrix')        renderMatrix();
+else if (v === 'search-skills') renderSearchSkills();
+else if (v === 'collabs')       renderCollabs();
+else if (v === 'admin-collabs') renderAdminCollabs();
+else if (v === 'admin-teams')   renderAdminTeams();
+else if (v === 'admin-postes')  renderAdminPostes();
+else if (v === 'admin-skills')  renderAdminSkills();
+else if (v === 'admin-roles')   renderAdminRoles();
+else if (v === 'import')        renderImport();
 }
 
 function handleAddBtn() {
@@ -711,7 +706,7 @@ function renderMatrix() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
   const rareMap = getRareSkills();
   const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!q || s.name.toLowerCase().includes(q)));
-  let collabs = visibleCollabs();
+  let collabs = getVisibleCollabs();
   if (filterTeam) collabs = collabs.filter(c => c.teamIds && c.teamIds.includes(filterTeam));
   const grouped = {};
   skills.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
@@ -1142,9 +1137,13 @@ function renderAdminCollabs(filterPoste = '') {
     background:${isSelected ? '#EEEDFE' : '#fff'};
     color:${isSelected ? '#534AB7' : '#5F5E5A'}">${t.name}</span>`;
 }).join('');
-    const teamManagersIds = (c.teamIds||[]).flatMap(tid => {
+   const teamManagerIds = (c.teamIds||[]).flatMap(tid => {
   const t = db.equipes.find(e => String(e.id) === String(tid));
-  return t ? (t.ManagersIds||[]) : [];
+  return t ? (t.managerIds||[]) : [];
+});
+const mgrPool = teamManagerIds.length > 0
+  ? db.collaborateurs.filter(x => teamManagerIds.includes(String(x.Id)) && String(x.Id) !== String(c.Id))
+  : db.collaborateurs.filter(x => String(x.Id) !== String(c.Id));
 });
 const mgrPool = teamManagersIds.length > 0
   ? db.collaborateurs.filter(x => teamManagersIds.includes(String(x.Id)) && String(x.Id) !== String(c.Id))
@@ -1172,12 +1171,6 @@ const mgrSelect = `<select class="tsel" style="min-width:130px" onchange="quickU
   document.getElementById('content').innerHTML = h;
 }
 
-// Avertissement si fermeture pendant une sauvegarde
-window.addEventListener('beforeunload', e => {
-  if (pendingSaves > 0) {
-    e.preventDefault();
-    e.returnValue = '';
-  }
 });
 
 async function quickUpdateManager(collabId, managerId) {
@@ -1279,7 +1272,7 @@ function openTeamModal(id) {
       .slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')))
       .map(c => `
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 8px;border-radius:6px;hover:background:#f5f5f0">
-          <input type="checkbox" value="${c.Id}" ${(t.ManagersIds||[]).includes(String(c.Id)) ? 'checked' : ''}
+          <input type="checkbox" value="${c.Id}" ${(t.managersIds||[]).includes(String(c.Id)) ? 'checked' : ''}
             style="width:14px;height:14px;flex-shrink:0;cursor:pointer">
           <span>${c.prenom} ${c.Nom||''}</span>
         </label>`
