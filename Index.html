@@ -207,7 +207,8 @@ const CONFIG = {
     historique:     'Historique',
     equipes:        'Equipes',
     postes:         'Postes',
-    domaines: 'Domaines'
+    domaines: 'Domaines',
+    roles: 'Roles'
   }
 };
 // =====================================================================
@@ -426,7 +427,7 @@ let currentUser = null;
 let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '';
 let collabEdit = {}, editCtx = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[] };
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[] };
 let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
@@ -473,9 +474,18 @@ async function loadData() {
   spGet(CONFIG.lists.historique),
   spGet(CONFIG.lists.equipes),
   spGet(CONFIG.lists.postes),
-  spGet(CONFIG.lists.domaines)
+  spGet(CONFIG.lists.domaines),
+  spGet(CONFIG.lists.roles)
 ]);
 
+  // Juste après, stocker les rôles dans db
+db.roles = rolesRaw.map(r => ({
+  spId:   r.Id,
+  name:   r.Title || '',
+  emails: r.Emails ? r.Emails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean) : [],
+  droits: r.Droits ? JSON.parse(r.Droits) : {}
+}));
+  
 // Remplace le tableau POSTES statique si des données existent en base
 if (postesRaw.length) {
   POSTES.length = 0;
@@ -550,26 +560,47 @@ function getCollabHistory(collabId) {
 }
 
 function getUserRole(email) {
-  if (CONFIG.adminEmails.map(e => e.toLowerCase()).includes(email.toLowerCase())) return 'admin';
-  const c = db.collaborateurs.find(c => (c.Email || '').toLowerCase() === email.toLowerCase());
-  if (!c) return 'collaborateur';
-  const manages = db.collaborateurs.some(x => String(x.ManagerID) === String(c.Id));
-  return manages ? 'manager' : 'collaborateur';
+  if (!email) return 'collaborateur';
+  const e = email.toLowerCase();
+
+  // Rôles depuis SharePoint (priorité au rôle le plus élevé)
+  const ordre = ['admin', 'directeur', 'manager', 'collaborateur'];
+  const rolesUser = db.roles
+    .filter(r => r.emails.includes(e))
+    .map(r => r.name.toLowerCase());
+
+  for (const r of ordre) {
+    if (rolesUser.includes(r)) return r;
+  }
+
+  // Fallback : vérifier si manager d'une équipe
+  const collab = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === e);
+  if (collab) {
+    const isManager = db.equipes.some(t => (t.managerIds||[]).includes(String(collab.Id)));
+    if (isManager) return 'manager';
+  }
+
+  return 'collaborateur';
 }
 
-function visibleCollabs() {
-  if (!currentUser) return [];
-  if (currentUser.role === 'admin') return db.collaborateurs;
-  if (currentUser.role === 'manager') {
-    const me = db.collaborateurs.find(c => (c.Email || '').toLowerCase() === currentUser.email.toLowerCase());
-    const myTeams = me ? (me.teamIds || []) : [];
+  function getVisibleCollabs() {
+  const role  = currentUser.role;
+  const email = (currentUser.email||'').toLowerCase();
+  if (role === 'admin' || role === 'directeur') return db.collaborateurs;
+  if (role === 'manager') {
+    const me = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === email);
+    if (!me) return [];
+    // Équipes dont je suis manager
+    const myTeams = db.equipes.filter(t => (t.managerIds||[]).includes(String(me.Id)));
+    const myTeamIds = myTeams.map(t => String(t.id));
+    // Membres de ces équipes + moi-même
     return db.collaborateurs.filter(c =>
-      (c.Email || '').toLowerCase() === currentUser.email.toLowerCase() ||
-      c.teamIds.some(t => myTeams.includes(t)) ||
-      String(c.ManagerID) === String(me?.Id)
+      String(c.Id) === String(me.Id) ||
+      (c.teamIds||[]).some(tid => myTeamIds.includes(String(tid)))
     );
   }
-  return db.collaborateurs.filter(c => (c.Email || '').toLowerCase() === currentUser.email.toLowerCase());
+  // Collaborateur : uniquement sa propre fiche
+  return db.collaborateurs.filter(c => (c.Email||'').toLowerCase() === email);
 }
 
 function getRareSkills() {
@@ -593,8 +624,9 @@ function buildSidebar() {
     <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${currentUser.name}</span>
     <button class="btn btn-sm" onclick="logout()" title="Déconnexion"><i class="ti ti-logout"></i></button>`;
 
-  const isAdmin   = currentUser.role === 'admin';
-  const isManager = currentUser.role === 'manager' || isAdmin;
+  const isAdmin    = currentUser.role === 'admin';
+  const isDirecteur = currentUser.role === 'directeur';
+  const isManager  = currentUser.role === 'manager';
   let nav = `
     <div class="nav-section">Vues</div>
     <div class="nav-item active" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
@@ -607,10 +639,20 @@ function buildSidebar() {
       <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
       <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
   }
- if (isAdmin) {
+ if (isAdmin || isDirecteur || isManager) {
+  nav += `<div class="nav-section">Vues</div>
+    <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>
+    <div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-grid-dots"></i>Matrice</div>
+    <div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>`;
+}
+if (isAdmin) {
   nav += `
-    <div class="nav-section">Données</div>
+    <div class="nav-section">Administration</div>
+    <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
+    <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+    <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
     <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
+    <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
     <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
 }
   document.getElementById('sidebar-nav').innerHTML = nav;
@@ -625,6 +667,7 @@ function showView(v) {
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
     'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence'
+    'admin-roles': 'Administration des rôles'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
@@ -643,6 +686,7 @@ function showView(v) {
   else if (v === 'admin-postes')  renderAdminPostes();
   else if (v === 'admin-skills') renderAdminSkills();
   else if (v === 'import')        renderImport();
+  else if (v === 'admin-roles') renderAdminRoles();
 }
 
 function handleAddBtn() {
@@ -725,7 +769,7 @@ function renderMatrix() {
 // =====================================================================
 function renderCollabs() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
-  let list = visibleCollabs().filter(c => {
+  let list = getVisibleCollabs().filter(c => {
     const fn = ((c.prenom||'') + ' ' + (c.Nom||'')).toLowerCase();
     const p  = posteById(c.PosteId);
     return (!filterTeam || c.teamIds && c.teamIds.includes(filterTeam))
@@ -1900,6 +1944,78 @@ function showSkillDetail(skillId) {
   document.getElementById('m-body').innerHTML = body;
   document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
   document.getElementById('modal').style.display = 'flex';
+}
+
+function renderAdminRoles() {
+  const rolesDef = [
+    { name: 'admin',         label: 'Administrateur', icon: 'ti-shield-lock',  desc: 'Accès complet + paramètres' },
+    { name: 'directeur',     label: 'Directeur',      icon: 'ti-crown',        desc: 'Toutes les fiches en lecture' },
+    { name: 'manager',       label: 'Manager',        icon: 'ti-user-star',    desc: 'Fiches de son équipe + validation' },
+    { name: 'collaborateur', label: 'Collaborateur',  icon: 'ti-user',         desc: 'Sa propre fiche uniquement' }
+  ];
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Rôles utilisateurs</h3></div>`;
+  rolesDef.forEach(rd => {
+    const dbRole = db.roles.find(r => r.name === rd.name);
+    const emails = dbRole ? dbRole.emails.join(', ') : '';
+    h += `<div style="padding:16px;border-bottom:.5px solid #D3D1C7">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <i class="ti ${rd.icon}" style="font-size:18px;color:#534AB7"></i>
+        <div>
+          <div style="font-weight:600">${rd.label}</div>
+          <div style="font-size:12px;color:#5F5E5A">${rd.desc}</div>
+        </div>
+        <button class="btn btn-sm" style="margin-left:auto" onclick="openRoleModal('${rd.name}')">
+          <i class="ti ti-edit"></i> Gérer
+        </button>
+      </div>
+      <div style="font-size:12px;color:#5F5E5A">
+        ${emails ? `<b>Utilisateurs :</b> ${emails}` : '<i>Aucun utilisateur assigné</i>'}
+      </div>
+    </div>`;
+  });
+  h += `</div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+function openRoleModal(roleName) {
+  const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
+  const dbRole = db.roles.find(r => r.name === roleName);
+  const emails = dbRole ? dbRole.emails.join('\n') : '';
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-shield" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = labels[roleName];
+  document.getElementById('m-sub').textContent = 'Gérer les utilisateurs de ce rôle';
+  document.getElementById('m-body').innerHTML = `
+    <div class="field full">
+      <label>Adresses email (une par ligne)</label>
+      <textarea id="role-emails" style="width:100%;height:180px;font-size:13px;
+        border:.5px solid #D3D1C7;border-radius:8px;padding:10px;resize:vertical"
+        placeholder="prenom.nom@evea-conseil.com">${emails}</textarea>
+      <div style="font-size:11px;color:#aaa;margin-top:4px">
+        Les adresses doivent correspondre aux comptes Microsoft utilisés pour la connexion.
+      </div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveRole('${roleName}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveRole(roleName) {
+  const emails = document.getElementById('role-emails').value
+    .split('\n').map(e => e.trim().toLowerCase()).filter(Boolean).join(',');
+  showSave();
+  try {
+    const dbRole = db.roles.find(r => r.name === roleName);
+    if (dbRole) {
+      await spPatch(CONFIG.lists.roles, dbRole.spId, { Emails: emails });
+    } else {
+      await spPost(CONFIG.lists.roles, { Title: roleName, Emails: emails, Droits: '{}' });
+    }
+    await loadData();
+    closeModal();
+    renderAdminRoles();
+    hideSave('Rôle enregistré ✓');
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
   
 // =====================================================================
