@@ -214,6 +214,50 @@ const CONFIG = {
 // =====================================================================
 
 // =====================================================================
+// DROITS PAR PROFIL
+// =====================================================================
+const DROITS_DEFAUT = {
+  admin: {
+    fiche_propre_consultation: true, fiche_propre_modification: true,
+    equipe_consultation: true, equipe_validation: true, equipe_modification: true,
+    toutes_consultation: true, toutes_modification: true,
+    recherche: true, matrice_equipe: true, matrice_complete: true, administration: true
+  },
+  directeur: {
+    fiche_propre_consultation: true, fiche_propre_modification: true,
+    equipe_consultation: true, equipe_validation: false, equipe_modification: false,
+    toutes_consultation: true, toutes_modification: false,
+    recherche: true, matrice_equipe: true, matrice_complete: true, administration: false
+  },
+  manager: {
+    fiche_propre_consultation: true, fiche_propre_modification: true,
+    equipe_consultation: true, equipe_validation: true, equipe_modification: false,
+    toutes_consultation: false, toutes_modification: false,
+    recherche: true, matrice_equipe: true, matrice_complete: false, administration: false
+  },
+  collaborateur: {
+    fiche_propre_consultation: true, fiche_propre_modification: true,
+    equipe_consultation: false, equipe_validation: false, equipe_modification: false,
+    toutes_consultation: false, toutes_modification: false,
+    recherche: false, matrice_equipe: false, matrice_complete: false, administration: false
+  }
+};
+
+const DROITS_LABELS = {
+  fiche_propre_consultation: 'Sa propre fiche : consultation',
+  fiche_propre_modification: 'Sa propre fiche : modification',
+  equipe_consultation:       'Fiches équipe : consultation',
+  equipe_validation:         'Fiches équipe : validation compétences',
+  equipe_modification:       'Fiches équipe : modification',
+  toutes_consultation:       'Toutes les fiches : consultation',
+  toutes_modification:       'Toutes les fiches : modification',
+  recherche:                 'Recherche compétences',
+  matrice_equipe:            'Matrice globale : vue équipe',
+  matrice_complete:          'Matrice globale : vue complète',
+  administration:            'Administration : accès complet'
+};
+
+// =====================================================================
 // MSAL — authentification Microsoft
 // =====================================================================
 const msalInstance = new msal.PublicClientApplication({
@@ -563,6 +607,9 @@ function getUserRole(email) {
   if (!email) return 'collaborateur';
   const e = email.toLowerCase();
 
+  // Fallback prioritaire : CONFIG.adminEmails (garantit l'accès même si Roles vide)
+  if (CONFIG.adminEmails.map(a => a.toLowerCase()).includes(e)) return 'admin';
+
   // Rôles depuis SharePoint (priorité au rôle le plus élevé)
   const ordre = ['admin', 'directeur', 'manager', 'collaborateur'];
   const rolesUser = db.roles
@@ -583,24 +630,33 @@ function getUserRole(email) {
   return 'collaborateur';
 }
 
-  function getVisibleCollabs() {
-  const role  = currentUser.role;
+function hasDroit(droit) {
+  if (!currentUser) return false;
+  const role = db.roles.find(r => r.name === currentUser.role);
+  const droits = (role && role.droits && Object.keys(role.droits).length > 0)
+    ? role.droits
+    : (DROITS_DEFAUT[currentUser.role] || DROITS_DEFAUT.collaborateur);
+  return !!droits[droit];
+}
+
+function getVisibleCollabs() {
   const email = (currentUser.email||'').toLowerCase();
-  if (role === 'admin' || role === 'directeur') return db.collaborateurs;
-  if (role === 'manager') {
-    const me = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === email);
+  const me = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === email);
+
+  if (hasDroit('toutes_consultation')) return db.collaborateurs;
+
+  if (hasDroit('equipe_consultation')) {
     if (!me) return [];
-    // Équipes dont je suis manager
     const myTeams = db.equipes.filter(t => (t.managerIds||[]).includes(String(me.Id)));
     const myTeamIds = myTeams.map(t => String(t.id));
-    // Membres de ces équipes + moi-même
     return db.collaborateurs.filter(c =>
       String(c.Id) === String(me.Id) ||
       (c.teamIds||[]).some(tid => myTeamIds.includes(String(tid)))
     );
   }
-  // Collaborateur : uniquement sa propre fiche
-  return db.collaborateurs.filter(c => (c.Email||'').toLowerCase() === email);
+
+  // Fiche propre uniquement
+  return me ? [me] : [];
 }
 
 function getRareSkills() {
@@ -624,32 +680,32 @@ function buildSidebar() {
     <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${currentUser.name}</span>
     <button class="btn btn-sm" onclick="logout()" title="Déconnexion"><i class="ti ti-logout"></i></button>`;
 
-  const isAdmin     = currentUser.role === 'admin';
-  const isDirecteur = currentUser.role === 'directeur';
-  const isManager   = currentUser.role === 'manager';
+  let nav = `<div class="nav-section">Vues</div>`;
 
-  let nav = `
-    <div class="nav-section">Vues</div>
-    <div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>
-    <div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>
-    <div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
-
-  if (isAdmin || isDirecteur || isManager) {
-    nav += `<div class="nav-section">Administration</div>`;
-    if (isAdmin) {
-      nav += `
-        <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
-        <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-        <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
-        <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
-        <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
-        <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
-    } else if (isManager) {
-      nav += `
-        <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-        <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
-    }
+  if (hasDroit('matrice_complete') || hasDroit('matrice_equipe')) {
+    nav += `<div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>`;
   }
+  if (hasDroit('recherche')) {
+    nav += `<div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>`;
+  }
+  if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
+    nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
+  }
+
+  if (hasDroit('administration')) {
+    nav += `<div class="nav-section">Administration</div>
+      <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
+      <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
+      <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
+      <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
+      <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
+  } else if (hasDroit('equipe_consultation')) {
+    nav += `<div class="nav-section">Administration</div>
+      <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
+      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
+  }
+
   document.getElementById('sidebar-nav').innerHTML = nav;
 }
 
@@ -809,7 +865,13 @@ function renderCollabs() {
 // COLLAB MODAL
 // =====================================================================
 function openCollabModal(id, focusSkill) {
-  if (currentUser.role === 'collaborateur' && id && String(id) !== String(db.collaborateurs.find(c => (c.Email||'').toLowerCase() === currentUser.email.toLowerCase())?.Id)) return;
+  const meId = String(db.collaborateurs.find(c => (c.Email||'').toLowerCase() === (currentUser.email||'').toLowerCase())?.Id || '');
+  const isMine = id && String(id) === meId;
+  const isInMyScope = !isMine && getVisibleCollabs().some(c => String(c.Id) === String(id));
+
+  // Vérification des droits d'accès
+  if (id && !isMine && !hasDroit('equipe_consultation') && !hasDroit('toutes_consultation')) return;
+
   const c = id ? db.collaborateurs.find(x => String(x.Id) === String(id)) : null;
   collabEdit = c ? JSON.parse(JSON.stringify(c)) : { Id:null, prenom:'', Nom:'', Email:'', PosteId:'', teamIds:[], ManagerID:'' };
   collabEdit._comps    = id ? getCollabComps(id) : {};
@@ -822,10 +884,20 @@ function openCollabModal(id, focusSkill) {
   const p = posteById(collabEdit.PosteId);
   document.getElementById('m-sub').textContent = p ? p.name : '—';
   renderCollabBody(focusSkill);
+
+  // Droits d'édition selon le contexte
+  const canEdit = !id
+    ? hasDroit('administration')
+    : isMine
+      ? hasDroit('fiche_propre_modification')
+      : isInMyScope
+        ? hasDroit('equipe_modification')
+        : hasDroit('toutes_modification');
+
   document.getElementById('m-footer').innerHTML = `
-    ${id && currentUser.role === 'admin' ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
-    <button class="btn" onclick="closeModal()">Annuler</button>
-    <button class="btn btn-primary" onclick="saveCollab('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+    ${id && hasDroit('administration') ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    <button class="btn" onclick="closeModal()">Fermer</button>
+    ${canEdit ? `<button class="btn btn-primary" onclick="saveCollab('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>` : ''}`;
   document.getElementById('modal').style.display = 'flex';
   if (focusSkill) setTimeout(() => document.querySelector('[data-focus]')?.scrollIntoView({block:'center',behavior:'smooth'}), 80);
 }
@@ -850,7 +922,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra) {
       <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
     </div>
     <div class="cm-panel" id="cp-${sk.id}">
-      ${currentUser.role==='manager'||currentUser.role==='admin' ? `<div class="cm-block">
+      ${hasDroit('equipe_validation') || hasDroit('administration') ? `<div class="cm-block">
         <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
         ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div>
           <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…">${cm.manager}</textarea>`
@@ -1126,7 +1198,7 @@ function renderAdminCollabs(filterPoste = '') {
         ${posteOptions}
       </select>
     </div>
-  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th></th></tr></thead><tbody>`;
+  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th>Rôle</th><th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const p = posteById(c.PosteId);
     const teamSelects = db.equipes.map(t => {
@@ -1150,12 +1222,23 @@ function renderAdminCollabs(filterPoste = '') {
         `<option value="${x.Id}" ${String(c.ManagerID||c.ManagerId||'') === String(x.Id) ? 'selected' : ''}>${x.prenom} ${x.Nom||''}</option>`
       ).join('')}
     </select>`;
+    // Rôle actuel du collaborateur
+    const emailLow = (c.Email||'').toLowerCase();
+    const roleActuel = db.roles.find(r => r.emails.includes(emailLow));
+    const roleNom = roleActuel ? roleActuel.name : 'collaborateur';
+    const roleSelect = c.Email ? `<select class="tsel" onchange="quickUpdateRole('${c.Id}', '${c.Email}', this.value)">
+      <option value="collaborateur" ${roleNom==='collaborateur'?'selected':''}>Collaborateur</option>
+      <option value="manager"       ${roleNom==='manager'?'selected':''}>Manager</option>
+      <option value="directeur"     ${roleNom==='directeur'?'selected':''}>Directeur</option>
+      <option value="admin"         ${roleNom==='admin'?'selected':''}>Admin</option>
+    </select>` : '<span style="color:#aaa;font-size:11px">—</span>';
     h += `<tr>
       <td style="font-weight:500">${c.prenom||''} ${c.Nom||''}</td>
       <td style="font-size:12px;color:#5F5E5A">${c.Email||'—'}</td>
       <td>${p ? p.name : '—'}</td>
       <td>${teamSelects || '—'}</td>
       <td>${mgrSelect}</td>
+      <td>${roleSelect}</td>
       <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
         <button class="btn btn-sm" onclick="openCollabModal('${c.Id}')"><i class="ti ti-edit"></i></button>
         <button class="btn btn-sm btn-danger" onclick="deleteCollab('${c.Id}')"><i class="ti ti-trash"></i></button>
@@ -1175,6 +1258,36 @@ async function quickUpdateManager(collabId, managerId) {
   spPatch(CONFIG.lists.collaborateurs, collabId, { ManagerID: managerId })
     .catch(e => alert('Erreur enregistrement manager : ' + e.message))
     .finally(() => pendingSaves--);
+}
+
+async function quickUpdateRole(collabId, email, newRole) {
+  if (!email) return alert('Ce collaborateur n\'a pas d\'email renseigné.');
+  const emailLow = email.toLowerCase();
+  showSave('Mise à jour du rôle...');
+  try {
+    // Retirer l'email de tous les rôles existants
+    for (const role of db.roles) {
+      if (role.emails.includes(emailLow)) {
+        const newEmails = role.emails.filter(e => e !== emailLow).join(',');
+        await spPatch(CONFIG.lists.roles, role.spId, { Emails: newEmails });
+      }
+    }
+    // Ajouter au nouveau rôle (sauf collaborateur = rôle par défaut, pas besoin de l'enregistrer)
+    if (newRole !== 'collaborateur') {
+      const targetRole = db.roles.find(r => r.name === newRole);
+      if (targetRole) {
+        const newEmails = [...targetRole.emails.filter(e => e !== emailLow), emailLow].join(',');
+        await spPatch(CONFIG.lists.roles, targetRole.spId, { Emails: newEmails });
+      } else {
+        // Créer l'entrée de rôle si elle n'existe pas encore
+        const droits = JSON.stringify(DROITS_DEFAUT[newRole] || {});
+        await spPost(CONFIG.lists.roles, { Title: newRole, Emails: emailLow, Droits: droits });
+      }
+    }
+    await loadData();
+    hideSave('Rôle mis à jour ✓');
+    renderAdminCollabs();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
   async function toggleTeam(collabId, teamId, el) {
   const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
@@ -1939,21 +2052,30 @@ function renderAdminRoles() {
     { name: 'manager',       label: 'Manager',        icon: 'ti-user-star',    desc: 'Fiches de son équipe + validation' },
     { name: 'collaborateur', label: 'Collaborateur',  icon: 'ti-user',         desc: 'Sa propre fiche uniquement' }
   ];
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Rôles utilisateurs</h3></div>`;
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Rôles utilisateurs</h3>
+    <span style="font-size:12px;color:#5F5E5A">Cliquez sur Gérer pour modifier les droits ou ajouter des profils personnalisés</span>
+  </div>`;
   rolesDef.forEach(rd => {
     const dbRole = db.roles.find(r => r.name === rd.name);
     const emails = dbRole ? dbRole.emails.join(', ') : '';
+    const droits = (dbRole && dbRole.droits && Object.keys(dbRole.droits).length > 0)
+      ? dbRole.droits : (DROITS_DEFAUT[rd.name] || {});
+    const droitsActifs = Object.entries(DROITS_LABELS)
+      .filter(([k]) => droits[k])
+      .map(([,v]) => `<span style="background:#EEEDFE;color:#534AB7;border-radius:4px;padding:1px 6px;font-size:10px;margin:2px;display:inline-block">${v}</span>`)
+      .join('');
     h += `<div style="padding:16px;border-bottom:.5px solid #D3D1C7">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <i class="ti ${rd.icon}" style="font-size:18px;color:#534AB7"></i>
-        <div>
+        <div style="flex:1">
           <div style="font-weight:600">${rd.label}</div>
           <div style="font-size:12px;color:#5F5E5A">${rd.desc}</div>
         </div>
-        <button class="btn btn-sm" style="margin-left:auto" onclick="openRoleModal('${rd.name}')">
+        <button class="btn btn-sm" onclick="openRoleModal('${rd.name}')">
           <i class="ti ti-edit"></i> Gérer
         </button>
       </div>
+      <div style="margin-bottom:6px">${droitsActifs || '<span style="color:#aaa;font-size:11px">Aucun droit actif</span>'}</div>
       <div style="font-size:12px;color:#5F5E5A">
         ${emails ? `<b>Utilisateurs :</b> ${emails}` : '<i>Aucun utilisateur assigné</i>'}
       </div>
@@ -1967,18 +2089,28 @@ function openRoleModal(roleName) {
   const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
   const dbRole = db.roles.find(r => r.name === roleName);
   const emails = dbRole ? dbRole.emails.join('\n') : '';
+  const droits = (dbRole && dbRole.droits && Object.keys(dbRole.droits).length > 0)
+    ? dbRole.droits : (DROITS_DEFAUT[roleName] || {});
+
+  const droitsHtml = Object.entries(DROITS_LABELS).map(([key, label]) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="droit-${key}" ${droits[key] ? 'checked' : ''}
+        style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
+      <span>${label}</span>
+    </label>`).join('');
+
   document.getElementById('m-av').innerHTML = '<i class="ti ti-shield" style="font-size:20px"></i>';
-  document.getElementById('m-title').textContent = labels[roleName];
-  document.getElementById('m-sub').textContent = 'Gérer les utilisateurs de ce rôle';
+  document.getElementById('m-title').textContent = labels[roleName] || roleName;
+  document.getElementById('m-sub').textContent = 'Configurer les droits et les utilisateurs';
   document.getElementById('m-body').innerHTML = `
-    <div class="field full">
-      <label>Adresses email (une par ligne)</label>
-      <textarea id="role-emails" style="width:100%;height:180px;font-size:13px;
-        border:.5px solid #D3D1C7;border-radius:8px;padding:10px;resize:vertical"
-        placeholder="prenom.nom@evea-conseil.com">${emails}</textarea>
-      <div style="font-size:11px;color:#aaa;margin-top:4px">
-        Les adresses doivent correspondre aux comptes Microsoft utilisés pour la connexion.
-      </div>
+    <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Droits</div>
+    <div style="margin-bottom:18px">${droitsHtml}</div>
+    <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Utilisateurs (une adresse par ligne)</div>
+    <textarea id="role-emails" style="width:100%;height:120px;font-size:13px;
+      border:.5px solid #D3D1C7;border-radius:8px;padding:10px;resize:vertical"
+      placeholder="prenom.nom@evea-conseil.com">${emails}</textarea>
+    <div style="font-size:11px;color:#aaa;margin-top:4px">
+      Les adresses doivent correspondre aux comptes Microsoft utilisés pour la connexion.
     </div>`;
   document.getElementById('m-footer').innerHTML = `
     <button class="btn" onclick="closeModal()">Annuler</button>
@@ -1989,13 +2121,18 @@ function openRoleModal(roleName) {
 async function saveRole(roleName) {
   const emails = document.getElementById('role-emails').value
     .split('\n').map(e => e.trim().toLowerCase()).filter(Boolean).join(',');
+  const droits = {};
+  Object.keys(DROITS_LABELS).forEach(key => {
+    droits[key] = document.getElementById('droit-' + key)?.checked || false;
+  });
   showSave();
   try {
     const dbRole = db.roles.find(r => r.name === roleName);
+    const data = { Emails: emails, Droits: JSON.stringify(droits) };
     if (dbRole) {
-      await spPatch(CONFIG.lists.roles, dbRole.spId, { Emails: emails });
+      await spPatch(CONFIG.lists.roles, dbRole.spId, data);
     } else {
-      await spPost(CONFIG.lists.roles, { Title: roleName, Emails: emails, Droits: '{}' });
+      await spPost(CONFIG.lists.roles, { Title: roleName, ...data });
     }
     await loadData();
     closeModal();
