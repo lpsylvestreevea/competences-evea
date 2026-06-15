@@ -1466,8 +1466,17 @@ async function deleteTeam(id) {
 let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
 
 function renderAdminPostes() {
+  const hasStaticPostes = POSTES_STATE.some(p => isNaN(Number(p.id)));
   const btnLabel = currentUser.role === 'admin' ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>${btnLabel}</div>
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
+      ${btnLabel}
+    </div>
+  </div>
+  ${hasStaticPostes ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
+    <i class="ti ti-alert-triangle"></i> <b>Postes non persistés et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateurs seront mises à jour en conséquence).
+  </div>` : ''}
   <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateurs</th><th></th></tr></thead><tbody>`;
   POSTES_STATE.forEach(p => {
     const nt = Object.keys(p.targets||{}).length;
@@ -1604,11 +1613,14 @@ async function savePoste(id) {
   showSave();
   try {
     const data = { Title: name, Targets: JSON.stringify(targets) };
-    if (id) {
+    const isSpId = id && !isNaN(Number(id));
+    if (isSpId) {
       await spPatch(CONFIG.lists.postes, id, data);
     } else {
-      const res = await spPost(CONFIG.lists.postes, data);
-      id = String(res.Id);
+      // Poste statique non encore migré : on en crée une version SharePoint.
+      // Les collaborateurs référençant l'ancien identifiant statique devront être
+      // mis à jour via "Migrer vers SharePoint" pour les autres postes restants.
+      await spPost(CONFIG.lists.postes, data);
     }
     await loadData();
     closeModal();
@@ -1618,6 +1630,11 @@ async function savePoste(id) {
 }
 
 async function deletePoste(id) {
+  const isSpId = id && !isNaN(Number(id));
+  if (!isSpId) {
+    alert('Ce poste n\'est pas encore enregistré dans SharePoint. Utilisez d\'abord "Migrer vers SharePoint" dans cet onglet.');
+    return;
+  }
   if (!confirm('Supprimer ce poste ?')) return;
   showSave('Suppression...');
   try {
@@ -1626,6 +1643,117 @@ async function deletePoste(id) {
     hideSave('Supprimé ✓');
     renderAdminPostes();
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+// Table de correspondance ancien id (COMP_xxx, avant migration des compétences) -> nom,
+// utilisée pour recalculer les cibles des postes vers les nouveaux identifiants numériques.
+const OLD_SKILLS_REF = [
+  ['COMP_001', "Actualiser ses connaissances et s'adapter"],
+  ['COMP_002', 'Analyser des données environnementales'],
+  ['COMP_003', 'Analyser des données sociales'],
+  ['COMP_004', 'Analyser et gérer les risques'],
+  ['COMP_005', 'Analyser un cycle de vie'],
+  ['COMP_006', 'Animer une démarche commerciale'],
+  ['COMP_007', 'Collecter et exploiter les informations liées au projet'],
+  ['COMP_008', 'Communiquer efficacement'],
+  ['COMP_009', 'Concevoir et animer une démarche de communication environnementale'],
+  ['COMP_010', 'Conduire un cycle de vente'],
+  ['COMP_011', 'Coordonner une équipe'],
+  ['COMP_012', 'Créer et maintenir une relation client favorable'],
+  ['COMP_013', 'Définir et déployer une politique RSE'],
+  ['COMP_014', 'Développer la prospection commerciale'],
+  ['COMP_015', "Développer l'attractivité de son entreprise"],
+  ['COMP_016', 'Développer une vision globale des enjeux'],
+  ['COMP_017', 'Dimensionner les moyens humains et matériels pour un projet'],
+  ['COMP_018', 'Écoconcevoir une solution ou un équipement'],
+  ['COMP_019', 'Encadrer une équipe'],
+  ['COMP_020', "Evaluer l'empreinte carbone"],
+  ['COMP_021', 'Faciliter les projets et transformations'],
+  ['COMP_022', 'Gérer et fidéliser un portefeuille clients'],
+  ['COMP_023', 'Gérer la production de livrables'],
+  ['COMP_024', 'Gérer les logiciels métiers'],
+  ['COMP_025', 'Gérer un projet'],
+  ['COMP_026', 'Gérer une proposition commerciale'],
+  ['COMP_027', 'Influencer et convaincre'],
+  ['COMP_028', "Innover et animer un processus d'innovation"],
+  ['COMP_029', "Intégrer des méthodes d'optimisation de production"],
+  ['COMP_030', 'Intégrer des moyens technologiques et humains'],
+  ['COMP_031', 'Intégrer des outils IA/Data Science'],
+  ['COMP_032', "Maîtriser et appliquer les enjeux de l'affichage environnemental"],
+  ['COMP_033', 'Manager la connaissance'],
+  ['COMP_034', 'Mener et exploiter une analyse stratégique'],
+  ['COMP_035', "Mener un audit ou test de conformité"],
+  ['COMP_036', 'Mener un diagnostic environnemental'],
+  ['COMP_037', 'Mettre en place et exploiter une étude'],
+  ['COMP_038', 'Mettre en place et gérer un partenariat'],
+  ['COMP_039', 'Mettre en place et intégrer des ressources humaines'],
+  ['COMP_040', 'Modéliser des données'],
+  ['COMP_041', 'Négocier et gérer une relation contractuelle'],
+  ['COMP_042', "Participer et animer un travail d'équipe"],
+  ['COMP_043', "Piloter la performance d'une organisation"],
+  ['COMP_044', 'Positionner une offre ou une entité'],
+  ['COMP_045', 'Réaliser un chiffrage et un budget'],
+  ['COMP_046', 'Réaliser une prestation de life cycle costing (LCC)'],
+  ['COMP_047', 'Scénariser un impact environnemental'],
+  ['COMP_048', 'Se conformer aux normes et à la réglementation'],
+  ['COMP_049', "Utiliser l'anglais en contexte professionnel"],
+  ['COMP_050', 'Utiliser les outils bureautiques'],
+  ['COMP_051', 'Adapter la pédagogie aux publics'],
+  ['COMP_052', 'Animer une formation et évaluer les acquis des apprenants'],
+  ['COMP_053', 'Concevoir et préparer la formation'],
+  ['COMP_054', 'Évaluer les acquis']
+];
+
+// Migre les postes statiques (POST_xxx) vers SharePoint :
+// - recalcule les cibles de compétences vers les nouveaux identifiants numériques (via le nom)
+// - met à jour le PosteId des collaborateurs qui référencent les anciens identifiants statiques
+async function migratePostes() {
+  const staticPostes = POSTES.filter(p => isNaN(Number(p.id)));
+  if (!staticPostes.length) return alert('Tous les postes sont déjà dans SharePoint.');
+  if (!confirm(`Migrer ${staticPostes.length} poste(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
+
+  showSave('Migration des postes...');
+  try {
+    // 1. Correspondance ancien id de compétence (COMP_xxx) -> nouvel id numérique, via le nom
+    const nameToNewSkillId = {};
+    SKILLS.forEach(s => { nameToNewSkillId[s.name.trim()] = s.id; });
+    const skillIdMap = {};
+    OLD_SKILLS_REF.forEach(([oldId, name]) => {
+      const newId = nameToNewSkillId[name.trim()];
+      if (newId) skillIdMap[oldId] = newId;
+    });
+
+    // 2. Création des postes dans SharePoint avec cibles corrigées
+    const posteIdMap = {};
+    let i = 0;
+    for (const p of staticPostes) {
+      i++;
+      document.getElementById('save-msg').textContent = `Migration poste ${i}/${staticPostes.length}...`;
+      const newTargets = {};
+      Object.entries(p.targets || {}).forEach(([sid, lvl]) => {
+        newTargets[skillIdMap[sid] || sid] = lvl;
+      });
+      const res = await spPost(CONFIG.lists.postes, { Title: p.name, Targets: JSON.stringify(newTargets) });
+      posteIdMap[p.id] = String(res.Id);
+    }
+
+    // 3. Mise à jour du PosteId des collaborateurs concernés
+    const collabsToUpdate = db.collaborateurs.filter(c => posteIdMap[c.PosteId]);
+    for (let j = 0; j < collabsToUpdate.length; j++) {
+      document.getElementById('save-msg').textContent = `Mise à jour des collaborateurs (${j+1}/${collabsToUpdate.length})...`;
+      const c = collabsToUpdate[j];
+      await spPatch(CONFIG.lists.collaborateurs, c.Id, { PosteId: posteIdMap[c.PosteId] });
+    }
+
+    await loadData();
+    hideSave('Migration terminée ✓');
+    renderAdminPostes();
+    alert(`Migration réussie !\n${staticPostes.length} poste(s) migré(s) avec cibles corrigées.\n${collabsToUpdate.length} collaborateur(s) réassigné(s).`);
+  } catch(e) {
+    hideSave('Erreur migration !');
+    alert('Erreur pendant la migration : ' + e.message + '\n\nLa migration est partielle. Vérifiez la liste Postes dans SharePoint (doublons possibles) avant de relancer.');
+    console.error(e);
+  }
 }
 // =====================================================================
 // ADMIN SKILLS
