@@ -2076,7 +2076,7 @@ function exportExcel(teamId = '') {
     });
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, 'Matrice', ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'Matrice');
     const safeName = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g, '_');
     XLSX.writeFile(wb, `matrice_competences_evea_${safeName}.xlsx`);
   } catch(e) {
@@ -2233,7 +2233,7 @@ function exportCollabExcel() {
     const wb = XLSX.utils.book_new();
     let sheetName = `${c.prenom||''} ${c.Nom||''}`.trim() || 'Collaborateur';
     sheetName = sheetName.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Collaborateur';
-    XLSX.utils.book_append_sheet(wb, sheetName, ws);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
     const safeName = `${c.prenom||''}_${c.Nom||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g, '_');
     XLSX.writeFile(wb, `competences_${safeName}.xlsx`);
   } catch(e) {
