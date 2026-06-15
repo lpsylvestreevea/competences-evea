@@ -498,19 +498,33 @@ const skillById  = id => SKILLS.find(s => s.id === id);
 const skillByName = n  => SKILLS.find(s => s.name.toLowerCase().trim() === n.toLowerCase().trim());
 function domTag(d) { return `<span class="tag" style="background:${d.bg};color:${d.c}">${d.name}</span>`; }
 
-function skillTT(sk, dir = '') {
+// Retourne la description d'un niveau pour une compétence, en tenant compte
+// d'une éventuelle personnalisation par poste (poste.customLevels[skillId][lvl]).
+// À défaut, retourne la description générale de la compétence (sk.levels[lvl]).
+function getLevelDesc(sk, lvl, posteId = '') {
+  if (!sk || lvl == null || lvl === '') return '';
+  if (posteId) {
+    const poste = posteById(posteId);
+    if (poste && poste.customLevels && poste.customLevels[sk.id] && poste.customLevels[sk.id][lvl]) {
+      return poste.customLevels[sk.id][lvl];
+    }
+  }
+  return (sk.levels && sk.levels[lvl]) || '';
+}
+
+function skillTT(sk, dir = '', posteId = '') {
   const rows = [1,2,3,4].map(n =>
     `<div style="display:flex;gap:5px;align-items:flex-start;margin-bottom:2px">
       <span class="lb l${n}" style="width:14px;height:14px;font-size:9px;flex-shrink:0">${n}</span>
-      <span style="font-size:11px">${sk.levels && sk.levels[n] ? sk.levels[n] : '—'}</span>
+      <span style="font-size:11px">${getLevelDesc(sk, n, posteId) || '—'}</span>
     </div>`
   ).join('');
   return `<div class="tt${dir ? ' '+dir : ''}" style="min-width:220px"><div class="tt-title">${sk.name}</div>${rows}</div>`;
 }
-function levelTT(sk, lvl, dir = '') {
+function levelTT(sk, lvl, dir = '', posteId = '') {
   if (!sk || !lvl) return '';
-  const d = sk.levels && sk.levels[lvl] ? sk.levels[lvl] : '';
-  return `<div class="tt${dir ? ' '+dir : ''}" style="min-width:160px"><div class="tt-title">Niveau ${lvl}</div><span style="font-size:11px">${d}</span></div>`;
+  const d = getLevelDesc(sk, lvl, posteId);
+  return `<div class="tt${dir ? ' '+dir : ''}" style="min-width:160px"><div class="tt-title">Niveau ${lvl}</div><span style="font-size:11px">${d || '—'}</span></div>`;
 }
 
 // =====================================================================
@@ -545,7 +559,8 @@ if (postesRaw.length) {
     POSTES.push({
       id:      String(p.Id),
       name:    p.Title || '',
-      targets: p.Targets ? JSON.parse(p.Targets) : {}
+      targets: p.Targets ? JSON.parse(p.Targets) : {},
+      customLevels: p.NiveauxPersos ? (() => { try { return JSON.parse(p.NiveauxPersos); } catch { return {}; } })() : {}
     });
   });
   POSTES_STATE.length = 0;
@@ -824,7 +839,7 @@ function renderMatrix() {
         const poste  = posteById(c.PosteId);
         const target = poste && poste.targets[sk.id] !== undefined ? poste.targets[sk.id] : null;
         h += `<td><div class="cell" onclick="openCollabModal('${c.Id}','${sk.id}')">`;
-        if (lvl > 0)      h += `<span class="twrap"><span class="lb l${lvl}${target!=null&&lvl===target?' l-ring':''}">${lvl}</span>${levelTT(sk,lvl,'tup')}</span>`;
+        if (lvl > 0)      h += `<span class="twrap"><span class="lb l${lvl}${target!=null&&lvl===target?' l-ring':''}">${lvl}</span>${levelTT(sk,lvl,'tup',c.PosteId)}</span>`;
         else if (target!=null) h += `<span class="lb" style="border:1.5px dashed #ccc;color:#ccc;font-size:10px">—</span>`;
         else              h += `<span style="color:#e0ded8;font-size:18px">·</span>`;
         h += `</div></td>`;
@@ -934,11 +949,11 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra) {
       <span class="crow-name twrap">${sk.name}
         ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors poste)</span>' : ''}
         ${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}
-        ${skillTT(sk,'tup')}
+        ${skillTT(sk,'tup',c.PosteId)}
       </span>
       <div class="lp">
         <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"><i class="ti ti-x" style="font-size:11px"></i></button>
-        ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup')}</span></button>`).join('')}
+        ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup',c.PosteId)}</span></button>`).join('')}
       </div>
       <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
     </div>
@@ -1518,7 +1533,7 @@ function exportPostesReferentiel() {
           dom ? dom.name : '',
           sk ? sk.name : sid,
           lvl != null ? lvl : '',
-          (lvl != null && sk && sk.levels) ? (sk.levels[lvl] || '') : '',
+          (lvl != null && sk) ? getLevelDesc(sk, lvl, p.id) : '',
           p.id,
           sid
         ]);
@@ -1558,7 +1573,7 @@ function exportPostesReferentiel() {
         background:${dom.bg};color:${dom.c};border-radius:6px;margin-bottom:6px">${dom.name}</div>`;
       domTargets.forEach(([sid, lvl]) => {
   const sk   = SKILLS.find(s => s.id === sid);
-  const desc = (lvl != null && sk && sk.levels) ? (sk.levels[lvl] || '') : '';
+  const desc = (lvl != null && sk) ? getLevelDesc(sk, lvl, id) : '';
   body += `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
     padding:6px 8px;border-bottom:.5px solid #f0f0e8">
     <div style="flex:1">
@@ -1609,8 +1624,9 @@ function showPosteCollabs(id) {
 }
 
 function openPosteModal(id) {
-  const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {} };
+  const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {}, customLevels: {} };
   const targets = p.targets || {};
+  const customLevels = p.customLevels || {};
   document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? 'Modifier le poste' : 'Nouveau poste';
   document.getElementById('m-sub').textContent = '';
@@ -1618,6 +1634,13 @@ function openPosteModal(id) {
     const domSkills = SKILLS.filter(s => s.did === dom.id);
     const rows = domSkills.map(sk => {
       const cur = targets[sk.id] !== undefined ? targets[sk.id] : '';
+      const custom = customLevels[sk.id] || {};
+      const hasCustom = Object.keys(custom).length > 0;
+      const descPanel = [1,2,3,4].map(n => `
+        <div style="margin-bottom:6px">
+          <label style="font-size:10px;color:#5F5E5A;display:block;margin-bottom:2px;font-weight:600">Niveau ${n}</label>
+          <textarea class="cm-input" id="ld-${sk.id}-${n}" placeholder="${escapeHtml((sk.levels&&sk.levels[n])||'')}" style="min-height:40px">${escapeHtml(custom[n]||'')}</textarea>
+        </div>`).join('');
       return `<tr>
         <td style="font-size:12px;padding:5px 8px">${sk.name}</td>
         <td style="padding:5px 8px">
@@ -1626,14 +1649,28 @@ function openPosteModal(id) {
             ${[1,2,3,4].map(n => `<option value="${n}"${cur==n?' selected':''}>${n}</option>`).join('')}
           </select>
         </td>
+        <td style="padding:5px 8px;text-align:center">
+          <button type="button" class="btn btn-sm" style="padding:3px 7px${hasCustom?';border-color:#534AB7;background:#EEEDFE;color:#534AB7':''}" onclick="toggleLevelDesc('${sk.id}')" title="Personnaliser les descriptions de niveaux pour ce poste">
+            <i class="ti ti-notes"></i>${hasCustom?' Perso.':''}
+          </button>
+        </td>
+      </tr>
+      <tr id="ldrow-${sk.id}" style="display:none">
+        <td colspan="3" style="padding:10px 14px;background:#fafaf8;border-top:.5px dashed #D3D1C7">
+          <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
+            ${escapeHtml(sk.name)} — descriptions personnalisées pour ce poste
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-bottom:8px">Laissez un champ vide pour conserver la description générale (affichée en filigrane).</div>
+          ${descPanel}
+        </td>
       </tr>`;
     }).join('');
-    return `<tr><td colspan="2" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
+    return `<tr><td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
   }).join('');
   document.getElementById('m-body').innerHTML = `
     <div class="field" style="margin-bottom:14px"><label>Nom du poste</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
-    <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé)</div>
-    <div style="overflow:auto;max-height:400px;border:.5px solid #D3D1C7;border-radius:8px">
+    <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour ce poste.</div>
+    <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px">
       <table style="width:100%;border-collapse:collapse">${skillRows}</table>
     </div>`;
   document.getElementById('m-footer').innerHTML = `
@@ -1642,17 +1679,33 @@ function openPosteModal(id) {
   document.getElementById('modal').style.display = 'flex';
 }
 
+// Affiche/masque le panneau de personnalisation des descriptions de niveaux pour une compétence
+function toggleLevelDesc(sid) {
+  const row = document.getElementById('ldrow-' + sid);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
 async function savePoste(id) {
   const name = document.getElementById('p-name').value.trim();
   if (!name) return alert('Nom requis.');
   const targets = {};
+  const customLevels = {};
   SKILLS.forEach(sk => {
     const v = document.getElementById('pt-' + sk.id).value;
     if (v !== '') targets[sk.id] = parseInt(v);
+    const overrides = {};
+    [1,2,3,4].forEach(n => {
+      const el = document.getElementById(`ld-${sk.id}-${n}`);
+      if (el) {
+        const val = el.value.trim();
+        if (val) overrides[n] = val;
+      }
+    });
+    if (Object.keys(overrides).length) customLevels[sk.id] = overrides;
   });
   showSave();
   try {
-    const data = { Title: name, Targets: JSON.stringify(targets) };
+    const data = { Title: name, Targets: JSON.stringify(targets), NiveauxPersos: JSON.stringify(customLevels) };
     const isSpId = id && !isNaN(Number(id));
     if (isSpId) {
       await spPatch(CONFIG.lists.postes, id, data);
@@ -1773,7 +1826,7 @@ async function migratePostes() {
       Object.entries(p.targets || {}).forEach(([sid, lvl]) => {
         newTargets[skillIdMap[sid] || sid] = lvl;
       });
-      const res = await spPost(CONFIG.lists.postes, { Title: p.name, Targets: JSON.stringify(newTargets) });
+      const res = await spPost(CONFIG.lists.postes, { Title: p.name, Targets: JSON.stringify(newTargets), NiveauxPersos: JSON.stringify(p.customLevels || {}) });
       posteIdMap[p.id] = String(res.Id);
     }
 
@@ -2346,9 +2399,9 @@ function getCollabExportRows() {
         domaine: dom.name,
         competence: sk.name,
         niveau: lvl || '',
-        niveauLabel: lvl ? (sk.levels[lvl] || '') : '',
+        niveauLabel: lvl ? getLevelDesc(sk, lvl, c.PosteId) : '',
         cible: target != null ? target : '',
-        cibleLabel: target != null ? (sk.levels[target] || '') : '',
+        cibleLabel: target != null ? getLevelDesc(sk, target, c.PosteId) : '',
         commentaireManager: cm.manager || '',
         commentaireCollaborateur: cm.collaborateur || ''
       });
