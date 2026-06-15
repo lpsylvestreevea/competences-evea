@@ -1798,19 +1798,76 @@ async function migratePostes() {
 // =====================================================================
 // ADMIN SKILLS
 // =====================================================================
+
+// Table de correspondance des domaines statiques d'origine (avant toute migration),
+// utilisée pour reconstruire les domaines manquants dans SharePoint et corriger
+// le DomainId des compétences qui référencent encore ces anciens identifiants.
+const OLD_DOMAINS_REF = [
+  ['DOM_01','Soft-skill','#085041','#E1F5EE'],
+  ['DOM_02','Métier','#3C3489','#EEEDFE'],
+  ['DOM_03','Projet','#633806','#FAEEDA'],
+  ['DOM_04','Commercial','#4A1B0C','#FAECE7'],
+  ['DOM_05','Management','#042C53','#E6F1FB'],
+  ['DOM_06','Pilotage','#173404','#EAF3DE'],
+  ['DOM_07','Formation','#2C2C2A','#F1EFE8']
+];
+
+// Reconstruit dans SharePoint les domaines statiques manquants (DOM_01..DOM_07) et
+// réassigne les compétences (CompetencesRef) qui référencent encore ces anciens
+// identifiants vers les nouveaux identifiants numériques.
+async function migrateDomains() {
+  if (!confirm(`Reconstruire les domaines manquants dans SharePoint et réassigner les compétences concernées ?\n\nCette opération est rapide. Ne fermez pas la page pendant son exécution.`)) return;
+  showSave('Réparation des domaines...');
+  try {
+    const domainIdMap = {}; // DOM_0X -> nouvel id numérique SharePoint
+    for (const [oldId, name, c, bg] of OLD_DOMAINS_REF) {
+      const existing = DOMAINS.find(d => (d.name||'').trim().toLowerCase() === name.trim().toLowerCase());
+      if (existing) {
+        domainIdMap[oldId] = existing.id;
+      } else {
+        const res = await spPost(CONFIG.lists.domaines, { Title: name, Couleur: c, Fond: bg });
+        domainIdMap[oldId] = String(res.Id);
+      }
+    }
+
+    // Corrige le DomainId des compétences qui pointent encore vers un ancien identifiant
+    let fixed = 0;
+    for (const s of SKILLS) {
+      if (domainIdMap[s.did] && !isNaN(Number(s.id))) {
+        await spPatch(CONFIG.lists.competencesRef, s.id, { DomainId: domainIdMap[s.did] });
+        fixed++;
+      }
+    }
+
+    await loadData();
+    hideSave('Domaines réparés ✓');
+    renderAdminSkills();
+    alert(`Réparation terminée.\n${fixed} compétence(s) réassignée(s) à leur domaine.`);
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur pendant la réparation : ' + e.message + '\n\nVérifiez la liste Domaines dans SharePoint avant de relancer (doublons possibles).');
+    console.error(e);
+  }
+}
+
 function renderAdminSkills() {
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasStaticSkills = SKILLS.some(s => isNaN(Number(s.id)));
+  const hasOrphanSkills = SKILLS.some(s => !DOMAINS.some(d => d.id === s.did));
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Compétences (${SKILLS.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticSkills ? `<button class="btn" onclick="migrateSkills()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
+      ${hasOrphanSkills ? `<button class="btn" onclick="migrateDomains()" style="border-color:#A32D2D;color:#A32D2D"><i class="ti ti-tool"></i>Réparer les domaines</button>` : ''}
       <button class="btn" onclick="openDomainModal(null)"><i class="ti ti-folder-plus"></i>Nouveau domaine</button>
       <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
     </div>
   </div>
   ${hasStaticSkills ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>${SKILLS.filter(s=>isNaN(Number(s.id))).length} compétence(s) non persistées</b> — cliquez sur <b>Migrer vers SharePoint</b> pour les enregistrer définitivement.
+  </div>` : ''}
+  ${hasOrphanSkills ? `<div style="padding:10px 16px;background:#FCEBEB;font-size:12px;color:#A32D2D;border-bottom:.5px solid #D3D1C7">
+    <i class="ti ti-alert-triangle"></i> <b>${SKILLS.filter(s=>!DOMAINS.some(d=>d.id===s.did)).length} compétence(s) sans domaine valide</b> — les domaines ont été réinitialisés (ex : suite à la création d'un nouveau domaine alors que les domaines d'origine n'étaient pas encore enregistrés dans SharePoint). Cliquez sur <b>Réparer les domaines</b> pour reconstruire les domaines manquants et réassigner ces compétences.
   </div>` : ''}`;
   DOMAINS.forEach(dom => {
     const list = grouped[dom.id] || [];
