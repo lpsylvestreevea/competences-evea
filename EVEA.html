@@ -1471,6 +1471,7 @@ function renderAdminPostes() {
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
+      <button class="btn" onclick="exportPostesReferentiel()"><i class="ti ti-download"></i>Exporter référentiel</button>
       ${btnLabel}
     </div>
   </div>
@@ -1504,6 +1505,37 @@ function renderAdminPostes() {
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
 }
+
+function exportPostesReferentiel() {
+  try {
+    const rows = [];
+    POSTES_STATE.forEach(p => {
+      Object.entries(p.targets || {}).forEach(([sid, lvl]) => {
+        const sk  = SKILLS.find(s => s.id === sid);
+        const dom = sk ? DOMAINS.find(d => d.id === sk.did) : null;
+        rows.push([
+          p.name,
+          dom ? dom.name : '',
+          sk ? sk.name : sid,
+          lvl != null ? lvl : '',
+          (lvl != null && sk && sk.levels) ? (sk.levels[lvl] || '') : '',
+          p.id,
+          sid
+        ]);
+      });
+    });
+    if (!rows.length) { alert('Aucune compétence cible définie pour les postes.'); return; }
+    const headers = ['Poste','Domaine','Compétence','Niveau cible','Description niveau cible','ID Poste','ID Compétence'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{wch:24},{wch:16},{wch:42},{wch:12},{wch:55},{wch:10},{wch:10}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Référentiel postes');
+    XLSX.writeFile(wb, 'referentiel_postes_competences.xlsx');
+  } catch(e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+    console.error(e);
+  }
+}
   
   function showPosteSkills(id) {
   const p = POSTES_STATE.find(x => x.id === id);
@@ -1525,13 +1557,21 @@ function renderAdminPostes() {
       body += `<div style="padding:5px 8px;font-size:11px;font-weight:600;text-transform:uppercase;
         background:${dom.bg};color:${dom.c};border-radius:6px;margin-bottom:6px">${dom.name}</div>`;
       domTargets.forEach(([sid, lvl]) => {
-        const sk = SKILLS.find(s => s.id === sid);
-        body += `<div style="display:flex;align-items:center;justify-content:space-between;
-          padding:6px 8px;border-bottom:.5px solid #f0f0e8">
-          <span style="font-size:13px">${sk ? sk.name : sid}</span>
-          <span class="lb l${lvl}" style="width:20px;height:20px;font-size:11px">${lvl}</span>
-        </div>`;
-      });
+  const sk   = SKILLS.find(s => s.id === sid);
+  const desc = (lvl != null && sk && sk.levels) ? (sk.levels[lvl] || '') : '';
+  body += `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+    padding:6px 8px;border-bottom:.5px solid #f0f0e8">
+    <div style="flex:1">
+      <div style="font-size:13px">${sk ? sk.name : sid}</div>
+      ${desc
+        ? `<div style="font-size:11px;color:#5F5E5A;margin-top:2px">${desc}</div>`
+        : (lvl == null ? `<div style="font-size:11px;color:#aaa;margin-top:2px">Associée au poste, sans niveau cible précis</div>` : '')}
+    </div>
+    ${lvl != null
+      ? `<span class="lb l${lvl}" style="width:20px;height:20px;font-size:11px;flex-shrink:0">${lvl}</span>`
+      : `<span class="lb" style="width:20px;height:20px;font-size:10px;border:1.5px dashed #ccc;color:#ccc;flex-shrink:0">—</span>`}
+  </div>`;
+});
     });
   }
   document.getElementById('m-body').innerHTML = body;
