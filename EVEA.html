@@ -168,7 +168,7 @@ textarea.cm-input:focus{border-color:#534AB7}
     <div class="topbar">
       <div class="topbar-title" id="topbar-title">Matrice globale</div>
       <div class="search-box" id="search-wrap" style="display:none"><i class="ti ti-search"></i><input type="text" id="search-input" placeholder="Rechercher…" oninput="applyFilters()"></div>
-      <button class="btn" id="btn-export" onclick="exportExcel()" style="display:none"><i class="ti ti-download"></i>Exporter</button>
+      <button class="btn" id="btn-export" onclick="openExportModal()" style="display:none"><i class="ti ti-download"></i>Exporter</button>
       <button class="btn btn-primary" id="btn-add" onclick="handleAddBtn()" style="display:none"><i class="ti ti-plus"></i><span id="btn-add-label">Ajouter</span></button>
     </div>
     <div class="content" id="content"></div>
@@ -222,25 +222,29 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
-    recherche: true, matrice_equipe: true, matrice_complete: true, administration: true
+    recherche: true, matrice_equipe: true, matrice_complete: true, administration: true,
+    export_individuel: true, export_global: true
   },
   directeur: {
     fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
-    recherche: true, matrice_equipe: true, matrice_complete: true, administration: false
+    recherche: true, matrice_equipe: true, matrice_complete: true, administration: false,
+    export_individuel: true, export_global: true
   },
   manager: {
     fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: true, matrice_equipe: true, matrice_complete: false, administration: false
+    recherche: true, matrice_equipe: true, matrice_complete: false, administration: false,
+    export_individuel: true, export_global: false
   },
   collaborateur: {
     fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: false, matrice_equipe: false, matrice_complete: false, administration: false
+    recherche: false, matrice_equipe: false, matrice_complete: false, administration: false,
+    export_individuel: true, export_global: false
   }
 };
 
@@ -255,7 +259,9 @@ const DROITS_LABELS = {
   recherche:                 'Recherche compétences',
   matrice_equipe:            'Matrice globale : vue équipe',
   matrice_complete:          'Matrice globale : vue complète',
-  administration:            'Administration : accès complet'
+  administration:            'Administration : accès complet',
+  export_individuel:         'Export individuel (fiche collaborateur)',
+  export_global:             'Export global (matrice / équipe)'
 };
 
 // =====================================================================
@@ -742,7 +748,7 @@ function showView(v) {
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = v === 'import' ? 'none' : 'inline-flex';
-  document.getElementById('btn-export').style.display = ['matrix','collabs','import'].includes(v) ? 'inline-flex' : 'none';
+  document.getElementById('btn-export').style.display = (['matrix','collabs','import'].includes(v) && hasDroit('export_global')) ? 'inline-flex' : 'none';
   document.getElementById('search-wrap').style.display = ['matrix','collabs'].includes(v) ? 'flex' : 'none';
 if      (v === 'matrix')        renderMatrix();
 else if (v === 'search-skills') renderSearchSkills();
@@ -994,7 +1000,14 @@ function renderCollabBody(focusSkill) {
       </select>
     </div>
   </div>
-  <div style="font-size:12px;color:#5F5E5A;margin-bottom:10px">Niveaux de compétences — survolez pour voir la description.</div>`;
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="font-size:12px;color:#5F5E5A">Niveaux de compétences — survolez pour voir la description.</div>
+    ${c.Id && hasDroit('export_individuel') ? `
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm" onclick="copyCollabTable()"><i class="ti ti-clipboard"></i>Copier tableau (Word)</button>
+      <button class="btn btn-sm" onclick="exportCollabExcel()"><i class="ti ti-file-spreadsheet"></i>Excel individuel</button>
+    </div>` : ''}
+  </div>`;
 
 const showExtra = collabEdit._showExtra || false;
 
@@ -1906,9 +1919,21 @@ function renderImport() {
   </div>
   <input type="file" id="fi" style="display:none" accept=".xlsx,.xls" onchange="handleImport(event)">
   <div id="fb"></div>
+  ${hasDroit('export_global') ? `
   <h3 style="font-size:15px;font-weight:500;margin:26px 0 6px">Exporter la matrice</h3>
-  <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px">Format exporté : une colonne par compétence.</p>
-  <button class="btn btn-primary" onclick="exportExcel()"><i class="ti ti-download"></i>Télécharger (.xlsx)</button>
+  <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px">Format exporté : une colonne par compétence. Choisissez un périmètre puis téléchargez.</p>
+  <div class="field" style="max-width:320px;margin-bottom:12px">
+    <label>Périmètre</label>
+    <select id="export-team-filter">
+      <option value="">Toute l'entreprise (${db.collaborateurs.length})</option>
+      ${db.equipes.map(t => {
+        const n = db.collaborateurs.filter(c => (c.teamIds||[]).includes(String(t.id))).length;
+        return `<option value="${t.id}">${t.name} (${n})</option>`;
+      }).join('')}
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="exportExcel(document.getElementById('export-team-filter').value)"><i class="ti ti-download"></i>Télécharger (.xlsx)</button>
+  ` : ''}
   </div>`;
 }
 
@@ -2010,18 +2035,211 @@ async function handleImport(e) {
   reader.readAsArrayBuffer(file);
 }
 
-function exportExcel() {
-  const headers = ['Prénom','Nom','Email','Poste','Équipes', ...SKILLS.map(s => s.id)];
-  const rows = db.collaborateurs.map(c => {
-    const p     = posteById(c.PosteId);
-    const comps = getCollabComps(c.Id);
-    const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean).join(', ');
-    return [c.prenom||'', c.Nom||'', c.Email||'', p ? p.name : '', teams, ...SKILLS.map(s => comps[s.id] || '')];
+function openExportModal() {
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-download" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = 'Exporter la matrice';
+  document.getElementById('m-sub').textContent = 'Format Excel — une colonne par compétence';
+  document.getElementById('m-body').innerHTML = `
+    <div class="field full">
+      <label>Périmètre</label>
+      <select id="export-team-select">
+        <option value="">Toute l'entreprise (${db.collaborateurs.length} collaborateur(s))</option>
+        ${db.equipes.map(t => {
+          const n = db.collaborateurs.filter(c => (c.teamIds||[]).includes(String(t.id))).length;
+          return `<option value="${t.id}">${t.name} (${n} collaborateur(s))</option>`;
+        }).join('')}
+      </select>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="exportExcel(document.getElementById('export-team-select').value); closeModal();"><i class="ti ti-download"></i>Télécharger</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function exportExcel(teamId = '') {
+  try {
+    let collabs = db.collaborateurs.slice();
+    let teamName = 'toute_entreprise';
+    if (teamId) {
+      collabs = collabs.filter(c => (c.teamIds||[]).includes(String(teamId)));
+      const t = teamById(teamId);
+      teamName = t ? t.name : 'equipe';
+    }
+    if (!collabs.length) { alert('Aucun collaborateur à exporter pour ce périmètre.'); return; }
+
+    const headers = ['Prénom','Nom','Email','Poste','Équipes', ...SKILLS.map(s => s.name)];
+    const rows = collabs.map(c => {
+      const p     = posteById(c.PosteId);
+      const comps = getCollabComps(c.Id);
+      const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean).join(', ');
+      return [c.prenom||'', c.Nom||'', c.Email||'', p ? p.name : '', teams, ...SKILLS.map(s => comps[s.id] || '')];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, 'Matrice', ws);
+    const safeName = teamName.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g, '_');
+    XLSX.writeFile(wb, `matrice_competences_evea_${safeName}.xlsx`);
+  } catch(e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+    console.error(e);
+  }
+}
+
+// =====================================================================
+// EXPORT INDIVIDUEL (fiche collaborateur)
+// =====================================================================
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function flashMessage(msg) {
+  const el = document.getElementById('save-indicator');
+  document.getElementById('save-msg').textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// Construit les lignes exportables pour le collaborateur en cours d'édition (collabEdit)
+function getCollabExportRows() {
+  const c     = collabEdit;
+  const poste = posteById(c.PosteId) || { targets:{} };
+  const grouped = {};
+  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+
+  const rows = [];
+  DOMAINS.forEach(dom => {
+    const list = grouped[dom.id] || [];
+    list.forEach(sk => {
+      const lvl    = c._comps[sk.id] || 0;
+      const target = poste.targets[sk.id];
+      const cm     = c._comments[sk.id] || {};
+      const hasCm  = cm.manager || cm.collaborateur;
+      // On exporte uniquement les compétences pertinentes : ciblées par le poste,
+      // renseignées (niveau > 0), ou commentées
+      if (target == null && lvl === 0 && !hasCm) return;
+      rows.push({
+        domaine: dom.name,
+        competence: sk.name,
+        niveau: lvl || '',
+        niveauLabel: lvl ? (sk.levels[lvl] || '') : '',
+        cible: target != null ? target : '',
+        cibleLabel: target != null ? (sk.levels[target] || '') : '',
+        commentaireManager: cm.manager || '',
+        commentaireCollaborateur: cm.collaborateur || ''
+      });
+    });
   });
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, 'Matrice', ws);
-  XLSX.writeFile(wb, 'matrice_competences_evea.xlsx');
+  return rows;
+}
+
+function buildHtmlTable(rows) {
+  let html = `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11pt">
+    <tr>
+      <th style="border:1px solid #999;padding:5px 8px;background:#534AB7;color:#fff;text-align:left">Domaine</th>
+      <th style="border:1px solid #999;padding:5px 8px;background:#534AB7;color:#fff;text-align:left">Compétence</th>
+      <th style="border:1px solid #999;padding:5px 8px;background:#534AB7;color:#fff;text-align:center">Niveau actuel</th>
+      <th style="border:1px solid #999;padding:5px 8px;background:#534AB7;color:#fff;text-align:center">Niveau cible</th>
+      <th style="border:1px solid #999;padding:5px 8px;background:#534AB7;color:#fff;text-align:left">Commentaires</th>
+    </tr>`;
+  rows.forEach(r => {
+    const commentaire = [
+      r.commentaireManager       ? `Manager : ${r.commentaireManager}` : '',
+      r.commentaireCollaborateur ? `Collaborateur : ${r.commentaireCollaborateur}` : ''
+    ].filter(Boolean).join(' — ');
+    html += `<tr>
+      <td style="border:1px solid #999;padding:5px 8px">${escapeHtml(r.domaine)}</td>
+      <td style="border:1px solid #999;padding:5px 8px">${escapeHtml(r.competence)}</td>
+      <td style="border:1px solid #999;padding:5px 8px;text-align:center">${r.niveau !== '' ? r.niveau : '—'}</td>
+      <td style="border:1px solid #999;padding:5px 8px;text-align:center">${r.cible !== '' ? r.cible : '—'}</td>
+      <td style="border:1px solid #999;padding:5px 8px">${escapeHtml(commentaire)}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  return html;
+}
+
+function buildPlainText(rows) {
+  const lines = [['Domaine','Compétence','Niveau actuel','Niveau cible','Commentaires'].join('\t')];
+  rows.forEach(r => {
+    const commentaire = [
+      r.commentaireManager       ? `Manager : ${r.commentaireManager}` : '',
+      r.commentaireCollaborateur ? `Collaborateur : ${r.commentaireCollaborateur}` : ''
+    ].filter(Boolean).join(' — ');
+    lines.push([r.domaine, r.competence, r.niveau!==''?r.niveau:'—', r.cible!==''?r.cible:'—', commentaire].join('\t'));
+  });
+  return lines.join('\n');
+}
+
+// Copie un tableau HTML dans le presse-papier (collable directement dans Word)
+function copyCollabTable() {
+  const rows = getCollabExportRows();
+  if (!rows.length) { alert('Aucune compétence à exporter pour ce collaborateur.'); return; }
+  const html = buildHtmlTable(rows);
+  const text = buildPlainText(rows);
+
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      const item = new ClipboardItem({
+        'text/html':  new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' })
+      });
+      navigator.clipboard.write([item]).then(
+        () => flashMessage('Tableau copié ✓ — collez-le dans Word (Ctrl+V)'),
+        () => fallbackCopy(html)
+      );
+      return;
+    } catch (e) {
+      fallbackCopy(html);
+      return;
+    }
+  }
+  fallbackCopy(html);
+}
+
+// Méthode de repli pour copier le tableau HTML (navigateurs sans Clipboard API moderne)
+function fallbackCopy(html) {
+  const div = document.createElement('div');
+  div.contentEditable = 'true';
+  div.style.position = 'fixed';
+  div.style.left = '-9999px';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  const range = document.createRange();
+  range.selectNodeContents(div);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  try {
+    document.execCommand('copy');
+    flashMessage('Tableau copié ✓ — collez-le dans Word (Ctrl+V)');
+  } catch (e) {
+    alert('La copie automatique a échoué. Sélectionnez manuellement le tableau et utilisez Ctrl+C.');
+  } finally {
+    sel.removeAllRanges();
+    document.body.removeChild(div);
+  }
+}
+
+// Export Excel des compétences d'un seul collaborateur
+function exportCollabExcel() {
+  const c = collabEdit;
+  const rows = getCollabExportRows();
+  if (!rows.length) { alert('Aucune compétence à exporter pour ce collaborateur.'); return; }
+  try {
+    const headers = ['Domaine','Compétence','Niveau actuel','Description niveau actuel','Niveau cible','Description niveau cible','Commentaire manager','Commentaire collaborateur'];
+    const data = rows.map(r => [r.domaine, r.competence, r.niveau, r.niveauLabel, r.cible, r.cibleLabel, r.commentaireManager, r.commentaireCollaborateur]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    ws['!cols'] = [{wch:16},{wch:42},{wch:12},{wch:42},{wch:10},{wch:42},{wch:32},{wch:32}];
+    const wb = XLSX.utils.book_new();
+    let sheetName = `${c.prenom||''} ${c.Nom||''}`.trim() || 'Collaborateur';
+    sheetName = sheetName.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Collaborateur';
+    XLSX.utils.book_append_sheet(wb, sheetName, ws);
+    const safeName = `${c.prenom||''}_${c.Nom||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g, '_');
+    XLSX.writeFile(wb, `competences_${safeName}.xlsx`);
+  } catch(e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+    console.error(e);
+  }
 }
 
 // =====================================================================
