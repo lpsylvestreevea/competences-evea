@@ -522,7 +522,7 @@ function missingTargetStyle(level) {
 }
 function levelLegendHtml(options = {}) {
   const rare = options.rare ? `<span class="legend-item" style="color:#7A3A28">■ compétence rare</span>` : '';
-  const target = options.target ? `<span class="legend-item"><span class="ldot l2 l-ring l-ring-2">2</span>Entourage coloré = niveau cible du poste</span>` : '';
+  const target = options.target ? `<span class="legend-item"><span class="ldot l2 l-ring l-ring-2">2</span>Entourage coloré = niveau cible du poste atteint ou dépassé</span>` : '';
   return `<div class="legend">
     <span class="legend-item"><span class="ldot l1">1</span>Débutant</span>
     <span class="legend-item"><span class="ldot l2">2</span>Inter.</span>
@@ -982,7 +982,7 @@ function renderMatrix() {
         const target = poste && poste.targets[sk.id] !== undefined ? poste.targets[sk.id] : null;
         h += `<td><div class="cell" onclick="openCollabModal('${c.Id}','${sk.id}')">`;
         if (lvl > 0) {
-          const ring = target != null && Number(lvl) === Number(target) ? targetRingClass(target) : '';
+          const ring = target != null && Number(lvl) >= Number(target) ? targetRingClass(target) : '';
           h += `<span class="twrap"><span class="lb l${lvl}${ring}">${lvl}</span>${levelTT(sk,lvl,'tup',c.PosteId)}</span>`;
         } else if (target != null) {
           h += `<span class="lb" style="${missingTargetStyle(target)}">—</span>`;
