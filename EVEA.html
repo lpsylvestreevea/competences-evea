@@ -674,14 +674,20 @@ function canAccessView(v) {
   if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe');
   if (v === 'search-skills') return hasDroit('recherche');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
-  if (v === 'admin-teams' || v === 'admin-postes') return hasDroit('administration') || hasDroit('equipe_consultation');
-  if (['admin-collabs','admin-skills','admin-roles','import'].includes(v)) return hasDroit('administration');
+  if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasDroit('administration');
   return false;
 }
 
 function getDefaultViewForCurrentUser() {
-  const order = ['matrix', 'search-skills', 'collabs', 'admin-teams', 'admin-postes'];
+  const order = ['matrix', 'search-skills', 'collabs'];
   return order.find(canAccessView) || 'collabs';
+}
+
+function ensureAdminAccess() {
+  if (hasDroit('administration')) return true;
+  alert('Accès réservé aux administrateurs.');
+  showView(getDefaultViewForCurrentUser());
+  return false;
 }
 
 function canUseAddButton(v) {
@@ -1050,10 +1056,6 @@ function buildSidebar() {
       <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
       <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
       <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
-  } else if (hasDroit('equipe_consultation')) {
-    nav += `<div class="nav-section">Administration</div>
-      <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>`;
   }
 
   document.getElementById('sidebar-nav').innerHTML = nav;
@@ -1092,6 +1094,10 @@ else if (v === 'import')        renderImport();
 }
 
 function handleAddBtn() {
+  if (currentView.startsWith('admin-') && !hasDroit('administration')) {
+    alert('Accès réservé aux administrateurs.');
+    return;
+  }
   const map = {
     matrix:         () => openCollabModal(null),
     collabs:        () => openCollabModal(null),
@@ -2042,6 +2048,7 @@ async function quickUpdateRole(collabId, email, newRole) {
 // ADMIN TEAMS
 // =====================================================================
 function renderAdminTeams() {
+  if (!ensureAdminAccess()) return;
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Équipes (${db.equipes.length})</h3>
     <button class="btn btn-primary" onclick="openTeamModal(null)"><i class="ti ti-plus"></i>Nouvelle équipe</button>
   </div>
@@ -2091,6 +2098,7 @@ function showTeamMembers(teamId) {
   document.getElementById('modal').style.display = 'flex';
 }
 function openTeamModal(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'', ManagersIds:[] };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? "Modifier l'équipe" : 'Nouvelle équipe';
@@ -2136,6 +2144,7 @@ function openTeamModal(id) {
   document.getElementById('modal').style.display = 'flex';
 }
 async function saveTeam(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('t-name').value.trim();
   if (!name) return alert('Nom requis.');
   const managersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
@@ -2148,6 +2157,7 @@ async function saveTeam(id) {
   renderAdminTeams();
 }
 async function deleteTeam(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   if (!confirm('Supprimer cette équipe ?')) return;
   showSave('Suppression...');
   await spDelete(CONFIG.lists.equipes, id);
@@ -2162,8 +2172,9 @@ async function deleteTeam(id) {
 let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
 
 function renderAdminPostes() {
+  if (!ensureAdminAccess()) return;
   const hasStaticPostes = POSTES_STATE.some(p => isNaN(Number(p.id)));
-  const btnLabel = currentUser.role === 'admin' ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
+  const btnLabel = hasDroit('administration') ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
@@ -2305,6 +2316,7 @@ function showPosteCollabs(id) {
 }
 
 function openPosteModal(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {}, customLevels: {} };
   const targets = p.targets || {};
   const customLevels = p.customLevels || {};
@@ -2367,6 +2379,7 @@ function toggleLevelDesc(sid) {
 }
 
 async function savePoste(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('p-name').value.trim();
   if (!name) return alert('Nom requis.');
   const targets = {};
@@ -2404,6 +2417,7 @@ async function savePoste(id) {
 }
 
 async function deletePoste(id) {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const isSpId = id && !isNaN(Number(id));
   if (!isSpId) {
     alert('Ce poste n\'est pas encore enregistré dans SharePoint. Utilisez d\'abord "Migrer vers SharePoint" dans cet onglet.');
@@ -2482,6 +2496,7 @@ const OLD_SKILLS_REF = [
 // - recalcule les cibles de compétences vers les nouveaux identifiants numériques (via le nom)
 // - met à jour le PosteId des collaborateurs qui référencent les anciens identifiants statiques
 async function migratePostes() {
+  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
   const staticPostes = POSTES.filter(p => isNaN(Number(p.id)));
   if (!staticPostes.length) return alert('Tous les postes sont déjà dans SharePoint.');
   if (!confirm(`Migrer ${staticPostes.length} poste(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
