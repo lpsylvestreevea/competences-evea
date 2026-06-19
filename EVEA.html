@@ -294,6 +294,24 @@ const DROITS_LABELS = {
   export_global:             'Export global (matrice / équipe)'
 };
 
+
+// Droits structurels réservés strictement au rôle administrateur.
+// Même si une valeur incohérente est enregistrée dans SharePoint pour un manager
+// ou un directeur, elle est neutralisée côté application.
+const ADMIN_ONLY_DROITS = ['administration', 'simulation_utilisateur', 'fiche_entete_modification'];
+
+function sanitizeDroitsForRole(roleName, droits) {
+  const r = (roleName || 'collaborateur').toLowerCase();
+  const out = { ...(droits || {}) };
+  if (r === 'admin') {
+    // Évite qu'un paramétrage SharePoint incomplet ne bloque le compte admin.
+    ADMIN_ONLY_DROITS.forEach(k => { out[k] = true; });
+  } else {
+    ADMIN_ONLY_DROITS.forEach(k => { out[k] = false; });
+  }
+  return out;
+}
+
 // =====================================================================
 // MSAL — authentification Microsoft
 // =====================================================================
@@ -674,7 +692,7 @@ function canAccessView(v) {
   if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe');
   if (v === 'search-skills') return hasDroit('recherche');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
-  if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasDroit('administration');
+  if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
 
@@ -684,14 +702,11 @@ function getDefaultViewForCurrentUser() {
 }
 
 function ensureAdminAccess() {
-  if (hasDroit('administration')) return true;
-  alert('Accès réservé aux administrateurs.');
-  showView(getDefaultViewForCurrentUser());
-  return false;
+  return ensureStrictAdminAccess();
 }
 
 function canUseAddButton(v) {
-  if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasDroit('administration');
+  if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
 
@@ -710,16 +725,16 @@ function isManagerOfCollab(collabId) {
   return db.equipes.some(t => (t.managerIds||[]).includes(String(me.Id)) && (c.teamIds||[]).includes(String(t.id)));
 }
 function canEditCollabHeader() {
-  return hasDroit('fiche_entete_modification');
+  return hasStrictAdminAccess() && hasDroit('fiche_entete_modification');
 }
 function canEditOfficialUpdate(collabId) {
   return isManagerOfCollab(collabId);
 }
 function canEditCompetencesForCollab(collabId) {
-  if (!collabId) return hasDroit('administration');
+  if (!collabId) return hasStrictAdminAccess();
   const me = getCurrentCollab();
   const isMine = me && String(me.Id) === String(collabId);
-  if (hasDroit('administration') || hasDroit('toutes_modification')) return true;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
   if (isMine) return false; // la fiche propre sert à proposer, pas à valider directement
   return hasDroit('equipe_modification') && getVisibleCollabs().some(c => String(c.Id) === String(collabId));
 }
@@ -730,11 +745,11 @@ function canSuggestCompetencesForCollab(collabId) {
 }
 function canValidateCompetencesForCollab(collabId) {
   if (!collabId) return false;
-  if (hasDroit('administration') || hasDroit('toutes_modification')) return true;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
   return hasDroit('equipe_validation') && isManagerOfCollab(collabId);
 }
 function canEditManagerCommentForCollab(collabId) {
-  if (hasDroit('administration') || hasDroit('toutes_modification')) return true;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
   return !!collabId && hasDroit('equipe_validation') && isManagerOfCollab(collabId);
 }
 function canEditCollaborateurCommentForCollab(collabId) {
@@ -743,7 +758,7 @@ function canEditCollaborateurCommentForCollab(collabId) {
   return canEditCompetencesForCollab(collabId) || (isMine && hasDroit('fiche_propre_modification'));
 }
 function canSaveCollab(collabId) {
-  return (!collabId && hasDroit('administration'))
+  return (!collabId && hasStrictAdminAccess())
     || canEditCompetencesForCollab(collabId)
     || canSuggestCompetencesForCollab(collabId)
     || canValidateCompetencesForCollab(collabId)
@@ -968,17 +983,29 @@ function getUserRole(email) {
 }
 
 function getDroitsForRole(roleName) {
-  const base = DROITS_DEFAUT[roleName] || DROITS_DEFAUT.collaborateur || {};
-  const role = db.roles.find(r => r.name === roleName);
-  if (role && role.droits && Object.keys(role.droits).length > 0) {
-    return { ...base, ...role.droits };
-  }
-  return { ...base };
+  const normalizedRole = (roleName || 'collaborateur').toLowerCase();
+  const base = DROITS_DEFAUT[normalizedRole] || DROITS_DEFAUT.collaborateur || {};
+  const role = db.roles.find(r => (r.name || '').toLowerCase() === normalizedRole);
+  const merged = (role && role.droits && Object.keys(role.droits).length > 0)
+    ? { ...base, ...role.droits }
+    : { ...base };
+  return sanitizeDroitsForRole(normalizedRole, merged);
 }
 
 function hasDroit(droit) {
   if (!currentUser) return false;
   return !!getDroitsForRole(currentUser.role)[droit];
+}
+
+function hasStrictAdminAccess() {
+  return !!currentUser && currentUser.role === 'admin' && !!getDroitsForRole('admin').administration;
+}
+
+function ensureStrictAdminAccess() {
+  if (hasStrictAdminAccess()) return true;
+  alert('Accès réservé aux administrateurs.');
+  showView(getDefaultViewForCurrentUser());
+  return false;
 }
 
 function getVisibleCollabs() {
@@ -1048,7 +1075,7 @@ function buildSidebar() {
     nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
   }
 
-  if (hasDroit('administration')) {
+  if (hasStrictAdminAccess()) {
     nav += `<div class="nav-section">Administration</div>
       <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
       <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
@@ -1094,7 +1121,7 @@ else if (v === 'import')        renderImport();
 }
 
 function handleAddBtn() {
-  if (currentView.startsWith('admin-') && !hasDroit('administration')) {
+  if (currentView.startsWith('admin-') && !hasStrictAdminAccess()) {
     alert('Accès réservé aux administrateurs.');
     return;
   }
@@ -1342,7 +1369,7 @@ function openCollabModal(id, focusSkill) {
   const canEdit = canSaveCollab(id || null);
 
   document.getElementById('m-footer').innerHTML = `
-    ${id && hasDroit('administration') ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    ${id && hasStrictAdminAccess() ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
     <button class="btn" onclick="closeModal()">Fermer</button>
     ${canEdit ? `<button class="btn btn-primary" onclick="saveCollab('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>` : ''}`;
   document.getElementById('modal').style.display = 'flex';
@@ -1409,7 +1436,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
     </div>
     ${pendingBox}
     <div class="cm-panel" id="cp-${sk.id}">
-      ${hasDroit('equipe_validation') || hasDroit('administration') ? `<div class="cm-block">
+      ${hasDroit('equipe_validation') || hasStrictAdminAccess() ? `<div class="cm-block">
         <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
         ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div>
           <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…"${canEditMgrComment ? '' : ' disabled'}>${escapeHtml(cm.manager)}</textarea>`
@@ -1805,6 +1832,7 @@ async function saveCommentValue(collabSpId, skillId, typeAuteur, value, existing
 }
 
 async function saveCollab(id) {
+  if (!canSaveCollab(id || null)) { alert('Action non autorisée.'); return; }
   const canHeader = canEditCollabHeader();
   showSave('Enregistrement...');
   try {
@@ -1894,6 +1922,7 @@ async function saveCollab(id) {
 }
 
 async function deleteCollab(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   if (!confirm('Supprimer ce collaborateur ?')) return;
   showSave('Suppression...');
   await spDelete(CONFIG.lists.collaborateurs, id);
@@ -1917,6 +1946,7 @@ async function deleteCollab(id) {
 // ADMIN COLLABS
 // =====================================================================
 function renderAdminCollabs(filterPoste = '') {
+  if (!ensureStrictAdminAccess()) return;
   let list = db.collaborateurs.slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')));
   if (filterPoste) list = list.filter(c => c.PosteId === filterPoste);
   const posteOptions = POSTES.map(p => `<option value="${p.id}" ${filterPoste===p.id?'selected':''}>${p.name}</option>`).join('');
@@ -1980,6 +2010,7 @@ function renderAdminCollabs(filterPoste = '') {
 }
 
 async function quickUpdateManager(collabId, managerId) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
   if (c) c.ManagerID = managerId;
   hideSave('Manager mis à jour ✓');
@@ -1991,6 +2022,7 @@ async function quickUpdateManager(collabId, managerId) {
 }
 
 async function quickUpdateRole(collabId, email, newRole) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   if (!email) return alert('Ce collaborateur n\'a pas d\'email renseigné.');
   const emailLow = email.toLowerCase();
   showSave('Mise à jour du rôle...');
@@ -2010,7 +2042,7 @@ async function quickUpdateRole(collabId, email, newRole) {
         await spPatch(CONFIG.lists.roles, targetRole.spId, { Emails: newEmails });
       } else {
         // Créer l'entrée de rôle si elle n'existe pas encore
-        const droits = JSON.stringify(DROITS_DEFAUT[newRole] || {});
+        const droits = JSON.stringify(sanitizeDroitsForRole(newRole, DROITS_DEFAUT[newRole] || {}));
         await spPost(CONFIG.lists.roles, { Title: newRole, Emails: emailLow, Droits: droits });
       }
     }
@@ -2020,6 +2052,7 @@ async function quickUpdateRole(collabId, email, newRole) {
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
   async function toggleTeam(collabId, teamId, el) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
   if (!c) return;
   const isSelected = c.teamIds.includes(String(teamId));
@@ -2048,7 +2081,7 @@ async function quickUpdateRole(collabId, email, newRole) {
 // ADMIN TEAMS
 // =====================================================================
 function renderAdminTeams() {
-  if (!ensureAdminAccess()) return;
+  if (!ensureStrictAdminAccess()) return;
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Équipes (${db.equipes.length})</h3>
     <button class="btn btn-primary" onclick="openTeamModal(null)"><i class="ti ti-plus"></i>Nouvelle équipe</button>
   </div>
@@ -2098,7 +2131,7 @@ function showTeamMembers(teamId) {
   document.getElementById('modal').style.display = 'flex';
 }
 function openTeamModal(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const t = db.equipes.find(x => String(x.id) === String(id)) || { id:null, name:'', ManagersIds:[] };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-layout-grid" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? "Modifier l'équipe" : 'Nouvelle équipe';
@@ -2144,7 +2177,7 @@ function openTeamModal(id) {
   document.getElementById('modal').style.display = 'flex';
 }
 async function saveTeam(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('t-name').value.trim();
   if (!name) return alert('Nom requis.');
   const managersIds = [...document.querySelectorAll('#t-mgr-list input:checked')].map(i => i.value).join(',');
@@ -2157,7 +2190,7 @@ async function saveTeam(id) {
   renderAdminTeams();
 }
 async function deleteTeam(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   if (!confirm('Supprimer cette équipe ?')) return;
   showSave('Suppression...');
   await spDelete(CONFIG.lists.equipes, id);
@@ -2172,9 +2205,9 @@ async function deleteTeam(id) {
 let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
 
 function renderAdminPostes() {
-  if (!ensureAdminAccess()) return;
+  if (!ensureStrictAdminAccess()) return;
   const hasStaticPostes = POSTES_STATE.some(p => isNaN(Number(p.id)));
-  const btnLabel = hasDroit('administration') ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
+  const btnLabel = hasStrictAdminAccess() ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
@@ -2214,6 +2247,7 @@ function renderAdminPostes() {
 }
 
 function exportPostesReferentiel() {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   try {
     const rows = [];
     POSTES_STATE.forEach(p => {
@@ -2316,7 +2350,7 @@ function showPosteCollabs(id) {
 }
 
 function openPosteModal(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {}, customLevels: {} };
   const targets = p.targets || {};
   const customLevels = p.customLevels || {};
@@ -2379,7 +2413,7 @@ function toggleLevelDesc(sid) {
 }
 
 async function savePoste(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('p-name').value.trim();
   if (!name) return alert('Nom requis.');
   const targets = {};
@@ -2417,7 +2451,7 @@ async function savePoste(id) {
 }
 
 async function deletePoste(id) {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const isSpId = id && !isNaN(Number(id));
   if (!isSpId) {
     alert('Ce poste n\'est pas encore enregistré dans SharePoint. Utilisez d\'abord "Migrer vers SharePoint" dans cet onglet.');
@@ -2496,7 +2530,7 @@ const OLD_SKILLS_REF = [
 // - recalcule les cibles de compétences vers les nouveaux identifiants numériques (via le nom)
 // - met à jour le PosteId des collaborateurs qui référencent les anciens identifiants statiques
 async function migratePostes() {
-  if (!hasDroit('administration')) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const staticPostes = POSTES.filter(p => isNaN(Number(p.id)));
   if (!staticPostes.length) return alert('Tous les postes sont déjà dans SharePoint.');
   if (!confirm(`Migrer ${staticPostes.length} poste(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
@@ -2565,6 +2599,7 @@ const OLD_DOMAINS_REF = [
 // réassigne les compétences (CompetencesRef) qui référencent encore ces anciens
 // identifiants vers les nouveaux identifiants numériques.
 async function migrateDomains() {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   if (!confirm(`Reconstruire les domaines manquants dans SharePoint et réassigner les compétences concernées ?\n\nCette opération est rapide. Ne fermez pas la page pendant son exécution.`)) return;
   showSave('Réparation des domaines...');
   try {
@@ -2600,6 +2635,7 @@ async function migrateDomains() {
 }
 
 function renderAdminSkills() {
+  if (!ensureStrictAdminAccess()) return;
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasStaticSkills = SKILLS.some(s => isNaN(Number(s.id)));
@@ -2648,6 +2684,7 @@ function renderAdminSkills() {
 }
   
   function openDomainModal(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const dom = id ? DOMAINS.find(d => d.id === id) : { id:null, name:'', c:'#333333', bg:'#F5F5F5' };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-folder" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? 'Modifier le domaine' : 'Nouveau domaine';
@@ -2687,6 +2724,7 @@ function renderAdminSkills() {
 }
 
 async function saveDomain(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('dom-name').value.trim();
   if (!name) return alert('Nom requis.');
   const c  = document.getElementById('dom-color').value;
@@ -2710,6 +2748,7 @@ async function saveDomain(id) {
 }
 
 async function deleteDomain(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const hasSkills = SKILLS.some(s => s.did === id);
   if (hasSkills) return alert('Ce domaine contient des compétences. Supprimez-les d\'abord.');
   if (!confirm('Supprimer ce domaine ?')) return;
@@ -2723,6 +2762,7 @@ async function deleteDomain(id) {
 }
 
 function openSkillModal(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const sortedDomains = getSortedDomains();
   const sk = id ? SKILLS.find(s => s.id === id) : { id:null, name:'', did: sortedDomains[0]?.id || '', levels:{1:'',2:'',3:'',4:''} };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-award" style="font-size:20px"></i>';
@@ -2748,6 +2788,7 @@ function openSkillModal(id) {
 }
 
 async function saveSkill(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const name = document.getElementById('sk-name').value.trim();
   if (!name) return alert('Nom requis.');
   const did = document.getElementById('sk-did').value;
@@ -2788,6 +2829,7 @@ async function saveSkill(id) {
 }
 
 async function deleteSkill(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   if (!confirm('Supprimer cette compétence ? Les niveaux et commentaires associés seront également supprimés.')) return;
   showSave('Suppression...');
   try {
@@ -2816,6 +2858,7 @@ async function deleteSkill(id) {
 // Migration complète des compétences statiques vers SharePoint
 // avec mise à jour des références dans Competences et Commentaires
 async function migrateSkills() {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const staticSkills = SKILLS.filter(s => isNaN(Number(s.id)));
   if (!staticSkills.length) return alert('Toutes les compétences sont déjà dans SharePoint.');
   if (!confirm(`Migrer ${staticSkills.length} compétence(s) statique(s) vers SharePoint ?\n\nCette opération va :\n1. Créer les compétences dans CompetencesRef\n2. Mettre à jour toutes les références dans Competences\n3. Mettre à jour toutes les références dans Commentaires\n\nCela peut prendre plusieurs minutes.`)) return;
@@ -2883,6 +2926,7 @@ async function migrateSkills() {
 // IMPORT / EXPORT
 // =====================================================================
 function renderImport() {
+  if (!ensureStrictAdminAccess()) return;
   document.getElementById('content').innerHTML = `<div style="max-width:580px">
   <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Importer des collaborateurs</h3>
   <p style="font-size:13px;color:#5F5E5A;margin-bottom:6px">Format attendu : une ligne par compétence, avec les colonnes :</p>
@@ -3365,6 +3409,7 @@ function showSkillDetail(skillId) {
 }
 
 function renderAdminRoles() {
+  if (!ensureStrictAdminAccess()) return;
   const rolesDef = [
     { name: 'admin',         label: 'Administrateur', icon: 'ti-shield-lock',  desc: 'Accès complet + paramètres' },
     { name: 'directeur',     label: 'Directeur',      icon: 'ti-crown',        desc: 'Toutes les fiches en lecture' },
@@ -3404,17 +3449,26 @@ function renderAdminRoles() {
 }
 
 function openRoleModal(roleName) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
   const dbRole = db.roles.find(r => r.name === roleName);
   const emails = dbRole ? dbRole.emails.join('\n') : '';
   const droits = getDroitsForRole(roleName);
 
-  const droitsHtml = Object.entries(DROITS_LABELS).map(([key, label]) => `
-    <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="droit-${key}" ${droits[key] ? 'checked' : ''}
-        style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
-      <span>${label}</span>
-    </label>`).join('');
+  const droitsHtml = Object.entries(DROITS_LABELS).map(([key, label]) => {
+    const adminOnly = ADMIN_ONLY_DROITS.includes(key);
+    const locked = adminOnly;
+    const checked = roleName === 'admin' && adminOnly ? true : !!droits[key];
+    const note = adminOnly
+      ? (roleName === 'admin' ? ' — réservé administrateur' : ' — indisponible pour ce rôle')
+      : '';
+    return `
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:13px;${locked?'color:#aaa;':''}">
+      <input type="checkbox" id="droit-${key}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}
+        style="width:15px;height:15px;cursor:${locked?'not-allowed':'pointer'};flex-shrink:0">
+      <span>${label}<span style="font-size:11px;color:#aaa">${note}</span></span>
+    </label>`;
+  }).join('');
 
   document.getElementById('m-av').innerHTML = '<i class="ti ti-shield" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = labels[roleName] || roleName;
@@ -3436,16 +3490,18 @@ function openRoleModal(roleName) {
 }
 
 async function saveRole(roleName) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const emails = document.getElementById('role-emails').value
     .split('\n').map(e => e.trim().toLowerCase()).filter(Boolean).join(',');
   const droits = {};
   Object.keys(DROITS_LABELS).forEach(key => {
     droits[key] = document.getElementById('droit-' + key)?.checked || false;
   });
+  const droitsSanitized = sanitizeDroitsForRole(roleName, droits);
   showSave();
   try {
     const dbRole = db.roles.find(r => r.name === roleName);
-    const data = { Emails: emails, Droits: JSON.stringify(droits) };
+    const data = { Emails: emails, Droits: JSON.stringify(droitsSanitized) };
     if (dbRole) {
       await spPatch(CONFIG.lists.roles, dbRole.spId, data);
     } else {
