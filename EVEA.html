@@ -64,15 +64,11 @@ table.mx tbody td{text-align:center;min-width:38px;height:34px}
 .l1{background:#E1F5EE;color:#085041}.l2{background:#EEEDFE;color:#3C3489}
 .l3{background:#FAEEDA;color:#633806}.l4{background:#FAECE7;color:#4A1B0C}
 .l-ring{outline:2px solid #534AB7;outline-offset:1px;border-radius:50%}
-.l-ring-1{outline-color:#085041}.l-ring-2{outline-color:#3C3489}.l-ring-3{outline-color:#633806}.l-ring-4{outline-color:#4A1B0C}
 .sk-rare{color:#7A3A28}
 .rare-pill{background:#F5E6E3;color:#7A3A28;border-radius:4px;font-size:9px;padding:1px 4px;margin-left:3px;font-weight:600}
 .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#5F5E5A;margin-bottom:10px;align-items:center}
 .legend-item{display:flex;align-items:center;gap:4px}
 .ldot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500}
-.level-count{margin:0 auto;width:24px;min-width:24px;height:24px;padding:0;display:flex}
-.lock-note{font-size:11px;color:#aaa;margin-top:4px;line-height:1.35}
-.projection-note{font-size:12px;color:#5F5E5A;background:#fafaf8;border:.5px solid #e8e7e0;border-radius:8px;padding:8px 10px;margin-bottom:10px}
 .collab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px}
 .collab-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:13px;cursor:pointer;transition:border-color .15s}
 .collab-card:hover{border-color:#534AB7}
@@ -113,13 +109,10 @@ table.adm tr:hover td{background:#fafaf8}
 .lp{display:flex;gap:3px}
 .lvl-btn{width:26px;height:26px;border-radius:50%;border:.5px solid #D3D1C7;background:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .lvl-btn:hover{border-color:#534AB7;color:#534AB7}
-.lvl-btn:disabled,.cm-input:disabled{opacity:.55;cursor:not-allowed;background:#f5f5f0}
-.lvl-btn.a1{background:#E1F5EE;border-color:#085041;color:#085041;font-weight:500}
-.lvl-btn.a2{background:#EEEDFE;border-color:#3C3489;color:#3C3489;font-weight:500}
-.lvl-btn.a3{background:#FAEEDA;border-color:#633806;color:#633806;font-weight:500}
-.lvl-btn.a4{background:#FAECE7;border-color:#4A1B0C;color:#4A1B0C;font-weight:500}
-.target-lvl{outline:2px solid #534AB7;outline-offset:1px}
-.target-lvl-1{outline-color:#085041}.target-lvl-2{outline-color:#3C3489}.target-lvl-3{outline-color:#633806}.target-lvl-4{outline-color:#4A1B0C}
+.lvl-btn.a1{background:#FFF3CD;border-color:#856404;color:#856404;font-weight:500}  /* jaune */
+.lvl-btn.a2{background:#FFF3CD;border-color:#856404;color:#856404;font-weight:500}  /* jaune */
+.lvl-btn.a3{background:#D1E7DD;border-color:#0A3622;color:#0A3622;font-weight:500}  /* vert */
+.lvl-btn.a4{background:#D1E7DD;border-color:#0A3622;color:#0A3622;font-weight:500}  /* vert */
 .tt-tag{font-size:10px;color:#5F5E5A;background:#f5f5f0;border-radius:4px;padding:1px 5px;flex-shrink:0}
 .cm-btn{width:26px;height:26px;border-radius:6px;border:.5px solid #D3D1C7;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888;font-size:13px;flex-shrink:0}
 .cm-btn:hover{border-color:#534AB7;color:#534AB7}
@@ -226,28 +219,28 @@ const CONFIG = {
 // =====================================================================
 const DROITS_DEFAUT = {
   admin: {
-    fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: true,
+    fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
     recherche: true, matrice_equipe: true, matrice_complete: true, administration: true,
     export_individuel: true, export_global: true
   },
   directeur: {
-    fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
+    fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
     recherche: true, matrice_equipe: true, matrice_complete: true, administration: false,
     export_individuel: true, export_global: true
   },
   manager: {
-    fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
+    fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: true, matrice_equipe: true, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   },
   collaborateur: {
-    fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
+    fiche_propre_consultation: true, fiche_propre_modification: true,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: false, matrice_equipe: false, matrice_complete: false, administration: false,
@@ -258,7 +251,6 @@ const DROITS_DEFAUT = {
 const DROITS_LABELS = {
   fiche_propre_consultation: 'Sa propre fiche : consultation',
   fiche_propre_modification: 'Sa propre fiche : modification',
-  fiche_entete_modification:  'Entête collaborateur : modification',
   equipe_consultation:       'Fiches équipe : consultation',
   equipe_validation:         'Fiches équipe : validation compétences',
   equipe_modification:       'Fiches équipe : modification',
@@ -485,7 +477,6 @@ const POSTES = [
 let currentUser = null;
 let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '';
-let collabSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
 let collabEdit = {}, editCtx = {};
 let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[] };
 let pendingSaves = 0; // ← ajouter ici
@@ -506,125 +497,6 @@ const teamById   = id => db.equipes.find(t => String(t.Id) === String(id));
 const skillById  = id => SKILLS.find(s => s.id === id);
 const skillByName = n  => SKILLS.find(s => s.name.toLowerCase().trim() === n.toLowerCase().trim());
 function domTag(d) { return `<span class="tag" style="background:${d.bg};color:${d.c}">${d.name}</span>`; }
-
-const META_LAST_UPDATE_SKILL_ID = '__DERNIERE_MAJ__';
-const LEVEL_RING_COLORS = { 1:'#085041', 2:'#3C3489', 3:'#633806', 4:'#4A1B0C' };
-
-function targetRingClass(level) {
-  return level != null ? ` l-ring l-ring-${level}` : '';
-}
-function targetOutlineClass(level) {
-  return level != null ? ` target-lvl target-lvl-${level}` : '';
-}
-function missingTargetStyle(level) {
-  const col = LEVEL_RING_COLORS[level] || '#ccc';
-  return `border:1.5px dashed ${col};color:${col};background:#fff;font-size:10px`;
-}
-function levelLegendHtml(options = {}) {
-  const rare = options.rare ? `<span class="legend-item" style="color:#7A3A28">■ compétence rare</span>` : '';
-  const target = options.target ? `<span class="legend-item"><span class="ldot l2 l-ring l-ring-2">2</span>Entourage coloré = niveau cible du poste atteint ou dépassé</span>` : '';
-  return `<div class="legend">
-    <span class="legend-item"><span class="ldot l1">1</span>Débutant</span>
-    <span class="legend-item"><span class="ldot l2">2</span>Inter.</span>
-    <span class="legend-item"><span class="ldot l3">3</span>Avancé</span>
-    <span class="legend-item"><span class="ldot l4">4</span>Expert</span>
-    ${target}${rare}
-  </div>`;
-}
-function nameCompareFr(a, b) {
-  return (a || '').localeCompare(b || '', 'fr', { sensitivity:'base' });
-}
-function getSortedDomains() {
-  return DOMAINS.slice().sort((a,b) => nameCompareFr(a.name || '', b.name || ''));
-}
-function collabAlphaKey(c) {
-  return `${c.Nom||''} ${c.prenom||''}`.trim().toLowerCase();
-}
-function collabTeamKey(c) {
-  const names = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean);
-  names.sort((a,b) => a.localeCompare(b, 'fr', { sensitivity:'base' }));
-  return names[0] || 'zzzzzz';
-}
-function getCollabMastery(c) {
-  const p = posteById(c.PosteId);
-  const targets = p ? Object.entries(p.targets || {}).filter(([,v]) => v != null) : [];
-  if (!targets.length) return null;
-  const comps = getCollabComps(c.Id);
-  const ok = targets.filter(([sid,lvl]) => (comps[sid]||0) >= lvl).length;
-  return Math.round(ok / targets.length * 100);
-}
-function sortCollabsForCards(collabs) {
-  const list = collabs.slice();
-  list.sort((a,b) => {
-    if (collabSort === 'team') {
-      const byTeam = collabTeamKey(a).localeCompare(collabTeamKey(b), 'fr', { sensitivity:'base' });
-      if (byTeam) return byTeam;
-    }
-    if (collabSort === 'mastery') {
-      const ma = getCollabMastery(a);
-      const mb = getCollabMastery(b);
-      const byMastery = (mb ?? -1) - (ma ?? -1);
-      if (byMastery) return byMastery;
-    }
-    return collabAlphaKey(a).localeCompare(collabAlphaKey(b), 'fr', { sensitivity:'base' });
-  });
-  return list;
-}
-function getCurrentCollab() {
-  const email = (currentUser?.email || '').toLowerCase();
-  return db.collaborateurs.find(c => (c.Email||'').toLowerCase() === email) || null;
-}
-function isManagerOfCollab(collabId) {
-  if (!collabId || !currentUser) return false;
-  const me = getCurrentCollab();
-  if (!me) return false;
-  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-  if (!c || String(c.Id) === String(me.Id)) return false;
-  if (String(c.ManagerID || c.ManagerId || '') === String(me.Id)) return true;
-  return db.equipes.some(t => (t.managerIds||[]).includes(String(me.Id)) && (c.teamIds||[]).includes(String(t.id)));
-}
-function canEditCollabHeader() {
-  return hasDroit('fiche_entete_modification');
-}
-function canEditOfficialUpdate(collabId) {
-  return isManagerOfCollab(collabId);
-}
-function canEditCompetencesForCollab(collabId) {
-  if (!collabId) return hasDroit('administration');
-  const me = getCurrentCollab();
-  const isMine = me && String(me.Id) === String(collabId);
-  if (isMine) return hasDroit('fiche_propre_modification');
-  if (hasDroit('toutes_modification')) return true;
-  return hasDroit('equipe_modification') && getVisibleCollabs().some(c => String(c.Id) === String(collabId));
-}
-function canEditManagerCommentForCollab(collabId) {
-  if (hasDroit('administration') || hasDroit('toutes_modification')) return true;
-  return !!collabId && hasDroit('equipe_validation') && isManagerOfCollab(collabId);
-}
-function canEditCollaborateurCommentForCollab(collabId) {
-  const me = getCurrentCollab();
-  const isMine = me && String(me.Id) === String(collabId);
-  return canEditCompetencesForCollab(collabId) || (isMine && hasDroit('fiche_propre_modification'));
-}
-function canSaveCollab(collabId) {
-  return (!collabId && hasDroit('administration'))
-    || canEditCompetencesForCollab(collabId)
-    || canEditManagerCommentForCollab(collabId)
-    || canEditOfficialUpdate(collabId);
-}
-function getSearchSkillCollabs() {
-  let collabs = getVisibleCollabs();
-  if (searchSkillTeam) collabs = collabs.filter(c => (c.teamIds||[]).includes(String(searchSkillTeam)));
-  return collabs;
-}
-function getSkillStats(skillId, collabs = getSearchSkillCollabs()) {
-  const stats = { 1:[], 2:[], 3:[], 4:[] };
-  collabs.forEach(c => {
-    const lvl = getCollabComps(c.Id)[skillId];
-    if (lvl && stats[lvl]) stats[lvl].push(c);
-  });
-  return stats;
-}
 
 // Retourne la description d'un niveau pour une compétence, en tenant compte
 // d'une éventuelle personnalisation par poste (poste.customLevels[skillId][lvl]).
@@ -675,7 +547,7 @@ async function loadData() {
   // Rôles
 db.roles = rolesRaw.map(r => ({
   spId:   r.Id,
-  name:   (r.Title || '').toLowerCase().trim(),
+  name:   r.Title || '',
   emails: r.Emails ? r.Emails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean) : [],
   droits: r.Droits ? JSON.parse(r.Droits) : {}
 }));
@@ -751,24 +623,13 @@ function getCollabComps(collabId) {
 
 function getCollabComments(collabId) {
   const r = {};
-  db.commentaires
-    .filter(c => String(c.Title) === String(collabId) && (c.SkillId || c.Title) !== META_LAST_UPDATE_SKILL_ID)
-    .sort((a,b) => new Date(a.DateSaisie||0) - new Date(b.DateSaisie||0))
-    .forEach(c => {
-      const sid = (c.SkillId || c.Title);
-      if (!r[sid]) r[sid] = {};
-      r[sid][c.TypeAuteur] = c.Contenu;
-      r[sid][c.TypeAuteur + 'Ts'] = new Date(c.DateSaisie).getTime();
-      r[sid][c.TypeAuteur + 'SpId'] = c.Id;
-    });
+  db.commentaires.filter(c => String(c.Title) === String(collabId)).forEach(c => {
+    if (!r[(c.SkillId || c.Title)]) r[(c.SkillId || c.Title)] = {};
+    r[(c.SkillId || c.Title)][c.TypeAuteur] = c.Contenu;
+    r[(c.SkillId || c.Title)][c.TypeAuteur + 'Ts'] = new Date(c.DateSaisie).getTime();
+    r[(c.SkillId || c.Title)][c.TypeAuteur + 'SpId'] = c.Id;
+  });
   return r;
-}
-
-function getCollabLastUpdate(collabId) {
-  const item = db.commentaires
-    .filter(c => String(c.Title) === String(collabId) && (c.SkillId || '') === META_LAST_UPDATE_SKILL_ID)
-    .sort((a,b) => new Date(b.DateSaisie||0) - new Date(a.DateSaisie||0))[0];
-  return item ? { text: item.Contenu || '', spId: item.Id, ts: new Date(item.DateSaisie||0).getTime() } : { text:'', spId:null, ts:0 };
 }
 
 function getCollabHistory(collabId) {
@@ -805,18 +666,13 @@ function getUserRole(email) {
   return 'collaborateur';
 }
 
-function getDroitsForRole(roleName) {
-  const base = DROITS_DEFAUT[roleName] || DROITS_DEFAUT.collaborateur || {};
-  const role = db.roles.find(r => r.name === roleName);
-  if (role && role.droits && Object.keys(role.droits).length > 0) {
-    return { ...base, ...role.droits };
-  }
-  return { ...base };
-}
-
 function hasDroit(droit) {
   if (!currentUser) return false;
-  return !!getDroitsForRole(currentUser.role)[droit];
+  const role = db.roles.find(r => r.name === currentUser.role);
+  const droits = (role && role.droits && Object.keys(role.droits).length > 0)
+    ? role.droits
+    : (DROITS_DEFAUT[currentUser.role] || DROITS_DEFAUT.collaborateur);
+  return !!droits[droit];
 }
 
 function getVisibleCollabs() {
@@ -947,7 +803,14 @@ function renderMatrix() {
   const grouped = {};
   skills.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
 
-  let h = `${levelLegendHtml({ target:true, rare:true })}
+  let h = `<div class="legend">
+    <span class="legend-item"><span class="ldot l1">1</span>Débutant</span>
+    <span class="legend-item"><span class="ldot l2">2</span>Inter.</span>
+    <span class="legend-item"><span class="ldot l3">3</span>Avancé</span>
+    <span class="legend-item"><span class="ldot l4">4</span>Expert</span>
+    <span style="font-size:11px;color:#7A3A28;margin-left:6px">■ compétence rare</span>
+    <span style="font-size:11px;color:#aaa;margin-left:6px">● encerclé = cible du poste</span>
+  </div>
   <div class="filters">
     <select onchange="filterTeam=this.value;applyFilters()">
       <option value="">Toutes les équipes</option>
@@ -955,20 +818,15 @@ function renderMatrix() {
     </select>
     <select onchange="filterDomain=this.value;applyFilters()">
       <option value="">Tous les domaines</option>
-      ${getSortedDomains().map(d => `<option value="${d.id}"${filterDomain===d.id?' selected':''}>${d.name}</option>`).join('')}
+      ${DOMAINS.map(d => `<option value="${d.id}"${filterDomain===d.id?' selected':''}>${d.name}</option>`).join('')}
     </select>
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
     <th>Compétence</th>
-    ${collabs.map(c => {
-      const mastery = getCollabMastery(c);
-      const p = posteById(c.PosteId);
-      const title = `${c.prenom||''} ${c.Nom||''}${p ? ' — '+p.name : ''}${mastery != null ? ' — '+mastery+'% objectifs' : ''}`;
-      return `<th title="${escapeHtml(title)}">${(c.prenom||'?')[0]}${(c.Nom||'?')[0]}<br><span style="font-size:10px;font-weight:400">${escapeHtml(c.prenom||'')}</span></th>`;
-    }).join('')}
+    ${collabs.map(c => `<th title="${c.prenom} ${c.Nom||''}">${(c.prenom||'?')[0]}${(c.Nom||'?')[0]}<br><span style="font-size:10px;font-weight:400">${c.prenom}</span></th>`).join('')}
   </tr></thead><tbody>`;
 
-  getSortedDomains().forEach(dom => {
+  DOMAINS.forEach(dom => {
     const list = grouped[dom.id];
     if (!list || !list.length) return;
     h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}">${dom.name}</td></tr>`;
@@ -981,14 +839,9 @@ function renderMatrix() {
         const poste  = posteById(c.PosteId);
         const target = poste && poste.targets[sk.id] !== undefined ? poste.targets[sk.id] : null;
         h += `<td><div class="cell" onclick="openCollabModal('${c.Id}','${sk.id}')">`;
-        if (lvl > 0) {
-          const ring = target != null && Number(lvl) >= Number(target) ? targetRingClass(target) : '';
-          h += `<span class="twrap"><span class="lb l${lvl}${ring}">${lvl}</span>${levelTT(sk,lvl,'tup',c.PosteId)}</span>`;
-        } else if (target != null) {
-          h += `<span class="lb" style="${missingTargetStyle(target)}">—</span>`;
-        } else {
-          h += `<span style="color:#e0ded8;font-size:18px">·</span>`;
-        }
+        if (lvl > 0)      h += `<span class="twrap"><span class="lb l${lvl}${target!=null&&lvl===target?' l-ring':''}">${lvl}</span>${levelTT(sk,lvl,'tup',c.PosteId)}</span>`;
+        else if (target!=null) h += `<span class="lb" style="border:1.5px dashed #ccc;color:#ccc;font-size:10px">—</span>`;
+        else              h += `<span style="color:#e0ded8;font-size:18px">·</span>`;
         h += `</div></td>`;
       });
       h += `</tr>`;
@@ -1010,7 +863,6 @@ function renderCollabs() {
         && (!filterPoste || c.PosteId === filterPoste)
         && (!q || fn.includes(q) || (p && p.name.toLowerCase().includes(q)));
   });
-  list = sortCollabsForCards(list);
   let h = `<div class="filters">
     <select onchange="filterTeam=this.value;applyFilters()">
       <option value="">Toutes les équipes</option>
@@ -1019,11 +871,6 @@ function renderCollabs() {
     <select onchange="filterPoste=this.value;applyFilters()">
       <option value="">Tous les postes</option>
       ${POSTES.map(p => `<option value="${p.id}"${filterPoste===p.id?' selected':''}>${p.name}</option>`).join('')}
-    </select>
-    <select onchange="collabSort=this.value;applyFilters()">
-      <option value="alpha"${collabSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
-      <option value="team"${collabSort==='team'?' selected':''}>Tri : équipe</option>
-      <option value="mastery"${collabSort==='mastery'?' selected':''}>Tri : maîtrise du poste</option>
     </select>
   </div><div class="collab-grid">`;
   list.forEach(c => {
@@ -1066,7 +913,6 @@ function openCollabModal(id, focusSkill) {
   collabEdit._comps    = id ? getCollabComps(id) : {};
   collabEdit._comments = id ? getCollabComments(id) : {};
   collabEdit._history  = id ? getCollabHistory(id) : [];
-  collabEdit._lastUpdate = id ? getCollabLastUpdate(id) : { text:'', spId:null, ts:0 };
   collabEdit._changes  = {};
 
   document.getElementById('m-av').textContent = (collabEdit.prenom||'?')[0] + (collabEdit.Nom||'?')[0];
@@ -1076,7 +922,13 @@ function openCollabModal(id, focusSkill) {
   renderCollabBody(focusSkill);
 
   // Droits d'édition selon le contexte
-  const canEdit = canSaveCollab(id || null);
+  const canEdit = !id
+    ? hasDroit('administration')
+    : isMine
+      ? hasDroit('fiche_propre_modification')
+      : isInMyScope
+        ? hasDroit('equipe_modification')
+        : hasDroit('toutes_modification');
 
   document.getElementById('m-footer').innerHTML = `
     ${id && hasDroit('administration') ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
@@ -1086,26 +938,22 @@ function openCollabModal(id, focusSkill) {
   if (focusSkill) setTimeout(() => document.querySelector('[data-focus]')?.scrollIntoView({block:'center',behavior:'smooth'}), 80);
 }
   
-function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
+function renderSkillRow(sk, c, poste, focusSkill, isExtra) {
   const lvl    = c._comps[sk.id] || 0;
   const target = poste.targets[sk.id];
   const isFocus = sk.id === focusSkill;
   const cm     = c._comments[sk.id] || {};
   const hasCm  = cm.manager || cm.collaborateur;
-  const posteIdForDesc = displayPosteId || c.PosteId;
-  const canEditLevels = canEditCompetencesForCollab(c.Id);
-  const canEditMgrComment = canEditManagerCommentForCollab(c.Id);
-  const canEditColComment = canEditCollaborateurCommentForCollab(c.Id);
   return `<div class="crow"${isFocus?' data-focus="1"':''} ${isExtra?'style="opacity:0.75;border-left:2px dashed #D3D1C7;padding-left:6px"':''}>
     <div class="crow-main"${isFocus?' style="background:#EEEDFE;border-radius:8px;margin:0 -6px;padding:6px"':''}>
-      <span class="crow-name twrap">${escapeHtml(sk.name)}
+      <span class="crow-name twrap">${sk.name}
         ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors poste)</span>' : ''}
         ${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}
-        ${skillTT(sk,'tup',posteIdForDesc)}
+        ${skillTT(sk,'tup',c.PosteId)}
       </span>
       <div class="lp">
-        <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"${canEditLevels ? '' : ' disabled'}><i class="ti ti-x" style="font-size:11px"></i></button>
-        ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}${target!=null&&Number(target)===n?targetOutlineClass(n):''}" onclick="setLvl('${sk.id}',${n})"${canEditLevels ? '' : ' disabled'}><span class="twrap">${n}${levelTT(sk,n,'tup',posteIdForDesc)}</span></button>`).join('')}
+        <button class="lvl-btn" onclick="setLvl('${sk.id}',0)"><i class="ti ti-x" style="font-size:11px"></i></button>
+        ${[1,2,3,4].map(n => `<button class="lvl-btn${lvl===n?' a'+n:''}"${target===n?' style="outline:2px solid #534AB7;outline-offset:1px"':''} onclick="setLvl('${sk.id}',${n})"><span class="twrap">${n}${levelTT(sk,n,'tup',c.PosteId)}</span></button>`).join('')}
       </div>
       <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
     </div>
@@ -1113,83 +961,60 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
       ${hasDroit('equipe_validation') || hasDroit('administration') ? `<div class="cm-block">
         <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
         ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div>
-          <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…"${canEditMgrComment ? '' : ' disabled'}>${escapeHtml(cm.manager)}</textarea>`
-          : `<textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"${canEditMgrComment ? '' : ' disabled'}></textarea>`}
+          <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…">${cm.manager}</textarea>`
+          : `<textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"></textarea>`}
       </div>` : ''}
       <div class="cm-block">
         <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur</div>
         ${cm.collaborateur ? `<div class="cm-meta">${fmtDate(cm.collaborateurTs||0)}</div>
-          <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Modifier le commentaire…"${canEditColComment ? '' : ' disabled'}>${escapeHtml(cm.collaborateur)}</textarea>`
-          : `<textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"${canEditColComment ? '' : ' disabled'}></textarea>`}
+          <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Modifier le commentaire…">${cm.collaborateur}</textarea>`
+          : `<textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"></textarea>`}
       </div>
     </div>
   </div>`;
 }
   
 function renderCollabBody(focusSkill) {
-  const c = collabEdit;
-  const projectionId = c._projectionPosteId || '';
-  const displayPosteId = projectionId || c.PosteId;
-  const poste = posteById(displayPosteId) || { targets:{} };
-  const currentPoste = posteById(c.PosteId);
-  const projectionPoste = projectionId ? posteById(projectionId) : null;
-  const isProjection = !!projectionId;
-  const canHeader = canEditCollabHeader();
-  const headerDisabled = canHeader ? '' : ' disabled';
-  const headerNote = canHeader ? '' : '<div class="lock-note"><i class="ti ti-lock"></i> Entête modifiable uniquement par un administrateur.</div>';
+  const c     = collabEdit;
+  const poste = posteById(c.PosteId) || { targets:{} };
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasTeams = (c.teamIds||[]).length > 0;
   const showAllTeams = collabEdit._showAllTeams || !hasTeams;
   const tchecks = db.equipes.map(t => {
-    const ck = (c.teamIds||[]).includes(String(t.id));
-    if (!showAllTeams && !ck) return '';
-    return `<div class="tcheck${ck?' checked':''}" ${canHeader ? `onclick="toggleTeamModal('${t.id}')"` : ''} style="cursor:${canHeader?'pointer':'default'};user-select:none">
-      <span style="display:inline-block;width:14px;height:14px;border:.5px solid #D3D1C7;border-radius:3px;background:${ck?'#534AB7':'#fff'};vertical-align:middle;margin-right:5px"></span>
-      ${escapeHtml(t.name)}
-    </div>`;
-  }).join('');
-  const showAllBtn = canHeader ? `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" 
-    onclick="collabEdit._showAllTeams=!collabEdit._showAllTeams;renderCollabBody()">
-    ${hasTeams ? '✎ modifier' : '+ ajouter une équipe'}
-  </span>` : '';
-  const canLastUpdate = canEditOfficialUpdate(c.Id);
-  const lastUpdate = c._lastUpdate || { text:'' };
+  const ck = (c.teamIds||[]).includes(String(t.id));
+  if (!showAllTeams && !ck) return '';
+  return `<div class="tcheck${ck?' checked':''}" onclick="toggleTeamModal('${t.id}')" style="cursor:pointer;user-select:none">
+    <span style="display:inline-block;width:14px;height:14px;border:.5px solid #D3D1C7;border-radius:3px;background:${ck?'#534AB7':'#fff'};vertical-align:middle;margin-right:5px"></span>
+    ${t.name}
+  </div>`;
+}).join('');
+  const showAllBtn = `<span style="font-size:11px;color:#534AB7;cursor:pointer;margin-left:4px" 
+  onclick="collabEdit._showAllTeams=!collabEdit._showAllTeams;renderCollabBody()">
+  ${hasTeams ? '✎ modifier' : '+ ajouter une équipe'}
+</span>`;
 
   let h = `<div class="fg">
-    <div class="field"><label>Prénom</label><input type="text" id="c-prenom" value="${escapeHtml(c.prenom||'')}" oninput="collabEdit.prenom=this.value"${headerDisabled}>${!canHeader?headerNote:''}</div>
-    <div class="field"><label>Nom</label><input type="text" id="c-nom" value="${escapeHtml(c.Nom||'')}" oninput="collabEdit.Nom=this.value"${headerDisabled}></div>
-    <div class="field"><label>Email</label><input type="text" id="c-email" value="${escapeHtml(c.Email||'')}" oninput="collabEdit.Email=this.value"${headerDisabled}></div>
+    <div class="field"><label>Prénom</label><input type="text" id="c-prenom" value="${c.prenom||''}" oninput="collabEdit.prenom=this.value"></div>
+    <div class="field"><label>Nom</label><input type="text" id="c-nom" value="${c.Nom||''}" oninput="collabEdit.Nom=this.value"></div>
+    <div class="field"><label>Email</label><input type="text" id="c-email" value="${c.Email||''}" oninput="collabEdit.Email=this.value"></div>
     <div class="field"><label>Poste</label>
-      <select id="c-poste" onchange="collabEdit.PosteId=this.value;renderCollabBody()"${headerDisabled}>
+      <select id="c-poste" onchange="collabEdit.PosteId=this.value;renderCollabBody()">
         <option value="">— Sélectionner —</option>
-        ${POSTES.map(p => `<option value="${p.id}"${c.PosteId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        ${POSTES.map(p => `<option value="${p.id}"${c.PosteId===p.id?' selected':''}>${p.name}</option>`).join('')}
       </select>
     </div>
     <div class="field full"><label>Équipes</label><div class="team-checks" id="team-checks-wrap">
-      ${tchecks}${showAllBtn}
-    </div></div>
+  ${tchecks}${showAllBtn}
+</div></div>
 
     <div class="field full"><label>Manager</label>
-      <select id="c-manager"${headerDisabled}>
+      <select id="c-manager">
         <option value="">— Aucun —</option>
-        ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x => `<option value="${x.Id}"${String(c.ManagerID)===String(x.Id)?' selected':''}>${escapeHtml((x.prenom||'') + ' ' + (x.Nom||''))}</option>`).join('')}
+        ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x => `<option value="${x.Id}"${String(c.ManagerID)===String(x.Id)?' selected':''}>${x.prenom} ${x.Nom||''}</option>`).join('')}
       </select>
-    </div>
-    <div class="field full"><label>Se projeter dans un poste</label>
-      <select id="c-projection-poste" onchange="collabEdit._projectionPosteId=this.value;collabEdit._showExtra=false;renderCollabBody()">
-        <option value="">— Poste actuel${currentPoste ? ' : ' + escapeHtml(currentPoste.name) : ''} —</option>
-        ${POSTES.map(p => `<option value="${p.id}"${projectionId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-      </select>
-      <div class="lock-note">Affiche uniquement les compétences du poste observé, en conservant les niveaux actuels du collaborateur.</div>
-    </div>
-    <div class="field full"><label>Dernière mise à jour officielle</label>
-      <input type="text" id="c-last-update" value="${escapeHtml(lastUpdate.text||'')}" placeholder="Ex : entretien du 18/06/2026"${canLastUpdate ? '' : ' disabled'}>
-      <div class="lock-note">${canLastUpdate ? 'Champ renseigné par le manager.' : 'Champ renseigné uniquement par le manager du collaborateur.'}</div>
     </div>
   </div>
-  ${isProjection ? `<div class="projection-note"><i class="ti ti-eye"></i> Projection vers <b>${escapeHtml(projectionPoste ? projectionPoste.name : '')}</b> : les niveaux affichés restent ceux de ${escapeHtml((c.prenom||'') + ' ' + (c.Nom||''))}.</div>` : ''}
-  ${levelLegendHtml({ target:true })}
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
     <div style="font-size:12px;color:#5F5E5A">Niveaux de compétences — survolez pour voir la description.</div>
     ${c.Id && hasDroit('export_individuel') ? `
@@ -1199,81 +1024,76 @@ function renderCollabBody(focusSkill) {
     </div>` : ''}
   </div>`;
 
-  const showExtra = !isProjection && (collabEdit._showExtra || false);
-  let renderedSkills = 0;
+const showExtra = collabEdit._showExtra || false;
 
-  getSortedDomains().forEach(dom => {
-    const list = grouped[dom.id] || [];
+DOMAINS.forEach(dom => {
+  const list = grouped[dom.id] || [];
 
-    const mainSkills = isProjection
-      ? list.filter(s => poste.targets[s.id] !== undefined)
-      : displayPosteId
-        ? list.filter(s => poste.targets[s.id] !== undefined || c._comps[s.id] ||
-            (c._comments[s.id] && (c._comments[s.id].manager || c._comments[s.id].collaborateur)))
-        : list;
+  // Compétences liées au poste (dans targets) ou déjà renseignées
+  const posteSkills = c.PosteId
+    ? list.filter(s => poste.targets[s.id] !== undefined || c._comps[s.id] ||
+        (c._comments[s.id] && (c._comments[s.id].manager || c._comments[s.id].collaborateur)))
+    : list;
 
-    const extraSkills = (!isProjection && displayPosteId)
-      ? list.filter(s => poste.targets[s.id] === undefined && !mainSkills.includes(s))
-      : [];
+  // Compétences hors poste (pas dans targets mais potentiellement renseignées)
+  const extraSkills = c.PosteId
+    ? list.filter(s => poste.targets[s.id] === undefined && !posteSkills.includes(s))
+    : [];
 
-    if (displayPosteId && !mainSkills.length && !extraSkills.length) return;
+  if (c.PosteId && !posteSkills.length && !extraSkills.length) return;
 
-    h += `<div class="csect"><div class="csect-lbl">${domTag(dom)}</div>`;
+  h += `<div class="csect"><div class="csect-lbl">${domTag(dom)}</div>`;
 
-    mainSkills.forEach(sk => {
-      renderedSkills++;
-      h += renderSkillRow(sk, c, poste, focusSkill, false, displayPosteId);
-    });
-
-    if (showExtra && extraSkills.length) {
-      h += `<div style="margin:8px 0 4px;font-size:11px;color:#aaa;border-top:.5px dashed #D3D1C7;padding-top:6px">
-        — Compétences hors poste —
-      </div>`;
-      extraSkills.forEach(sk => {
-        renderedSkills++;
-        h += renderSkillRow(sk, c, poste, focusSkill, true, displayPosteId);
-      });
-    }
-
-    h += `</div>`;
+  // Affichage des compétences du poste
+  (c.PosteId ? posteSkills : list).forEach(sk => {
+    h += renderSkillRow(sk, c, poste, focusSkill, false);
   });
 
-  if (!renderedSkills) {
-    h += `<div class="empty"><i class="ti ti-award"></i>Aucune compétence cible pour ce poste.</div>`;
+  // Affichage des compétences hors poste si activé
+  if (showExtra && extraSkills.length) {
+    h += `<div style="margin:8px 0 4px;font-size:11px;color:#aaa;border-top:.5px dashed #D3D1C7;padding-top:6px">
+      — Compétences hors poste —
+    </div>`;
+    extraSkills.forEach(sk => {
+      h += renderSkillRow(sk, c, poste, focusSkill, true);
+    });
   }
 
-  if (!isProjection && c.PosteId) {
-    h += `<div style="text-align:center;margin:10px 0">
-      <button class="btn btn-sm" onclick="collabEdit._showExtra=!collabEdit._showExtra;renderCollabBody()">
-        <i class="ti ti-${showExtra ? 'eye-off' : 'eye'}"></i>
-        ${showExtra ? 'Masquer les compétences hors poste' : 'Afficher les compétences hors poste'}
-      </button>
-    </div>`;
-  }
+  h += `</div>`;
+});
+
+// Bouton afficher/masquer les compétences hors poste
+if (c.PosteId) {
+  h += `<div style="text-align:center;margin:10px 0">
+    <button class="btn btn-sm" onclick="collabEdit._showExtra=!collabEdit._showExtra;renderCollabBody()">
+      <i class="ti ti-${showExtra ? 'eye-off' : 'eye'}"></i>
+      ${showExtra ? 'Masquer les compétences hors poste' : 'Afficher les compétences hors poste'}
+    </button>
+  </div>`;
+}
 
   const hist = collabEdit._history.slice(0, 20);
-  h += `<div style="margin-top:18px;border-top:.5px solid #e8e7e0;padding-top:14px">
-    <div style="font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-      <i class="ti ti-history" style="color:#534AB7"></i>Historique
-    </div>`;
-  if (!hist.length) h += `<div style="font-size:12px;color:#aaa">Aucune modification enregistrée.</div>`;
-  hist.forEach(h2 => {
-    h += `<div class="hist-item">
-      <div class="hist-dot"></div>
-      <div style="flex:1">
-        <div class="hist-date">${fmtDate(h2.ts)}</div>
-        <div>${escapeHtml(h2.desc)}</div>
-      </div>
-      ${currentUser.role === 'admin' ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px"
-        onclick="deleteHistItem(${h2.spId})"><i class="ti ti-trash"></i></button>` : ''}
-    </div>`;
-  });
-  h += `</div>`;
+h += `<div style="margin-top:18px;border-top:.5px solid #e8e7e0;padding-top:14px">
+  <div style="font-size:13px;font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+    <i class="ti ti-history" style="color:#534AB7"></i>Historique
+  </div>`;
+if (!hist.length) h += `<div style="font-size:12px;color:#aaa">Aucune modification enregistrée.</div>`;
+hist.forEach(h2 => {
+  h += `<div class="hist-item">
+    <div class="hist-dot"></div>
+    <div style="flex:1">
+      <div class="hist-date">${fmtDate(h2.ts)}</div>
+      <div>${h2.desc}</div>
+    </div>
+    ${currentUser.role === 'admin' ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px;font-size:11px"
+      onclick="deleteHistItem(${h2.spId})"><i class="ti ti-trash"></i></button>` : ''}
+  </div>`;
+});
+h += `</div>`;
   document.getElementById('m-body').innerHTML = h;
 }
 
 function toggleTeamModal(id) {
-  if (!canEditCollabHeader()) return;
   const sid = String(id);
   const idx = (collabEdit.teamIds||[]).indexOf(sid);
   if (idx > -1) { 
@@ -1287,73 +1107,58 @@ function toggleTeamModal(id) {
 function toggleCm(sid) { document.getElementById('cp-' + sid)?.classList.toggle('open'); }
 
 function setLvl(sid, lvl) {
-  if (!canEditCompetencesForCollab(collabEdit.Id)) return;
   const old = collabEdit._comps[sid] || 0;
   if (lvl === 0) delete collabEdit._comps[sid]; else collabEdit._comps[sid] = lvl;
   if (old !== lvl) {
+    const sk = skillById(sid);
     collabEdit._changes[sid] = { old, new: lvl };
   }
-  const displayPosteId = collabEdit._projectionPosteId || collabEdit.PosteId;
-  const poste  = posteById(displayPosteId) || { targets:{} };
+  const poste  = posteById(collabEdit.PosteId) || { targets:{} };
   const target = poste.targets[sid];
   document.querySelectorAll(`[onclick^="setLvl('${sid}'"]`).forEach((btn, i) => {
-    btn.className = 'lvl-btn';
-    btn.style.outline = '';
-    btn.style.background = '';
-    btn.style.color = '';
-    if (i === 0) return;
-    const n = i;
-    const lvlActuel = collabEdit._comps[sid] || 0;
-    if (lvlActuel === n) btn.classList.add(`a${n}`);
-    if (target != null && Number(target) === n) btn.classList.add('target-lvl', `target-lvl-${n}`);
-  });
-}
-
-async function saveCommentValue(collabSpId, skillId, typeAuteur, value, existingSpId) {
-  const clean = (value || '').trim();
-  const data = { Title: String(collabSpId), SkillId: skillId, TypeAuteur: typeAuteur, Contenu: clean, DateSaisie: new Date().toISOString() };
-  if (existingSpId) {
-    if (clean) await spPatch(CONFIG.lists.commentaires, existingSpId, data);
-    else await spDelete(CONFIG.lists.commentaires, existingSpId);
-  } else if (clean) {
-    await spPost(CONFIG.lists.commentaires, data);
+  btn.className = 'lvl-btn';
+  btn.style.outline = '';
+  btn.style.background = '';
+  btn.style.color = '';
+  if (i === 0) return;
+  const n = i;
+  const lvlActuel = collabEdit._comps[sid] || 0;
+  if (lvlActuel === n) {
+    if (target != null && lvlActuel >= target) {
+      btn.style.background = '#D1E7DD'; btn.style.color = '#0A3622'; // vert
+    } else if (target != null && lvlActuel < target) {
+      btn.style.background = '#FFF3CD'; btn.style.color = '#856404'; // jaune
+    } else {
+      btn.className = `lvl-btn a${n}`; // couleur par défaut si pas de cible
+    }
   }
+  if (target === n) btn.style.outline = '2px solid #534AB7';
+});
 }
 
 async function saveCollab(id) {
-  const canHeader = canEditCollabHeader();
+  const prenom = document.getElementById('c-prenom').value.trim();
+  const nom    = document.getElementById('c-nom').value.trim();
+  if (!prenom || !nom) { alert('Veuillez renseigner prénom et nom.'); return; }
   showSave('Enregistrement...');
   try {
+    const collabData = {
+      Title:     prenom,
+      Prenom:       nom,
+      Email:     document.getElementById('c-email').value.trim(),
+      PosteId:   document.getElementById('c-poste').value,
+      TeamIds:   (collabEdit.teamIds || []).join(','),
+      ManagerID: document.getElementById('c-manager').value || ''
+    };
     let collabSpId = id;
-    const collabData = {};
-
-    if (!id || canHeader) {
-      const prenom = document.getElementById('c-prenom').value.trim();
-      const nom    = document.getElementById('c-nom').value.trim();
-      if (!prenom || !nom) { alert('Veuillez renseigner prénom et nom.'); hideSave('Erreur !'); return; }
-      Object.assign(collabData, {
-        Title:     prenom,
-        Prenom:    nom,
-        Email:     document.getElementById('c-email').value.trim(),
-        PosteId:   document.getElementById('c-poste').value,
-        TeamIds:   (collabEdit.teamIds || []).join(','),
-        ManagerID: document.getElementById('c-manager').value || ''
-      });
-    }
-
     if (id) {
-      if (Object.keys(collabData).length) await spPatch(CONFIG.lists.collaborateurs, id, collabData);
+      await spPatch(CONFIG.lists.collaborateurs, id, collabData);
     } else {
       const res = await spPost(CONFIG.lists.collaborateurs, collabData);
       collabSpId = res.Id;
     }
 
-    const canCompetenceEdit = canEditCompetencesForCollab(collabSpId);
-    const canMgrComment = canEditManagerCommentForCollab(collabSpId);
-    const canColComment = canEditCollaborateurCommentForCollab(collabSpId);
-
     // Compétences
-    if (canCompetenceEdit) {
     for (const [sid, lvl] of Object.entries(collabEdit._comps)) {
       const existing = db.competences.find(c => String(c.CollabId) === String(collabSpId) && (c.SkillId || c.Title) === sid);
       if (existing) {
@@ -1366,25 +1171,20 @@ async function saveCollab(id) {
     for (const c of db.competences.filter(c => String(c.CollabId) === String(collabSpId) && !collabEdit._comps[(c.SkillId || c.Title)])) {
       await spDelete(CONFIG.lists.competences, c.Id);
     }
-    }
 
-    // Commentaires visibles dans la fiche
+    // Commentaires
     for (const sk of SKILLS) {
-      const cm = collabEdit._comments[sk.id] || {};
       const mgrEl = document.getElementById('cm-mgr-' + sk.id);
       const colEl = document.getElementById('cm-col-' + sk.id);
-      if (mgrEl && canMgrComment) await saveCommentValue(collabSpId, sk.id, 'manager', mgrEl.value, cm.managerSpId);
-      if (colEl && canColComment) await saveCommentValue(collabSpId, sk.id, 'collaborateur', colEl.value, cm.collaborateurSpId);
-    }
-
-    // Dernière mise à jour officielle : seul le manager du collaborateur peut l'éditer.
-    const lastUpdateEl = document.getElementById('c-last-update');
-    if (lastUpdateEl && canEditOfficialUpdate(collabSpId)) {
-      await saveCommentValue(collabSpId, META_LAST_UPDATE_SKILL_ID, 'manager', lastUpdateEl.value, collabEdit._lastUpdate?.spId);
+      if (mgrEl && mgrEl.value.trim()) {
+        await spPost(CONFIG.lists.commentaires, { Title: String(collabSpId), SkillId: sk.id, TypeAuteur: 'manager', Contenu: mgrEl.value.trim(), DateSaisie: new Date().toISOString() });
+      }
+      if (colEl && colEl.value.trim()) {
+        await spPost(CONFIG.lists.commentaires, { Title: String(collabSpId), SkillId: sk.id, TypeAuteur: 'collaborateur', Contenu: colEl.value.trim(), DateSaisie: new Date().toISOString() });
+      }
     }
 
     // Historique
-    if (canCompetenceEdit) {
     for (const [sid, ch] of Object.entries(collabEdit._changes)) {
       const sk = skillById(sid);
       await spPost(CONFIG.lists.historique, {
@@ -1394,14 +1194,12 @@ async function saveCollab(id) {
         DateAction:  new Date().toISOString()
       });
     }
-    }
 
     await loadData();
     hideSave('Enregistré ✓');
     closeModal();
     if (currentView === 'matrix') renderMatrix();
     else if (currentView === 'admin-collabs') renderAdminCollabs();
-    else if (currentView === 'search-skills') renderSearchSkills();
     else renderCollabs();
   } catch (e) {
     hideSave('Erreur !');
@@ -1765,7 +1563,7 @@ function exportPostesReferentiel() {
   if (!targets.length) {
     body = `<p style="color:#aaa;font-size:13px">Aucune compétence cible définie.</p>`;
   } else {
-    getSortedDomains().forEach(dom => {
+    DOMAINS.forEach(dom => {
       const domTargets = targets.filter(([sid]) => {
         const sk = SKILLS.find(s => s.id === sid);
         return sk && sk.did === dom.id;
@@ -1832,7 +1630,7 @@ function openPosteModal(id) {
   document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? 'Modifier le poste' : 'Nouveau poste';
   document.getElementById('m-sub').textContent = '';
-  let skillRows = getSortedDomains().map(dom => {
+  let skillRows = DOMAINS.map(dom => {
     const domSkills = SKILLS.filter(s => s.did === dom.id);
     const rows = domSkills.map(sk => {
       const cur = targets[sk.id] !== undefined ? targets[sk.id] : '';
@@ -2124,7 +1922,7 @@ function renderAdminSkills() {
   ${hasOrphanSkills ? `<div style="padding:10px 16px;background:#FCEBEB;font-size:12px;color:#A32D2D;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>${SKILLS.filter(s=>!DOMAINS.some(d=>d.id===s.did)).length} compétence(s) sans domaine valide</b> — les domaines ont été réinitialisés (ex : suite à la création d'un nouveau domaine alors que les domaines d'origine n'étaient pas encore enregistrés dans SharePoint). Cliquez sur <b>Réparer les domaines</b> pour reconstruire les domaines manquants et réassigner ces compétences.
   </div>` : ''}`;
-  getSortedDomains().forEach(dom => {
+  DOMAINS.forEach(dom => {
     const list = grouped[dom.id] || [];
     h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
       letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-top:.5px solid #D3D1C7;
@@ -2229,8 +2027,7 @@ async function deleteDomain(id) {
 }
 
 function openSkillModal(id) {
-  const sortedDomains = getSortedDomains();
-  const sk = id ? SKILLS.find(s => s.id === id) : { id:null, name:'', did: sortedDomains[0]?.id || '', levels:{1:'',2:'',3:'',4:''} };
+  const sk = id ? SKILLS.find(s => s.id === id) : { id:null, name:'', did: DOMAINS[0]?.id || '', levels:{1:'',2:'',3:'',4:''} };
   document.getElementById('m-av').innerHTML = '<i class="ti ti-award" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = id ? 'Modifier la compétence' : 'Nouvelle compétence';
   document.getElementById('m-sub').textContent = '';
@@ -2239,7 +2036,7 @@ function openSkillModal(id) {
       <div class="field full"><label>Nom de la compétence</label><input type="text" id="sk-name" value="${sk.name}" placeholder="Ex: Gérer un projet"></div>
       <div class="field full"><label>Domaine</label>
         <select id="sk-did">
-          ${sortedDomains.map(d => `<option value="${d.id}"${sk.did===d.id?' selected':''}>${d.name}</option>`).join('')}
+          ${DOMAINS.map(d => `<option value="${d.id}"${sk.did===d.id?' selected':''}>${d.name}</option>`).join('')}
         </select>
       </div>
       <div class="field full"><label>Niveau 1</label><input type="text" id="sk-l1" value="${sk.levels[1]||''}" placeholder="Description niveau 1"></div>
@@ -2588,7 +2385,7 @@ function getCollabExportRows() {
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
 
   const rows = [];
-  getSortedDomains().forEach(dom => {
+  DOMAINS.forEach(dom => {
     const list = grouped[dom.id] || [];
     list.forEach(sk => {
       const lvl    = c._comps[sk.id] || 0;
@@ -2735,26 +2532,30 @@ function closeModal()  { document.getElementById('modal').style.display = 'none'
 function renderSearchSkills() {
   const grouped = {};
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
-  const scopedCollabs = getSearchSkillCollabs();
+
+  // Calcul du nombre de personnes par compétence et par niveau
+  function getStats(skillId) {
+    const stats = { 1:[], 2:[], 3:[], 4:[] };
+    db.collaborateurs.forEach(c => {
+      const comps = getCollabComps(c.Id);
+      const lvl = comps[skillId];
+      if (lvl && stats[lvl]) stats[lvl].push(c);
+    });
+    return stats;
+  }
 
   let h = `
-    ${levelLegendHtml()}
-    <div class="filters">
+    <div style="margin-bottom:14px">
       <div class="search-box" style="width:100%;max-width:400px">
         <i class="ti ti-search" style="color:#aaa"></i>
         <input type="text" id="skill-search-input" placeholder="Rechercher une compétence…"
-          value="${escapeHtml(searchSkillQuery)}" oninput="filterSkillSearch(this.value)" style="width:100%">
+          oninput="filterSkillSearch(this.value)" style="width:100%">
       </div>
-      <select onchange="searchSkillTeam=this.value;renderSearchSkills()">
-        <option value="">Toutes les équipes accessibles</option>
-        ${db.equipes.map(t => `<option value="${t.id}"${searchSkillTeam===String(t.id)?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
-      </select>
-      <span class="stat-pill">${scopedCollabs.length} personne(s)</span>
     </div>
     <div id="skill-search-results"></div>
     <div id="skill-search-all">`;
 
-  getSortedDomains().forEach(dom => {
+  DOMAINS.forEach(dom => {
     const list = grouped[dom.id] || [];
     if (!list.length) return;
     h += `<div class="admin-card" style="margin-bottom:14px">
@@ -2765,14 +2566,14 @@ function renderSearchSkills() {
         <th style="text-align:center">Niveau 3</th><th style="text-align:center">Niveau 4</th><th style="text-align:center">Total</th></tr>
       </thead><tbody>`;
     list.forEach(sk => {
-      const stats = getSkillStats(sk.id, scopedCollabs);
+      const stats = getStats(sk.id);
       const total = Object.values(stats).flat().length;
       h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
-        <td style="font-weight:500">${escapeHtml(sk.name)}</td>
+        <td style="font-weight:500">${sk.name}</td>
         ${[1,2,3,4].map(n => `
           <td style="text-align:center">
             ${stats[n].length > 0
-              ? `<span class="lb l${n} level-count" style="cursor:pointer">${stats[n].length}</span>`
+              ? `<span class="stat-pill lb l${n}" style="cursor:pointer">${stats[n].length}</span>`
               : '<span style="color:#ccc">—</span>'}
           </td>`).join('')}
         <td style="text-align:center"><span class="stat-pill">${total}</span></td>
@@ -2783,41 +2584,42 @@ function renderSearchSkills() {
 
   h += `</div>`;
   document.getElementById('content').innerHTML = h;
-  if (searchSkillQuery.trim()) filterSkillSearch(searchSkillQuery);
 }
 
-function filterSkillSearch(query = searchSkillQuery) {
-  searchSkillQuery = query;
+function filterSkillSearch(query) {
   const resultsEl = document.getElementById('skill-search-results');
   const allEl = document.getElementById('skill-search-all');
-  if (!resultsEl || !allEl) return;
-  const clean = (query || '').trim();
-  if (!clean) {
+  if (!query.trim()) {
     resultsEl.innerHTML = '';
     allEl.style.display = '';
     return;
   }
   allEl.style.display = 'none';
-  const matches = SKILLS.filter(s => s.name.toLowerCase().includes(clean.toLowerCase()));
+  const matches = SKILLS.filter(s => s.name.toLowerCase().includes(query.toLowerCase()));
   if (!matches.length) {
     resultsEl.innerHTML = `<p style="color:#aaa;font-size:13px">Aucune compétence trouvée.</p>`;
     return;
   }
-  const scopedCollabs = getSearchSkillCollabs();
   let h = `<div class="admin-card">
     <table class="adm"><thead>
       <tr><th>Compétence</th><th style="text-align:center">Niveau 1</th><th style="text-align:center">Niveau 2</th>
       <th style="text-align:center">Niveau 3</th><th style="text-align:center">Niveau 4</th><th style="text-align:center">Total</th></tr>
     </thead><tbody>`;
   matches.forEach(sk => {
-    const stats = getSkillStats(sk.id, scopedCollabs);
+    const stats = {};
+    [1,2,3,4].forEach(n => { stats[n] = []; });
+    db.collaborateurs.forEach(c => {
+      const comps = getCollabComps(c.Id);
+      const lvl = comps[sk.id];
+      if (lvl && stats[lvl]) stats[lvl].push(c);
+    });
     const total = Object.values(stats).flat().length;
     h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
-      <td style="font-weight:500">${escapeHtml(sk.name)}</td>
+      <td style="font-weight:500">${sk.name}</td>
       ${[1,2,3,4].map(n => `
         <td style="text-align:center">
           ${stats[n].length > 0
-            ? `<span class="lb l${n} level-count" style="cursor:pointer">${stats[n].length}</span>`
+            ? `<span class="stat-pill lb l${n}" style="cursor:pointer">${stats[n].length}</span>`
             : '<span style="color:#ccc">—</span>'}
         </td>`).join('')}
       <td style="text-align:center"><span class="stat-pill">${total}</span></td>
@@ -2831,36 +2633,37 @@ function showSkillDetail(skillId) {
   const sk = SKILLS.find(s => s.id === skillId);
   if (!sk) return;
   const dom = DOMAINS.find(d => d.id === sk.did);
-  const scopedCollabs = getSearchSkillCollabs();
-  const byLevel = getSkillStats(skillId, scopedCollabs);
+  const byLevel = { 1:[], 2:[], 3:[], 4:[] };
+  db.collaborateurs.forEach(c => {
+    const comps = getCollabComps(c.Id);
+    const lvl = comps[skillId];
+    if (lvl && byLevel[lvl]) byLevel[lvl].push(c);
+  });
   const total = Object.values(byLevel).flat().length;
-  const team = searchSkillTeam ? teamById(searchSkillTeam) : null;
   document.getElementById('m-av').innerHTML = `<i class="ti ti-award" style="font-size:20px"></i>`;
   document.getElementById('m-title').textContent = sk.name;
-  document.getElementById('m-sub').textContent = `${dom ? dom.name : ''} · ${team ? team.name + ' · ' : ''}${total} personne(s)`;
-  let body = levelLegendHtml();
+  document.getElementById('m-sub').textContent = `${dom ? dom.name : ''} · ${total} personne(s)`;
+  let body = '';
   [4,3,2,1].forEach(n => {
     if (!byLevel[n].length) return;
     body += `<div style="margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span class="lb l${n}" style="width:20px;height:20px;font-size:11px">${n}</span>
-        <span style="font-size:12px;font-weight:600;color:#5F5E5A">${sk.levels && sk.levels[n] ? escapeHtml(sk.levels[n]) : 'Niveau '+n}</span>
+        <span style="font-size:12px;font-weight:600;color:#5F5E5A">${sk.levels && sk.levels[n] ? sk.levels[n] : 'Niveau '+n}</span>
         <span class="stat-pill">${byLevel[n].length}</span>
       </div>`;
     byLevel[n].forEach(c => {
       const p = posteById(c.PosteId);
-      const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? `<span class="team-tag">${escapeHtml(t.name)}</span>` : ''; }).join('');
       body += `<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;background:#f5f5f0;margin-bottom:4px">
         <div style="flex:1">
-          <div style="font-weight:500;font-size:13px">${escapeHtml((c.prenom||'') + ' ' + (c.Nom||''))}</div>
-          <div style="font-size:11px;color:#5F5E5A">${p ? escapeHtml(p.name) : '—'}</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${teams}</div>
+          <div style="font-weight:500;font-size:13px">${c.prenom} ${c.Nom||''}</div>
+          <div style="font-size:11px;color:#5F5E5A">${p ? p.name : '—'}</div>
         </div>
       </div>`;
     });
     body += `</div>`;
   });
-  if (!total) body += `<p style="color:#aaa;font-size:13px">Personne n'a encore cette compétence dans le périmètre sélectionné.</p>`;
+  if (!total) body = `<p style="color:#aaa;font-size:13px">Personne n'a encore cette compétence.</p>`;
   document.getElementById('m-body').innerHTML = body;
   document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
   document.getElementById('modal').style.display = 'flex';
@@ -2879,7 +2682,8 @@ function renderAdminRoles() {
   rolesDef.forEach(rd => {
     const dbRole = db.roles.find(r => r.name === rd.name);
     const emails = dbRole ? dbRole.emails.join(', ') : '';
-    const droits = getDroitsForRole(rd.name);
+    const droits = (dbRole && dbRole.droits && Object.keys(dbRole.droits).length > 0)
+      ? dbRole.droits : (DROITS_DEFAUT[rd.name] || {});
     const droitsActifs = Object.entries(DROITS_LABELS)
       .filter(([k]) => droits[k])
       .map(([,v]) => `<span style="background:#EEEDFE;color:#534AB7;border-radius:4px;padding:1px 6px;font-size:10px;margin:2px;display:inline-block">${v}</span>`)
@@ -2909,7 +2713,8 @@ function openRoleModal(roleName) {
   const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
   const dbRole = db.roles.find(r => r.name === roleName);
   const emails = dbRole ? dbRole.emails.join('\n') : '';
-  const droits = getDroitsForRole(roleName);
+  const droits = (dbRole && dbRole.droits && Object.keys(dbRole.droits).length > 0)
+    ? dbRole.droits : (DROITS_DEFAUT[roleName] || {});
 
   const droitsHtml = Object.entries(DROITS_LABELS).map(([key, label]) => `
     <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:13px;cursor:pointer">
