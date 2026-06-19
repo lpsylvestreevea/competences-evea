@@ -189,6 +189,26 @@ textarea.cm-input:focus{border-color:#534AB7}
 .form-link-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f0efe8}
 .form-link-row:last-child{border-bottom:none}
 .form-link-row select{min-width:110px}
+
+.strategy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.strategy-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px;transition:border-color .15s,box-shadow .15s}
+.strategy-card:hover{border-color:#534AB7;box-shadow:0 3px 12px rgba(83,74,183,.08)}
+.strategy-card.inactive{opacity:.62;border-style:dashed}
+.strategy-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;font-size:14px;font-weight:600;line-height:1.3}
+.strategy-dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0;margin-top:3px;background:#534AB7}
+.strategy-desc{font-size:12px;color:#5F5E5A;line-height:1.45;white-space:pre-line}
+.strategy-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.strategy-kpi{background:#fafaf8;border:.5px solid #f0efe8;border-radius:8px;padding:7px 8px;min-height:48px}
+.strategy-kpi b{display:block;font-size:15px;color:#1a1a18;margin-bottom:2px}.strategy-kpi span{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.04em}
+.strategy-progress{height:6px;background:#e8e7e0;border-radius:6px;overflow:hidden}.strategy-progress-fill{height:100%;background:#534AB7;border-radius:6px}
+.strategy-skill-list{display:flex;gap:4px;flex-wrap:wrap}.strategy-skill-list .formation-skill{background:#fafaf8}
+.strategy-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.strategy-tag{display:inline-flex;align-items:center;gap:3px;background:#F1EFE8;color:#2C2C2A;border:.5px solid #DEDCD2;border-radius:999px;padding:1px 6px;font-size:10px;font-weight:600;max-width:170px;vertical-align:middle}
+.strategy-tag i{font-size:11px;flex-shrink:0}.strategy-tag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skill-strat-tags{display:inline-flex;gap:3px;flex-wrap:wrap;margin-left:5px;vertical-align:middle}.strategy-tag.more{background:#fff;color:#888;font-weight:500}
+.strategy-detail-table{width:100%;border-collapse:collapse}.strategy-detail-table th{background:#f5f5f0;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#5F5E5A;padding:7px 8px;text-align:left;border-bottom:.5px solid #D3D1C7}.strategy-detail-table td{padding:8px;border-bottom:.5px solid #f0efe8;font-size:12px;vertical-align:middle}.strategy-detail-table tr:last-child td{border-bottom:none}
+.strategy-team-targets{border:.5px solid #D3D1C7;border-radius:8px;background:#fafaf8;padding:8px;margin-top:6px;width:100%}
+.strategy-team-row{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;margin-bottom:5px}.strategy-team-row:last-child{margin-bottom:0}.strategy-team-row input{width:100%;padding:5px 7px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px}
 .impersonation-banner{width:100%;background:#FFF3CD;color:#856404;border-radius:8px;padding:7px 8px;font-size:11px;line-height:1.35;margin-top:4px}
 .impersonation-actions{width:100%;display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
 .impersonation-actions .btn{flex:1;justify-content:center;padding:5px 7px;font-size:11px}
@@ -257,7 +277,8 @@ const CONFIG = {
     domaines:       'Domaines',
     competencesRef: 'CompetencesRef',
     roles:          'Roles',
-    formations:     'Formations'
+    formations:     'Formations',
+    axesStrategiques:'AxesStrategiques'
   }
 };
 // =====================================================================
@@ -271,7 +292,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
-    recherche: true, formations_consultation: true, formations_administration: true,
+    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true,
     matrice_equipe: true, matrice_complete: true, administration: true,
     export_individuel: true, export_global: true
   },
@@ -280,7 +301,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
-    recherche: true, formations_consultation: true, formations_administration: false,
+    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false,
     matrice_equipe: true, matrice_complete: true, administration: false,
     export_individuel: true, export_global: true
   },
@@ -289,7 +310,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: true, formations_consultation: true, formations_administration: false,
+    recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false,
     matrice_equipe: true, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   },
@@ -298,7 +319,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: false, formations_consultation: true, formations_administration: false,
+    recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false,
     matrice_equipe: false, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   }
@@ -315,6 +336,8 @@ const DROITS_LABELS = {
   toutes_consultation:       'Toutes les fiches : consultation',
   toutes_modification:       'Toutes les fiches : modification',
   recherche:                 'Recherche compétences',
+  strategie_consultation:    'Stratégie : consultation',
+  strategie_administration:  'Stratégie : administration',
   formations_consultation:   'Formations : consultation',
   formations_administration: 'Formations : administration',
   matrice_equipe:            'Matrice globale : vue équipe',
@@ -398,6 +421,7 @@ async function spGetOptional(listName, filter = '', select = '') {
     return await spGet(listName, filter, select);
   } catch (e) {
     if (listName === CONFIG.lists.formations) formationsListAvailable = false;
+    if (listName === CONFIG.lists.axesStrategiques) strategyListAvailable = false;
     console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
     return [];
   }
@@ -567,12 +591,14 @@ let currentUser = null;       // utilisateur effectif : réel, ou simulé en mod
 let realUser = null;          // compte Microsoft réellement connecté
 let returnViewAfterImpersonation = 'matrix';
 let currentView = 'matrix';
-let filterDomain = '', filterTeam = '', filterPoste = '';
+let filterDomain = '', filterTeam = '', filterPoste = '', filterStrategy = '';
 let collabSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
 let formationTypeFilter = '', formationSkillFilter = '';
-let collabEdit = {}, editCtx = {}, formationEdit = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[] };
+let strategyTeamFilter = '', strategyStatusFilter = 'active';
+let collabEdit = {}, editCtx = {}, formationEdit = {}, strategyEdit = {};
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], axesStrategiques:[] };
 let formationsListAvailable = true;
+let strategyListAvailable = true;
 let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
@@ -728,6 +754,9 @@ function resetFiltersAfterUserSwitch() {
   searchSkillQuery = '';
   formationTypeFilter = '';
   formationSkillFilter = '';
+  filterStrategy = '';
+  strategyTeamFilter = '';
+  strategyStatusFilter = 'active';
   collabSort = 'alpha';
   const search = document.getElementById('search-input');
   if (search) search.value = '';
@@ -736,6 +765,7 @@ function resetFiltersAfterUserSwitch() {
 function canAccessView(v) {
   if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe');
   if (v === 'search-skills') return hasDroit('recherche');
+  if (v === 'strategy') return hasDroit('strategie_consultation');
   if (v === 'formations') return hasDroit('formations_consultation');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
   if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
@@ -743,7 +773,7 @@ function canAccessView(v) {
 }
 
 function getDefaultViewForCurrentUser() {
-  const order = ['matrix', 'search-skills', 'formations', 'collabs'];
+  const order = ['matrix', 'search-skills', 'strategy', 'formations', 'collabs'];
   return order.find(canAccessView) || 'collabs';
 }
 
@@ -753,6 +783,7 @@ function ensureAdminAccess() {
 
 function canUseAddButton(v) {
   if (v === 'formations') return canManageFormations();
+  if (v === 'strategy') return canManageStrategy();
   if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
@@ -924,6 +955,200 @@ function sharepointFormationWarningHtml() {
   return `<div class="fb-err" style="margin-bottom:14px"><b>Liste SharePoint Formations introuvable ou inaccessible.</b><br>Créez la liste et les colonnes indiquées dans le message de livraison, puis rechargez l'application.</div>`;
 }
 
+
+
+// =====================================================================
+// STRATÉGIE
+// =====================================================================
+function canManageStrategy() {
+  return !!currentUser && ['admin','directeur'].includes(currentUser.role) && hasDroit('strategie_administration');
+}
+function sharepointStrategyWarningHtml() {
+  if (strategyListAvailable) return '';
+  return `<div class="fb-err" style="margin-bottom:14px"><b>Liste SharePoint AxesStrategiques introuvable ou inaccessible.</b><br>Créez la liste et les colonnes indiquées dans le message de livraison, puis rechargez l'application.</div>`;
+}
+function strategyKey(skillId, niveau) {
+  return `${String(skillId || '').trim()}|${parseInt(niveau, 10) || 0}`;
+}
+function normalizeStrategyLinks(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, []) : (value || []);
+  let arr = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([skillId, lvl]) => {
+      if (Array.isArray(lvl)) lvl.forEach(n => arr.push({ skillId, niveau:n }));
+      else arr.push({ skillId, niveau:lvl });
+    });
+  }
+  return arr.map(x => ({
+      skillId: String(x.skillId || x.SkillId || x.id || '').trim(),
+      niveau: Math.max(1, Math.min(4, parseInt(x.niveau ?? x.level ?? x.Niveau ?? 1, 10) || 1)),
+      objectif: Math.max(0, parseInt(x.objectif ?? x.Objectif ?? x.target ?? 0, 10) || 0),
+      equipes: normalizeTeamTargetObject(x.equipes || x.Equipes || x.objectifsEquipes || {})
+    }))
+    .filter(x => x.skillId)
+    .filter((x, i, a) => a.findIndex(y => y.skillId === x.skillId && y.niveau === x.niveau) === i);
+}
+function normalizeTeamTargetObject(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.entries(raw).forEach(([teamId, val]) => {
+    const n = Math.max(0, parseInt(val, 10) || 0);
+    if (n > 0) out[String(teamId)] = n;
+  });
+  return out;
+}
+function normalizeStrategyObjectives(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, {}) : (value || {});
+  const out = {};
+  if (Array.isArray(raw)) {
+    raw.forEach(x => {
+      const k = strategyKey(x.skillId || x.SkillId || x.id, x.niveau ?? x.Niveau ?? x.level);
+      const n = Math.max(0, parseInt(x.objectif ?? x.Objectif ?? x.target ?? 0, 10) || 0);
+      if (k.split('|')[0] && n > 0) out[k] = n;
+    });
+  } else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, val]) => {
+      const n = Math.max(0, parseInt(val, 10) || 0);
+      if (n > 0) out[k] = n;
+    });
+  }
+  return out;
+}
+function normalizeStrategyTeamObjectives(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, {}) : (value || {});
+  const out = {};
+  if (Array.isArray(raw)) {
+    raw.forEach(x => {
+      const k = strategyKey(x.skillId || x.SkillId || x.id, x.niveau ?? x.Niveau ?? x.level);
+      const teams = normalizeTeamTargetObject(x.equipes || x.Equipes || {});
+      if (k.split('|')[0] && Object.keys(teams).length) out[k] = teams;
+    });
+  } else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, val]) => {
+      const teams = normalizeTeamTargetObject(val);
+      if (Object.keys(teams).length) out[k] = teams;
+    });
+  }
+  return out;
+}
+function strategyById(id) {
+  return db.axesStrategiques.find(a => String(a.id) === String(id));
+}
+function activeStrategies() {
+  return db.axesStrategiques.filter(a => a.actif !== false).sort((a,b) => nameCompareFr(a.title, b.title));
+}
+function strategyOptionsHtml(selected = '') {
+  const axes = activeStrategies();
+  return axes.map(a => `<option value="${a.id}"${String(selected)===String(a.id)?' selected':''}>${escapeHtml(a.title)}</option>`).join('');
+}
+function isSkillInStrategy(skillId, axisId = '') {
+  const axes = axisId ? [strategyById(axisId)].filter(Boolean) : activeStrategies();
+  return axes.some(a => (a.skills || []).some(link => String(link.skillId) === String(skillId)));
+}
+function strategyRefsForSkill(skillId) {
+  const refs = [];
+  activeStrategies().forEach(a => {
+    (a.skills || []).forEach(link => {
+      if (String(link.skillId) === String(skillId)) refs.push({ axis:a, niveau:link.niveau });
+    });
+  });
+  return refs.sort((a,b) => nameCompareFr(a.axis.title, b.axis.title) || a.niveau - b.niveau);
+}
+function strategyTagsHtml(skillId, limit = 2) {
+  const refs = strategyRefsForSkill(skillId);
+  if (!refs.length) return '';
+  const shown = refs.slice(0, limit).map(ref => `<span class="strategy-tag" title="Axe stratégique : ${escapeHtml(ref.axis.title)} · niveau ${ref.niveau}"><i class="ti ti-target-arrow"></i><span>${escapeHtml(truncateText(ref.axis.title, 24))}</span><b>N${ref.niveau}</b></span>`).join('');
+  const more = refs.length > limit ? `<span class="strategy-tag more" title="${refs.length - limit} autre(s) axe(s)">+${refs.length - limit}</span>` : '';
+  return `<span class="skill-strat-tags">${shown}${more}</span>`;
+}
+function getCurrentManagerTeamIds() {
+  const me = getCurrentCollab();
+  if (!me) return [];
+  return db.equipes.filter(t => (t.managerIds || []).includes(String(me.Id))).map(t => String(t.id));
+}
+function getStrategyTeamOptions() {
+  if (hasDroit('toutes_consultation') || canManageStrategy()) return db.equipes.slice().sort((a,b) => nameCompareFr(a.name, b.name));
+  const ids = getCurrentManagerTeamIds();
+  return db.equipes.filter(t => ids.includes(String(t.id))).sort((a,b) => nameCompareFr(a.name, b.name));
+}
+function getStrategyScopeTeamIds() {
+  if (strategyTeamFilter) return [String(strategyTeamFilter)];
+  if (!hasDroit('toutes_consultation')) return getCurrentManagerTeamIds();
+  return [];
+}
+function getStrategyScopeCollabs(teamIds = getStrategyScopeTeamIds()) {
+  let collabs = getVisibleCollabs();
+  if (teamIds && teamIds.length) {
+    collabs = collabs.filter(c => (c.teamIds || []).some(tid => teamIds.includes(String(tid))));
+  }
+  return collabs;
+}
+function countCollabsAtOrAbove(skillId, niveau, collabs) {
+  const target = parseInt(niveau, 10) || 0;
+  return collabs.filter(c => (getCollabComps(c.Id)[skillId] || 0) >= target).length;
+}
+function skillLevelDistribution(skillId, collabs) {
+  const dist = {1:0,2:0,3:0,4:0};
+  collabs.forEach(c => {
+    const lvl = getCollabComps(c.Id)[skillId] || 0;
+    if (dist[lvl] !== undefined) dist[lvl]++;
+  });
+  return dist;
+}
+function strategyAxisLevelDistribution(axis, collabs) {
+  const dist = {1:0,2:0,3:0,4:0};
+  (axis.skills || []).forEach(link => {
+    const d = skillLevelDistribution(link.skillId, collabs);
+    [1,2,3,4].forEach(n => { dist[n] += d[n] || 0; });
+  });
+  return dist;
+}
+function getStrategyTargetForLink(link, teamIds = getStrategyScopeTeamIds()) {
+  if (teamIds && teamIds.length) {
+    return teamIds.reduce((sum, tid) => sum + (parseInt((link.equipes || {})[String(tid)], 10) || 0), 0);
+  }
+  return parseInt(link.objectif, 10) || 0;
+}
+function getStrategyLinkProgress(link, teamIds = getStrategyScopeTeamIds()) {
+  const collabs = getStrategyScopeCollabs(teamIds);
+  const actual = countCollabsAtOrAbove(link.skillId, link.niveau, collabs);
+  const target = getStrategyTargetForLink(link, teamIds);
+  const pct = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : null;
+  return { actual, target, pct, collabs };
+}
+function getStrategyAxisProgress(axis, teamIds = getStrategyScopeTeamIds()) {
+  let actual = 0, target = 0, cappedActual = 0;
+  (axis.skills || []).forEach(link => {
+    const p = getStrategyLinkProgress(link, teamIds);
+    actual += p.actual;
+    target += p.target || 0;
+    if (p.target > 0) cappedActual += Math.min(p.actual, p.target);
+  });
+  return { actual, target, pct: target > 0 ? Math.min(100, Math.round(cappedActual / target * 100)) : null };
+}
+function strategyScopeLabel(teamIds = getStrategyScopeTeamIds()) {
+  if (teamIds && teamIds.length === 1) {
+    const t = teamById(teamIds[0]);
+    return t ? t.name : 'Équipe sélectionnée';
+  }
+  if (teamIds && teamIds.length > 1) return 'Mes équipes';
+  return 'Toutes les équipes accessibles';
+}
+function buildStrategyPayloadLinks() {
+  const map = new Map();
+  (strategyEdit.links || []).forEach(raw => {
+    const skillId = String(raw.skillId || '').trim();
+    const niveau = Math.max(1, Math.min(4, parseInt(raw.niveau, 10) || 1));
+    if (!skillId) return;
+    const k = strategyKey(skillId, niveau);
+    if (!map.has(k)) map.set(k, { skillId, niveau, objectif:0, equipes:{} });
+    const item = map.get(k);
+    item.objectif = Math.max(item.objectif || 0, parseInt(raw.objectif, 10) || 0);
+    item.equipes = { ...item.equipes, ...normalizeTeamTargetObject(raw.equipes || {}) };
+  });
+  return Array.from(map.values()).sort((a,b) => nameCompareFr(skillById(a.skillId)?.name || a.skillId, skillById(b.skillId)?.name || b.skillId) || a.niveau - b.niveau);
+}
 // Retourne la description d'un niveau pour une compétence, en tenant compte
 // d'une éventuelle personnalisation par poste (poste.customLevels[skillId][lvl]).
 // À défaut, retourne la description générale de la compétence (sk.levels[lvl]).
@@ -959,7 +1184,8 @@ function levelTT(sk, lvl, dir = '', posteId = '') {
 async function loadData() {
   document.getElementById('loading-msg').textContent = 'Chargement des données...';
   formationsListAvailable = true;
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw] = await Promise.all([
+  strategyListAvailable = true;
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, axesStrategiquesRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -969,7 +1195,8 @@ async function loadData() {
   spGet(CONFIG.lists.domaines),
   spGet(CONFIG.lists.roles),
   spGet(CONFIG.lists.competencesRef),
-  spGetOptional(CONFIG.lists.formations)
+  spGetOptional(CONFIG.lists.formations),
+  spGetOptional(CONFIG.lists.axesStrategiques)
 ]);
 
   // Rôles
@@ -1052,6 +1279,28 @@ db.formations = formationsRaw.map(f => ({
   programme:   f.Programme || '',
   actif:       f.Actif === undefined || f.Actif === null ? true : !!f.Actif
 }));
+
+// Charge les axes stratégiques et leurs objectifs.
+db.axesStrategiques = axesStrategiquesRaw.map((a, idx) => {
+  const links = normalizeStrategyLinks(a.CompetencesNiveaux || '');
+  const objectifs = normalizeStrategyObjectives(a.Objectifs || '');
+  const objectifsEquipes = normalizeStrategyTeamObjectives(a.ObjectifsEquipes || '');
+  links.forEach(link => {
+    const k = strategyKey(link.skillId, link.niveau);
+    link.objectif = objectifs[k] || 0;
+    link.equipes = objectifsEquipes[k] || {};
+  });
+  return {
+    id: String(a.Id),
+    title: a.Title || '',
+    description: a.Description || '',
+    couleur: a.Couleur || PAL[idx % PAL.length]?.c || '#534AB7',
+    skills: links,
+    objectifs,
+    objectifsEquipes,
+    actif: a.Actif === undefined || a.Actif === null ? true : !!a.Actif
+  };
+}).sort((a,b) => nameCompareFr(a.title, b.title));
 }
 
 // =====================================================================
@@ -1235,6 +1484,9 @@ function buildSidebar() {
   if (hasDroit('recherche')) {
     nav += `<div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>`;
   }
+  if (hasDroit('strategie_consultation')) {
+    nav += `<div class="nav-item" onclick="showView('strategy')" id="nav-strategy"><i class="ti ti-target-arrow"></i>Stratégie</div>`;
+  }
   if (hasDroit('formations_consultation')) {
     nav += `<div class="nav-item" onclick="showView('formations')" id="nav-formations"><i class="ti ti-school"></i>Formations</div>`;
   }
@@ -1261,7 +1513,7 @@ function showView(v) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + v)?.classList.add('active');
   const titles = {
-    matrix:'Matrice globale', collabs:'Collaborateurs', formations:'Formations',
+    matrix:'Matrice globale', collabs:'Collaborateurs', strategy:'Stratégie', formations:'Formations',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
     'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
@@ -1269,15 +1521,16 @@ function showView(v) {
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
-    matrix:'Collaborateur', collabs:'Collaborateur', formations:'Formation',
+    matrix:'Collaborateur', collabs:'Collaborateur', strategy:'Axe stratégique', formations:'Formation',
     'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Poste'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
   document.getElementById('btn-export').style.display = (['matrix','collabs','import'].includes(v) && hasDroit('export_global')) ? 'inline-flex' : 'none';
-  document.getElementById('search-wrap').style.display = ['matrix','collabs','formations'].includes(v) ? 'flex' : 'none';
+  document.getElementById('search-wrap').style.display = ['matrix','collabs','formations','strategy'].includes(v) ? 'flex' : 'none';
 if      (v === 'matrix')        renderMatrix();
 else if (v === 'search-skills') renderSearchSkills();
+else if (v === 'strategy')      renderStrategy();
 else if (v === 'formations')    renderFormations();
 else if (v === 'collabs')       renderCollabs();
 else if (v === 'admin-collabs') renderAdminCollabs();
@@ -1297,6 +1550,7 @@ function handleAddBtn() {
     matrix:         () => openCollabModal(null),
     collabs:        () => openCollabModal(null),
     formations:     () => openFormationModal(null),
+    strategy:       () => openStrategyModal(null),
     'admin-collabs':() => openCollabModal(null),
     'admin-teams':  () => openTeamModal(null),
     'admin-postes': () => openPosteModal(null)
@@ -1392,6 +1646,7 @@ function applyFilters() {
   if (currentView === 'matrix')  renderMatrix();
   else if (currentView === 'collabs') renderCollabs();
   else if (currentView === 'formations') renderFormations();
+  else if (currentView === 'strategy') renderStrategy();
 }
 
 // =====================================================================
@@ -1400,7 +1655,7 @@ function applyFilters() {
 function renderMatrix() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
   const rareMap = getRareSkills();
-  const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!q || s.name.toLowerCase().includes(q)));
+  const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
   let collabs = getVisibleCollabs();
   if (filterTeam) collabs = collabs.filter(c => c.teamIds && c.teamIds.includes(filterTeam));
   const grouped = {};
@@ -1415,6 +1670,10 @@ function renderMatrix() {
     <select onchange="filterDomain=this.value;applyFilters()">
       <option value="">Tous les domaines</option>
       ${getSortedDomains().map(d => `<option value="${d.id}"${filterDomain===d.id?' selected':''}>${d.name}</option>`).join('')}
+    </select>
+    <select onchange="filterStrategy=this.value;applyFilters()">
+      <option value="">Tous les axes stratégiques</option>
+      ${strategyOptionsHtml(filterStrategy)}
     </select>
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
@@ -1433,7 +1692,7 @@ function renderMatrix() {
     h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}">${dom.name}</td></tr>`;
     list.forEach(sk => {
       const isRare = !!rareMap[sk.id];
-      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${sk.name}${isRare?`<span class="rare-pill">rare</span>`:''}${skillTT(sk)}</span></td>`;
+      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${skillTT(sk)}</span></td>`;
       collabs.forEach(c => {
         const comps  = getCollabComps(c.Id);
         const lvl    = comps[sk.id] || 0;
@@ -1458,6 +1717,262 @@ function renderMatrix() {
 }
 
 
+
+// =====================================================================
+// STRATÉGIE
+// =====================================================================
+function renderStrategy() {
+  const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase().trim();
+  const teamOptions = getStrategyTeamOptions();
+  if (strategyTeamFilter && !teamOptions.some(t => String(t.id) === String(strategyTeamFilter))) strategyTeamFilter = '';
+  let list = db.axesStrategiques.slice();
+  if (!canManageStrategy() || strategyStatusFilter === 'active') list = list.filter(a => a.actif !== false);
+  else if (strategyStatusFilter === 'inactive') list = list.filter(a => a.actif === false);
+  if (q) {
+    list = list.filter(a => [a.title, a.description].some(v => String(v||'').toLowerCase().includes(q)) ||
+      (a.skills || []).some(link => (skillById(link.skillId)?.name || '').toLowerCase().includes(q)));
+  }
+  list.sort((a,b) => nameCompareFr(a.title, b.title));
+  const scopeIds = getStrategyScopeTeamIds();
+  const scopeCollabs = getStrategyScopeCollabs(scopeIds);
+  let h = `${sharepointStrategyWarningHtml()}
+  <div class="filters">
+    <select onchange="strategyTeamFilter=this.value;renderStrategy()">
+      <option value="">${hasDroit('toutes_consultation') ? 'Toutes les équipes accessibles' : 'Mes équipes'}</option>
+      ${teamOptions.map(t => `<option value="${t.id}"${String(strategyTeamFilter)===String(t.id)?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+    </select>
+    ${canManageStrategy() ? `<select onchange="strategyStatusFilter=this.value;renderStrategy()">
+      <option value="active"${strategyStatusFilter==='active'?' selected':''}>Axes actifs</option>
+      <option value="all"${strategyStatusFilter==='all'?' selected':''}>Tous les axes</option>
+      <option value="inactive"${strategyStatusFilter==='inactive'?' selected':''}>Axes inactifs</option>
+    </select>` : ''}
+    <span class="stat-pill">${escapeHtml(strategyScopeLabel(scopeIds))}</span>
+    <span class="stat-pill">${scopeCollabs.length} personne(s)</span>
+  </div>
+  <div class="legend">
+    <span class="legend-item"><span class="strategy-tag"><i class="ti ti-target-arrow"></i><span>Axe stratégique</span></span></span>
+    <span class="legend-item" style="font-size:11px;color:#aaa">Progression calculée sur les personnes dont le niveau est égal ou supérieur au niveau visé.</span>
+  </div>`;
+  if (!list.length) {
+    h += `<div class="empty"><i class="ti ti-target-arrow"></i>Aucun axe stratégique trouvé.</div>`;
+  } else {
+    h += `<div class="strategy-grid">`;
+    list.forEach(axis => {
+      const progress = getStrategyAxisProgress(axis, scopeIds);
+      const levelDist = strategyAxisLevelDistribution(axis, scopeCollabs);
+      const totalLinks = (axis.skills || []).length;
+      const skillPreview = (axis.skills || []).slice(0, 3).map(link => {
+        const sk = skillById(link.skillId);
+        return `<span class="formation-skill"><span>${escapeHtml(sk ? sk.name : link.skillId)}</span><span class="ldot l${link.niveau}" style="width:16px;height:16px;font-size:9px">${link.niveau}</span></span>`;
+      }).join('');
+      const more = totalLinks > 3 ? `<span class="formation-chip">+${totalLinks - 3}</span>` : '';
+      h += `<div class="strategy-card${axis.actif === false ? ' inactive' : ''}">
+        <div class="strategy-title">
+          <span style="display:flex;gap:8px;align-items:flex-start"><span class="strategy-dot" style="background:${escapeHtml(axis.couleur || '#534AB7')}"></span>${escapeHtml(axis.title || 'Sans titre')}</span>
+          ${axis.actif === false ? `<span class="formation-chip warn">Inactif</span>` : ''}
+        </div>
+        ${axis.description ? `<div class="strategy-desc">${escapeHtml(truncateText(axis.description, 180))}</div>` : ''}
+        <div class="strategy-kpis">
+          <div class="strategy-kpi"><b>${totalLinks}</b><span>compétence(s)</span></div>
+          <div class="strategy-kpi"><b>${progress.target || '—'}</b><span>objectif</span></div>
+          <div class="strategy-kpi"><b>${progress.actual}</b><span>atteints</span></div>
+        </div>
+        ${progress.pct != null ? `<div><div class="strategy-progress"><div class="strategy-progress-fill" style="width:${progress.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:11px;color:#5F5E5A;margin-top:3px">${progress.pct}% de progression</div></div>` : `<div class="lock-note">Aucun objectif chiffré sur le périmètre sélectionné.</div>`}
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:#5F5E5A">
+          <span>Niveaux sur compétences liées</span>
+          ${[1,2,3,4].map(n => `<span class="lb l${n}" style="width:20px;height:20px;font-size:10px" title="Niveau ${n}">${levelDist[n]}</span>`).join('')}
+        </div>
+        <div class="strategy-skill-list">${skillPreview}${more}</div>
+        <div class="strategy-actions">
+          <button class="btn btn-sm" onclick="openStrategyDetail('${axis.id}')"><i class="ti ti-eye"></i>Détails</button>
+          ${canManageStrategy() ? `<button class="btn btn-sm" onclick="openStrategyModal('${axis.id}')"><i class="ti ti-edit"></i>Modifier</button>` : ''}
+        </div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  document.getElementById('content').innerHTML = h;
+}
+
+function openStrategyDetail(id) {
+  const axis = strategyById(id);
+  if (!axis) return;
+  const scopeIds = getStrategyScopeTeamIds();
+  const scopeCollabs = getStrategyScopeCollabs(scopeIds);
+  const progress = getStrategyAxisProgress(axis, scopeIds);
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-target-arrow" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = axis.title || 'Axe stratégique';
+  document.getElementById('m-sub').textContent = `${strategyScopeLabel(scopeIds)} · ${scopeCollabs.length} personne(s)`;
+  let body = `${axis.description ? `<div class="projection-note" style="white-space:pre-line"><i class="ti ti-info-circle"></i> ${escapeHtml(axis.description)}</div>` : ''}
+    <div class="strategy-kpis" style="margin-bottom:12px">
+      <div class="strategy-kpi"><b>${progress.target || '—'}</b><span>objectif</span></div>
+      <div class="strategy-kpi"><b>${progress.actual}</b><span>atteints</span></div>
+      <div class="strategy-kpi"><b>${progress.pct != null ? progress.pct + '%' : '—'}</b><span>progression</span></div>
+    </div>`;
+  if (progress.pct != null) body += `<div class="strategy-progress" style="margin-bottom:14px"><div class="strategy-progress-fill" style="width:${progress.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div>`;
+  if (!(axis.skills || []).length) {
+    body += `<div class="empty"><i class="ti ti-award"></i>Aucune compétence liée à cet axe.</div>`;
+  } else {
+    body += `<div style="overflow:auto;border:.5px solid #D3D1C7;border-radius:10px;margin-bottom:14px"><table class="strategy-detail-table"><thead><tr>
+      <th>Compétence</th><th>Niveau visé</th><th>Atteints</th><th>Objectif</th><th>Progression</th><th>Niveaux actuels</th>
+    </tr></thead><tbody>`;
+    (axis.skills || []).forEach(link => {
+      const sk = skillById(link.skillId);
+      const lp = getStrategyLinkProgress(link, scopeIds);
+      const dist = skillLevelDistribution(link.skillId, scopeCollabs);
+      body += `<tr>
+        <td><div style="font-weight:500">${escapeHtml(sk ? sk.name : link.skillId)}</div>${sk ? `<div style="font-size:11px;color:#aaa">${escapeHtml(getSortedDomains().find(d => d.id === sk.did)?.name || '')}</div>` : ''}</td>
+        <td><span class="lb l${link.niveau}" style="width:22px;height:22px;font-size:11px">${link.niveau}</span></td>
+        <td><b>${lp.actual}</b></td>
+        <td>${lp.target || '<span style="color:#aaa">—</span>'}</td>
+        <td>${lp.pct != null ? `<div class="strategy-progress" style="min-width:80px"><div class="strategy-progress-fill" style="width:${lp.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:11px;color:#5F5E5A;margin-top:2px">${lp.pct}%</div>` : '<span style="color:#aaa">—</span>'}</td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${[1,2,3,4].map(n => `<span class="lb l${n}" style="width:20px;height:20px;font-size:10px" title="Niveau ${n}">${dist[n]}</span>`).join('')}</div></td>
+      </tr>`;
+    });
+    body += `</tbody></table></div>`;
+  }
+  const teamOptions = getStrategyTeamOptions();
+  if (teamOptions.length) {
+    body += `<div class="csect"><div class="csect-lbl"><i class="ti ti-layout-grid"></i>Objectifs par équipe</div>`;
+    teamOptions.forEach(t => {
+      const p = getStrategyAxisProgress(axis, [String(t.id)]);
+      const people = getStrategyScopeCollabs([String(t.id)]).length;
+      body += `<div style="display:grid;grid-template-columns:1fr 70px 70px 90px;gap:8px;align-items:center;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:12px">
+        <div><b>${escapeHtml(t.name)}</b><div style="font-size:11px;color:#aaa">${people} personne(s)</div></div>
+        <div>${p.actual} atteints</div><div>${p.target || '—'} obj.</div>
+        <div>${p.pct != null ? `<div class="strategy-progress"><div class="strategy-progress-fill" style="width:${p.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:10px;color:#5F5E5A;margin-top:2px">${p.pct}%</div>` : '<span style="color:#aaa">—</span>'}</div>
+      </div>`;
+    });
+    body += `</div>`;
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `
+    ${canManageStrategy() ? `<button class="btn" style="margin-right:auto" onclick="openStrategyModal('${axis.id}')"><i class="ti ti-edit"></i>Modifier</button>` : ''}
+    <button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function openStrategyModal(id) {
+  if (!canManageStrategy()) { alert('Accès réservé aux administrateurs et directeurs autorisés.'); return; }
+  if (!strategyListAvailable) { alert('La liste SharePoint AxesStrategiques doit être créée avant d’ajouter un axe.'); return; }
+  const axis = id ? strategyById(id) : null;
+  strategyEdit = axis ? JSON.parse(JSON.stringify(axis)) : { id:null, title:'', description:'', couleur:'#534AB7', skills:[], actif:true };
+  strategyEdit.links = normalizeStrategyLinks(strategyEdit.skills || []).map(link => ({ ...link, equipes: normalizeTeamTargetObject(link.equipes || {}) }));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-target-arrow" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier l’axe stratégique' : 'Nouvel axe stratégique';
+  document.getElementById('m-sub').textContent = 'Compétences, niveaux et objectifs associés';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Nom de l’axe</label><input type="text" id="s-title" value="${escapeHtml(strategyEdit.title||'')}" placeholder="Ex : Développer l’offre climat"></div>
+      <div class="field"><label>Couleur</label><input type="color" id="s-color" value="${escapeHtml(strategyEdit.couleur||'#534AB7')}" style="height:38px;width:100%;cursor:pointer"></div>
+      <div class="field"><label>Statut</label><select id="s-actif"><option value="1"${strategyEdit.actif!==false?' selected':''}>Actif</option><option value="0"${strategyEdit.actif===false?' selected':''}>Inactif</option></select></div>
+      <div class="field full"><label>Description</label><textarea id="s-description" style="min-height:80px" placeholder="Contexte, ambition, périmètre…">${escapeHtml(strategyEdit.description||'')}</textarea></div>
+      <div class="field full"><label>Compétences, niveaux et objectifs</label>
+        <div class="lock-note" style="margin-bottom:8px">L’objectif global indique le nombre total de salariés attendus au niveau visé ou au-dessus. Les objectifs par équipe sont facultatifs.</div>
+        <div id="s-links" style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;background:#fafaf8"></div>
+        <button class="btn btn-sm" style="margin-top:8px" onclick="addStrategyLink()"><i class="ti ti-plus"></i>Ajouter une compétence</button>
+      </div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    ${id ? `<button class="btn btn-danger" style="margin-right:auto" onclick="deleteStrategyAxis('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveStrategyAxis('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+  renderStrategyLinksEditor();
+}
+
+function renderStrategyLinksEditor() {
+  const wrap = document.getElementById('s-links');
+  if (!wrap) return;
+  if (!strategyEdit.links || !strategyEdit.links.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:#aaa;padding:4px">Aucune compétence liée.</div>`;
+    return;
+  }
+  wrap.innerHTML = strategyEdit.links.map((link, i) => {
+    const open = !!link._openTeams;
+    return `<div class="form-link-row" style="align-items:flex-start;flex-wrap:wrap">
+      <select onchange="strategyEdit.links[${i}].skillId=this.value">${skillOptionsHtml(link.skillId)}</select>
+      <select onchange="strategyEdit.links[${i}].niveau=parseInt(this.value,10)||1">
+        ${[1,2,3,4].map(n => `<option value="${n}"${Number(link.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}
+      </select>
+      <input type="number" min="0" step="1" value="${Number(link.objectif)||0}" placeholder="Objectif global" title="Objectif global" oninput="strategyEdit.links[${i}].objectif=parseInt(this.value,10)||0" style="width:110px;padding:5px 7px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px">
+      <button class="btn btn-sm" onclick="toggleStrategyTeamTargets(${i})"><i class="ti ti-layout-grid"></i>Équipes</button>
+      <button class="btn btn-sm btn-danger" onclick="removeStrategyLink(${i})"><i class="ti ti-trash"></i></button>
+      ${open ? `<div class="strategy-team-targets">${db.equipes.slice().sort((a,b)=>nameCompareFr(a.name,b.name)).map(t => `<div class="strategy-team-row"><span>${escapeHtml(t.name)}</span><input type="number" min="0" step="1" value="${Number((link.equipes||{})[String(t.id)]||0)}" oninput="setStrategyTeamTarget(${i},'${String(t.id)}',this.value)"></div>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+function addStrategyLink() {
+  strategyEdit.links = strategyEdit.links || [];
+  strategyEdit.links.push({ skillId: SKILLS[0]?.id || '', niveau:1, objectif:0, equipes:{} });
+  renderStrategyLinksEditor();
+}
+function removeStrategyLink(i) {
+  strategyEdit.links.splice(i, 1);
+  renderStrategyLinksEditor();
+}
+function toggleStrategyTeamTargets(i) {
+  strategyEdit.links[i]._openTeams = !strategyEdit.links[i]._openTeams;
+  renderStrategyLinksEditor();
+}
+function setStrategyTeamTarget(i, teamId, value) {
+  if (!strategyEdit.links[i].equipes) strategyEdit.links[i].equipes = {};
+  const n = parseInt(value, 10) || 0;
+  if (n > 0) strategyEdit.links[i].equipes[String(teamId)] = n;
+  else delete strategyEdit.links[i].equipes[String(teamId)];
+}
+async function saveStrategyAxis(id) {
+  if (!canManageStrategy()) { alert('Accès réservé aux administrateurs et directeurs autorisés.'); return; }
+  const title = document.getElementById('s-title').value.trim();
+  if (!title) return alert('Nom de l’axe requis.');
+  const links = buildStrategyPayloadLinks();
+  const objectifs = {};
+  const objectifsEquipes = {};
+  links.forEach(link => {
+    const k = strategyKey(link.skillId, link.niveau);
+    if (link.objectif > 0) objectifs[k] = link.objectif;
+    const teams = normalizeTeamTargetObject(link.equipes || {});
+    if (Object.keys(teams).length) objectifsEquipes[k] = teams;
+  });
+  showSave('Enregistrement de l’axe stratégique...');
+  try {
+    const data = {
+      Title: title,
+      Description: document.getElementById('s-description').value.trim(),
+      Couleur: document.getElementById('s-color').value || '#534AB7',
+      CompetencesNiveaux: JSON.stringify(links.map(l => ({ skillId:l.skillId, niveau:l.niveau }))),
+      Objectifs: JSON.stringify(objectifs),
+      ObjectifsEquipes: JSON.stringify(objectifsEquipes),
+      Actif: document.getElementById('s-actif').value === '1'
+    };
+    if (id) await spPatch(CONFIG.lists.axesStrategiques, id, data);
+    else await spPost(CONFIG.lists.axesStrategiques, data);
+    await loadData();
+    hideSave('Axe stratégique enregistré ✓');
+    closeModal();
+    if (currentView === 'strategy') renderStrategy();
+    else applyFilters();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l’enregistrement de l’axe stratégique : ' + e.message);
+  }
+}
+async function deleteStrategyAxis(id) {
+  if (!canManageStrategy()) { alert('Accès réservé aux administrateurs et directeurs autorisés.'); return; }
+  if (!confirm('Supprimer cet axe stratégique ?')) return;
+  showSave('Suppression de l’axe stratégique...');
+  try {
+    await spDelete(CONFIG.lists.axesStrategiques, id);
+    await loadData();
+    hideSave('Axe stratégique supprimé ✓');
+    closeModal();
+    if (currentView === 'strategy') renderStrategy();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de la suppression : ' + e.message);
+  }
+}
+
 // =====================================================================
 // FORMATIONS
 // =====================================================================
@@ -1466,6 +1981,7 @@ function renderFormations() {
   let list = db.formations.slice().filter(f => canManageFormations() || f.actif !== false);
   if (formationTypeFilter) list = list.filter(f => normalizeText(formationTypeLabel(f)) === normalizeText(formationTypeFilter));
   if (formationSkillFilter) list = list.filter(f => normalizeFormationSkillLinks(f.skills).some(link => String(link.skillId) === String(formationSkillFilter)));
+  if (filterStrategy) list = list.filter(f => normalizeFormationSkillLinks(f.skills).some(link => isSkillInStrategy(link.skillId, filterStrategy)));
   if (q) {
     list = list.filter(f => [f.title, f.prestataire, f.type, f.format, f.duree, f.tarif, f.objectifs, f.programme]
       .some(v => String(v || '').toLowerCase().includes(q))
@@ -1484,6 +2000,10 @@ function renderFormations() {
     <select onchange="formationSkillFilter=this.value;renderFormations()">
       <option value="">Toutes les compétences</option>
       ${skillOptionsHtml(formationSkillFilter)}
+    </select>
+    <select onchange="filterStrategy=this.value;renderFormations()">
+      <option value="">Tous les axes stratégiques</option>
+      ${strategyOptionsHtml(filterStrategy)}
     </select>
   </div>
   <div class="legend">
@@ -1853,6 +2373,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
       <span class="crow-name twrap">${escapeHtml(sk.name)}
         ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors poste)</span>' : ''}
         ${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}
+        ${strategyTagsHtml(sk.id)}
         ${pending ? ` <span class="tt-tag" style="border:.5px dashed #A32D2D;color:#7A3A28;background:#fffaf5">en attente:${pendingLevelLabel(pending)}</span>` : ''}
         ${skillTT(sk,'tup',posteIdForDesc)}
       </span>
@@ -3712,7 +4233,7 @@ function closeModal()  { document.getElementById('modal').style.display = 'none'
 // =====================================================================
 function renderSearchSkills() {
   const grouped = {};
-  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  SKILLS.filter(s => !filterStrategy || isSkillInStrategy(s.id, filterStrategy)).forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const scopedCollabs = getSearchSkillCollabs();
 
   let h = `
@@ -3726,6 +4247,10 @@ function renderSearchSkills() {
       <select onchange="searchSkillTeam=this.value;renderSearchSkills()">
         <option value="">Toutes les équipes accessibles</option>
         ${db.equipes.map(t => `<option value="${t.id}"${searchSkillTeam===String(t.id)?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+      </select>
+      <select onchange="filterStrategy=this.value;renderSearchSkills()">
+        <option value="">Tous les axes stratégiques</option>
+        ${strategyOptionsHtml(filterStrategy)}
       </select>
       <span class="stat-pill">${scopedCollabs.length} personne(s)</span>
     </div>
@@ -3746,7 +4271,7 @@ function renderSearchSkills() {
       const stats = getSkillStats(sk.id, scopedCollabs);
       const total = Object.values(stats).flat().length;
       h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
-        <td style="font-weight:500">${escapeHtml(sk.name)}</td>
+        <td style="font-weight:500">${escapeHtml(sk.name)}${strategyTagsHtml(sk.id)}</td>
         ${[1,2,3,4].map(n => `
           <td style="text-align:center">
             ${stats[n].length > 0
@@ -3776,7 +4301,7 @@ function filterSkillSearch(query = searchSkillQuery) {
     return;
   }
   allEl.style.display = 'none';
-  const matches = SKILLS.filter(s => s.name.toLowerCase().includes(clean.toLowerCase()));
+  const matches = SKILLS.filter(s => (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && s.name.toLowerCase().includes(clean.toLowerCase()));
   if (!matches.length) {
     resultsEl.innerHTML = `<p style="color:#aaa;font-size:13px">Aucune compétence trouvée.</p>`;
     return;
@@ -3791,7 +4316,7 @@ function filterSkillSearch(query = searchSkillQuery) {
     const stats = getSkillStats(sk.id, scopedCollabs);
     const total = Object.values(stats).flat().length;
     h += `<tr style="cursor:pointer" onclick="showSkillDetail('${sk.id}')" title="Cliquer pour voir les personnes">
-      <td style="font-weight:500">${escapeHtml(sk.name)}</td>
+      <td style="font-weight:500">${escapeHtml(sk.name)}${strategyTagsHtml(sk.id)}</td>
       ${[1,2,3,4].map(n => `
         <td style="text-align:center">
           ${stats[n].length > 0
@@ -3816,7 +4341,7 @@ function showSkillDetail(skillId) {
   document.getElementById('m-av').innerHTML = `<i class="ti ti-award" style="font-size:20px"></i>`;
   document.getElementById('m-title').textContent = sk.name;
   document.getElementById('m-sub').textContent = `${dom ? dom.name : ''} · ${team ? team.name + ' · ' : ''}${total} personne(s)`;
-  let body = levelLegendHtml();
+  let body = levelLegendHtml() + (strategyRefsForSkill(skillId).length ? `<div class="projection-note"><i class="ti ti-target-arrow"></i> Objectif(s) stratégique(s) lié(s) : ${strategyTagsHtml(skillId, 4)}</div>` : '');
   [4,3,2,1].forEach(n => {
     if (!byLevel[n].length) return;
     body += `<div style="margin-bottom:12px">
