@@ -166,6 +166,29 @@ textarea.cm-input:focus{border-color:#534AB7}
 .save-indicator.show{display:flex}
 .color-swatch{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
 .color-swatch.sel{border-color:#1a1a18}
+
+.formation-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.formation-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px}
+.formation-card:hover{border-color:#534AB7;box-shadow:0 3px 12px rgba(83,74,183,.08)}
+.formation-card.inactive{opacity:.62;border-style:dashed}
+.formation-title{font-size:14px;font-weight:600;line-height:1.3;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.formation-meta{display:flex;gap:5px;flex-wrap:wrap;font-size:11px;color:#5F5E5A}
+.formation-chip{display:inline-flex;align-items:center;gap:3px;background:#f5f5f0;color:#5F5E5A;border-radius:8px;padding:2px 7px;font-size:11px;font-weight:500}
+.formation-chip.train{background:#EEEDFE;color:#3C3489}.formation-chip.alt{background:#E1F5EE;color:#085041}.formation-chip.warn{background:#FFF3CD;color:#856404}
+.formation-skills{display:flex;gap:4px;flex-wrap:wrap}
+.formation-skill{display:inline-flex;align-items:center;gap:4px;border:.5px solid #e0ded8;border-radius:999px;padding:2px 7px;font-size:11px;background:#fff;color:#5F5E5A;max-width:100%}
+.formation-skill span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.formation-text{font-size:12px;color:#5F5E5A;line-height:1.45;white-space:pre-line}
+.formation-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.dev-btn{position:relative}
+.dev-btn.has{border-color:#085041;background:#E1F5EE;color:#085041}
+.dev-count{position:absolute;right:-5px;top:-5px;min-width:14px;height:14px;border-radius:50%;background:#534AB7;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+.dev-option{border:.5px solid #D3D1C7;border-radius:10px;padding:10px;margin-bottom:8px;background:#fff}
+.dev-option.alt{background:#fbfffd;border-color:#B8DED2}
+.dev-option-title{font-weight:600;font-size:13px;margin-bottom:4px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.form-link-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f0efe8}
+.form-link-row:last-child{border-bottom:none}
+.form-link-row select{min-width:110px}
 .impersonation-banner{width:100%;background:#FFF3CD;color:#856404;border-radius:8px;padding:7px 8px;font-size:11px;line-height:1.35;margin-top:4px}
 .impersonation-actions{width:100%;display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
 .impersonation-actions .btn{flex:1;justify-content:center;padding:5px 7px;font-size:11px}
@@ -233,7 +256,8 @@ const CONFIG = {
     postes:         'Postes',
     domaines:       'Domaines',
     competencesRef: 'CompetencesRef',
-    roles:          'Roles'
+    roles:          'Roles',
+    formations:     'Formations'
   }
 };
 // =====================================================================
@@ -247,7 +271,8 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
-    recherche: true, matrice_equipe: true, matrice_complete: true, administration: true,
+    recherche: true, formations_consultation: true, formations_administration: true,
+    matrice_equipe: true, matrice_complete: true, administration: true,
     export_individuel: true, export_global: true
   },
   directeur: {
@@ -255,7 +280,8 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
-    recherche: true, matrice_equipe: true, matrice_complete: true, administration: false,
+    recherche: true, formations_consultation: true, formations_administration: false,
+    matrice_equipe: true, matrice_complete: true, administration: false,
     export_individuel: true, export_global: true
   },
   manager: {
@@ -263,7 +289,8 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: true, matrice_equipe: true, matrice_complete: false, administration: false,
+    recherche: true, formations_consultation: true, formations_administration: false,
+    matrice_equipe: true, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   },
   collaborateur: {
@@ -271,7 +298,8 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: false, matrice_equipe: false, matrice_complete: false, administration: false,
+    recherche: false, formations_consultation: true, formations_administration: false,
+    matrice_equipe: false, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   }
 };
@@ -287,6 +315,8 @@ const DROITS_LABELS = {
   toutes_consultation:       'Toutes les fiches : consultation',
   toutes_modification:       'Toutes les fiches : modification',
   recherche:                 'Recherche compétences',
+  formations_consultation:   'Formations : consultation',
+  formations_administration: 'Formations : administration',
   matrice_equipe:            'Matrice globale : vue équipe',
   matrice_complete:          'Matrice globale : vue complète',
   administration:            'Administration : accès complet',
@@ -298,7 +328,7 @@ const DROITS_LABELS = {
 // Droits structurels réservés strictement au rôle administrateur.
 // Même si une valeur incohérente est enregistrée dans SharePoint pour un manager
 // ou un directeur, elle est neutralisée côté application.
-const ADMIN_ONLY_DROITS = ['administration', 'simulation_utilisateur', 'fiche_entete_modification'];
+const ADMIN_ONLY_DROITS = ['administration', 'simulation_utilisateur', 'fiche_entete_modification', 'formations_administration'];
 
 function sanitizeDroitsForRole(roleName, droits) {
   const r = (roleName || 'collaborateur').toLowerCase();
@@ -360,6 +390,17 @@ async function spGet(listName, filter = '', select = '') {
   if (!r.ok) throw new Error(`spGet ${listName} → ${r.status}`);
   const d = await r.json();
   return d.value || [];
+}
+
+
+async function spGetOptional(listName, filter = '', select = '') {
+  try {
+    return await spGet(listName, filter, select);
+  } catch (e) {
+    if (listName === CONFIG.lists.formations) formationsListAvailable = false;
+    console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
+    return [];
+  }
 }
 
 async function spPost(listName, data) {
@@ -528,8 +569,10 @@ let returnViewAfterImpersonation = 'matrix';
 let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '';
 let collabSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
-let collabEdit = {}, editCtx = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[] };
+let formationTypeFilter = '', formationSkillFilter = '';
+let collabEdit = {}, editCtx = {}, formationEdit = {};
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[] };
+let formationsListAvailable = true;
 let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
@@ -683,6 +726,8 @@ function resetFiltersAfterUserSwitch() {
   filterPoste = '';
   searchSkillTeam = '';
   searchSkillQuery = '';
+  formationTypeFilter = '';
+  formationSkillFilter = '';
   collabSort = 'alpha';
   const search = document.getElementById('search-input');
   if (search) search.value = '';
@@ -691,13 +736,14 @@ function resetFiltersAfterUserSwitch() {
 function canAccessView(v) {
   if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe');
   if (v === 'search-skills') return hasDroit('recherche');
+  if (v === 'formations') return hasDroit('formations_consultation');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
   if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
 
 function getDefaultViewForCurrentUser() {
-  const order = ['matrix', 'search-skills', 'collabs'];
+  const order = ['matrix', 'search-skills', 'formations', 'collabs'];
   return order.find(canAccessView) || 'collabs';
 }
 
@@ -706,6 +752,7 @@ function ensureAdminAccess() {
 }
 
 function canUseAddButton(v) {
+  if (v === 'formations') return canManageFormations();
   if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
@@ -779,6 +826,104 @@ function getSkillStats(skillId, collabs = getSearchSkillCollabs()) {
   return stats;
 }
 
+function canManageFormations() {
+  return hasStrictAdminAccess() && hasDroit('formations_administration');
+}
+function safeJsonParse(value, fallback) {
+  if (value == null || value === '') return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+function normalizeFormationSkillLinks(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, []) : (value || []);
+  let arr = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([skillId, lvl]) => {
+      if (Array.isArray(lvl)) lvl.forEach(n => arr.push({ skillId, niveau:n }));
+      else arr.push({ skillId, niveau:lvl });
+    });
+  }
+  return arr.map(x => ({
+      skillId: String(x.skillId || x.SkillId || x.id || '').trim(),
+      niveau: Math.max(0, Math.min(4, parseInt(x.niveau ?? x.level ?? x.Niveau ?? 0, 10) || 0))
+    }))
+    .filter(x => x.skillId)
+    .filter((x, i, a) => a.findIndex(y => y.skillId === x.skillId && y.niveau === x.niveau) === i);
+}
+function formationById(id) {
+  return db.formations.find(f => String(f.id) === String(id));
+}
+function isAlternativeDevelopment(f) {
+  return normalizeText(f?.type || '').includes('autre');
+}
+function normalizeText(v) {
+  return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function formationTypeLabel(f) {
+  return isAlternativeDevelopment(f) ? 'Autre moyen' : (f.type || 'Formation');
+}
+function safeExternalUrl(url) {
+  const clean = String(url || '').trim();
+  return /^https?:\/\//i.test(clean) ? clean : '';
+}
+function truncateText(text, max = 170) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  return clean.length > max ? clean.slice(0, max - 1).trim() + '…' : clean;
+}
+function skillOptionsHtml(selected = '') {
+  return getSortedDomains().map(dom => {
+    const skills = SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name));
+    if (!skills.length) return '';
+    return `<optgroup label="${escapeHtml(dom.name)}">${skills.map(sk => `<option value="${sk.id}"${String(selected)===String(sk.id)?' selected':''}>${escapeHtml(sk.name)}</option>`).join('')}</optgroup>`;
+  }).join('');
+}
+function formationSkillChips(f) {
+  const links = normalizeFormationSkillLinks(f.skills || f.CompetencesNiveaux || []);
+  if (!links.length) return '<span class="formation-chip warn">Aucune compétence liée</span>';
+  return links.map(link => {
+    const sk = skillById(link.skillId);
+    const lvl = link.niveau ? `<span class="ldot l${link.niveau}" style="width:16px;height:16px;font-size:9px">${link.niveau}</span>` : '<span style="font-size:10px;color:#aaa">niveau libre</span>';
+    return `<span class="formation-skill"><span>${escapeHtml(sk ? sk.name : link.skillId)}</span>${lvl}</span>`;
+  }).join('');
+}
+function getDevelopmentOptionsForSkill(skillId, currentLevel = 0, targetLevel = null) {
+  const cur = Math.max(0, Math.min(4, parseInt(currentLevel, 10) || 0));
+  const target = targetLevel == null ? null : (parseInt(targetLevel, 10) || 0);
+  if (cur >= 4) return [];
+  if (target != null && target > 0 && target <= cur) return [];
+  const minLevel = cur + 1;
+  const maxLevel = target && target > cur ? Math.min(4, target) : minLevel;
+  return db.formations
+    .filter(f => f.actif !== false)
+    .filter(f => normalizeFormationSkillLinks(f.skills).some(link => {
+      if (String(link.skillId) !== String(skillId)) return false;
+      if (!link.niveau) return true;
+      return link.niveau >= minLevel && link.niveau <= maxLevel;
+    }))
+    .sort((a,b) => {
+      const byAlt = Number(isAlternativeDevelopment(a)) - Number(isAlternativeDevelopment(b));
+      return byAlt || nameCompareFr(a.title, b.title);
+    });
+}
+function levelsForFormationSkill(f, skillId, currentLevel = 0, targetLevel = null) {
+  const cur = Math.max(0, Math.min(4, parseInt(currentLevel, 10) || 0));
+  const target = targetLevel == null ? null : (parseInt(targetLevel, 10) || 0);
+  if (cur >= 4) return [];
+  if (target != null && target > 0 && target <= cur) return [];
+  const minLevel = cur + 1;
+  const maxLevel = target && target > cur ? Math.min(4, target) : minLevel;
+  return normalizeFormationSkillLinks(f.skills)
+    .filter(link => String(link.skillId) === String(skillId))
+    .filter(link => !link.niveau || (link.niveau >= minLevel && link.niveau <= maxLevel))
+    .map(link => link.niveau)
+    .filter((n,i,a) => a.indexOf(n) === i)
+    .sort((a,b) => a - b);
+}
+function sharepointFormationWarningHtml() {
+  if (formationsListAvailable) return '';
+  return `<div class="fb-err" style="margin-bottom:14px"><b>Liste SharePoint Formations introuvable ou inaccessible.</b><br>Créez la liste et les colonnes indiquées dans le message de livraison, puis rechargez l'application.</div>`;
+}
+
 // Retourne la description d'un niveau pour une compétence, en tenant compte
 // d'une éventuelle personnalisation par poste (poste.customLevels[skillId][lvl]).
 // À défaut, retourne la description générale de la compétence (sk.levels[lvl]).
@@ -813,7 +958,8 @@ function levelTT(sk, lvl, dir = '', posteId = '') {
 // =====================================================================
 async function loadData() {
   document.getElementById('loading-msg').textContent = 'Chargement des données...';
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw] = await Promise.all([
+  formationsListAvailable = true;
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -822,7 +968,8 @@ async function loadData() {
   spGet(CONFIG.lists.postes),
   spGet(CONFIG.lists.domaines),
   spGet(CONFIG.lists.roles),
-  spGet(CONFIG.lists.competencesRef)
+  spGet(CONFIG.lists.competencesRef),
+  spGetOptional(CONFIG.lists.formations)
 ]);
 
   // Rôles
@@ -888,6 +1035,23 @@ if (skillsRaw.length) {
     });
   });
 }
+
+
+// Charge les formations et autres moyens de développement.
+db.formations = formationsRaw.map(f => ({
+  id:          String(f.Id),
+  title:       f.Title || '',
+  prestataire: f.Prestataire || '',
+  type:        f.TypeFormation || '',
+  format:      f.Format || '',
+  duree:       f.Duree || '',
+  tarif:       f.Tarif || '',
+  lien:        f.LienInscription || '',
+  skills:      normalizeFormationSkillLinks(f.CompetencesNiveaux || ''),
+  objectifs:   f.Objectifs || '',
+  programme:   f.Programme || '',
+  actif:       f.Actif === undefined || f.Actif === null ? true : !!f.Actif
+}));
 }
 
 // =====================================================================
@@ -1071,6 +1235,9 @@ function buildSidebar() {
   if (hasDroit('recherche')) {
     nav += `<div class="nav-item" onclick="showView('search-skills')" id="nav-search-skills"><i class="ti ti-search"></i>Recherche compétences</div>`;
   }
+  if (hasDroit('formations_consultation')) {
+    nav += `<div class="nav-item" onclick="showView('formations')" id="nav-formations"><i class="ti ti-school"></i>Formations</div>`;
+  }
   if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
     nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
   }
@@ -1094,7 +1261,7 @@ function showView(v) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + v)?.classList.add('active');
   const titles = {
-    matrix:'Matrice globale', collabs:'Collaborateurs',
+    matrix:'Matrice globale', collabs:'Collaborateurs', formations:'Formations',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
     'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
@@ -1102,15 +1269,16 @@ function showView(v) {
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
-    matrix:'Collaborateur', collabs:'Collaborateur',
+    matrix:'Collaborateur', collabs:'Collaborateur', formations:'Formation',
     'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Poste'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
   document.getElementById('btn-export').style.display = (['matrix','collabs','import'].includes(v) && hasDroit('export_global')) ? 'inline-flex' : 'none';
-  document.getElementById('search-wrap').style.display = ['matrix','collabs'].includes(v) ? 'flex' : 'none';
+  document.getElementById('search-wrap').style.display = ['matrix','collabs','formations'].includes(v) ? 'flex' : 'none';
 if      (v === 'matrix')        renderMatrix();
 else if (v === 'search-skills') renderSearchSkills();
+else if (v === 'formations')    renderFormations();
 else if (v === 'collabs')       renderCollabs();
 else if (v === 'admin-collabs') renderAdminCollabs();
 else if (v === 'admin-teams')   renderAdminTeams();
@@ -1128,6 +1296,7 @@ function handleAddBtn() {
   const map = {
     matrix:         () => openCollabModal(null),
     collabs:        () => openCollabModal(null),
+    formations:     () => openFormationModal(null),
     'admin-collabs':() => openCollabModal(null),
     'admin-teams':  () => openTeamModal(null),
     'admin-postes': () => openPosteModal(null)
@@ -1222,6 +1391,7 @@ function stopImpersonation() {
 function applyFilters() {
   if (currentView === 'matrix')  renderMatrix();
   else if (currentView === 'collabs') renderCollabs();
+  else if (currentView === 'formations') renderFormations();
 }
 
 // =====================================================================
@@ -1285,6 +1455,268 @@ function renderMatrix() {
   });
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
+}
+
+
+// =====================================================================
+// FORMATIONS
+// =====================================================================
+function renderFormations() {
+  const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase().trim();
+  let list = db.formations.slice().filter(f => canManageFormations() || f.actif !== false);
+  if (formationTypeFilter) list = list.filter(f => normalizeText(formationTypeLabel(f)) === normalizeText(formationTypeFilter));
+  if (formationSkillFilter) list = list.filter(f => normalizeFormationSkillLinks(f.skills).some(link => String(link.skillId) === String(formationSkillFilter)));
+  if (q) {
+    list = list.filter(f => [f.title, f.prestataire, f.type, f.format, f.duree, f.tarif, f.objectifs, f.programme]
+      .some(v => String(v || '').toLowerCase().includes(q))
+      || normalizeFormationSkillLinks(f.skills).some(link => (skillById(link.skillId)?.name || '').toLowerCase().includes(q)));
+  }
+  list.sort((a,b) => nameCompareFr(a.title, b.title));
+
+  let h = `${sharepointFormationWarningHtml()}
+  <div class="filters">
+    <select onchange="formationTypeFilter=this.value;renderFormations()">
+      <option value="">Tous les types</option>
+      <option value="Interne"${formationTypeFilter==='Interne'?' selected':''}>Interne</option>
+      <option value="Externe"${formationTypeFilter==='Externe'?' selected':''}>Externe</option>
+      <option value="Autre moyen"${formationTypeFilter==='Autre moyen'?' selected':''}>Autre moyen</option>
+    </select>
+    <select onchange="formationSkillFilter=this.value;renderFormations()">
+      <option value="">Toutes les compétences</option>
+      ${skillOptionsHtml(formationSkillFilter)}
+    </select>
+  </div>
+  <div class="legend">
+    <span class="legend-item"><span class="formation-chip train"><i class="ti ti-school"></i>Formation</span></span>
+    <span class="legend-item"><span class="formation-chip alt"><i class="ti ti-route"></i>Autre moyen</span></span>
+    <span class="legend-item" style="font-size:11px;color:#aaa">Les niveaux indiquent le niveau que la ressource permet de viser.</span>
+  </div>`;
+
+  if (!list.length) {
+    h += `<div class="empty"><i class="ti ti-school"></i>Aucune formation ou moyen de développement trouvé.</div>`;
+  } else {
+    h += `<div class="formation-grid">`;
+    list.forEach(f => {
+      const alt = isAlternativeDevelopment(f);
+      const url = safeExternalUrl(f.lien);
+      h += `<div class="formation-card${f.actif === false ? ' inactive' : ''}" onclick="openFormationDetail('${f.id}')">
+        <div class="formation-title">
+          <span>${escapeHtml(f.title || 'Sans titre')}</span>
+          <span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span>
+        </div>
+        <div class="formation-meta">
+          ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+          ${f.format ? `<span class="formation-chip"><i class="ti ti-device-laptop"></i>${escapeHtml(f.format)}</span>` : ''}
+          ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+          ${f.tarif ? `<span class="formation-chip"><i class="ti ti-currency-euro"></i>${escapeHtml(f.tarif)}</span>` : ''}
+          ${f.actif === false ? `<span class="formation-chip warn">Inactive</span>` : ''}
+        </div>
+        <div class="formation-skills">${formationSkillChips(f)}</div>
+        ${f.objectifs ? `<div class="formation-text">${escapeHtml(truncateText(f.objectifs, 190))}</div>` : ''}
+        <div class="formation-actions">
+          <button class="btn btn-sm" onclick="event.stopPropagation();openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Détails</button>
+          ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+        </div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  document.getElementById('content').innerHTML = h;
+}
+
+function openSkillDevelopmentModal(skillId, currentLevel = 0, targetLevel = null) {
+  const sk = skillById(skillId);
+  const options = getDevelopmentOptionsForSkill(skillId, currentLevel, targetLevel);
+  const targetTxt = targetLevel != null ? ` · objectif poste : niveau ${targetLevel}` : '';
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-school" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = sk ? sk.name : 'Développement de compétence';
+  document.getElementById('m-sub').textContent = `Niveau actuel : ${currentLevel || '—'}${targetTxt}`;
+  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Ressources liées au niveau supérieur${targetLevel && Number(targetLevel) > Number(currentLevel) ? ' et à l’objectif du poste' : ''}. Les moyens alternatifs signalent qu'une progression peut aussi se faire hors formation.</div>`;
+  if (!options.length) {
+    body += `<div class="empty"><i class="ti ti-school"></i>Aucune ressource liée pour le niveau suivant.</div>`;
+  } else {
+    options.forEach(f => {
+      const alt = isAlternativeDevelopment(f);
+      const levels = levelsForFormationSkill(f, skillId, currentLevel, targetLevel);
+      const levelText = levels.length
+        ? levels.map(n => n ? `niveau ${n}` : 'niveau non précisé').join(', ')
+        : 'niveau non précisé';
+      const url = safeExternalUrl(f.lien);
+      body += `<div class="dev-option${alt ? ' alt' : ''}">
+        <div class="dev-option-title">
+          <span>${escapeHtml(f.title || 'Sans titre')}</span>
+          <span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span>
+        </div>
+        <div class="formation-meta" style="margin-bottom:5px">
+          ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+          ${f.format ? `<span class="formation-chip"><i class="ti ti-device-laptop"></i>${escapeHtml(f.format)}</span>` : ''}
+          ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+          ${f.tarif ? `<span class="formation-chip"><i class="ti ti-currency-euro"></i>${escapeHtml(f.tarif)}</span>` : ''}
+          <span class="formation-chip">Vise ${escapeHtml(levelText)}</span>
+        </div>
+        ${f.objectifs ? `<div class="formation-text">${escapeHtml(truncateText(f.objectifs, 220))}</div>` : ''}
+        <div class="formation-actions" style="margin-top:8px">
+          <button class="btn btn-sm" onclick="openFormationDetail('${f.id}','${skillId}')"><i class="ti ti-eye"></i>Voir la fiche</button>
+          ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="openCollabModal('${collabEdit.Id||''}','${skillId}')">Retour à la fiche</button>
+    <button class="btn btn-primary" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function openFormationDetail(id, returnSkillId = '') {
+  const f = formationById(id);
+  if (!f) return;
+  const alt = isAlternativeDevelopment(f);
+  const url = safeExternalUrl(f.lien);
+  document.getElementById('m-av').innerHTML = `<i class="ti ti-${alt ? 'route' : 'school'}" style="font-size:20px"></i>`;
+  document.getElementById('m-title').textContent = f.title || 'Sans titre';
+  document.getElementById('m-sub').textContent = formationTypeLabel(f);
+  const links = normalizeFormationSkillLinks(f.skills);
+  let skillsHtml = links.length ? links.map(link => {
+    const sk = skillById(link.skillId);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:.5px solid #f0efe8">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${escapeHtml(sk ? sk.name : link.skillId)}</div>
+        ${sk ? `<div style="font-size:11px;color:#aaa">${escapeHtml((getSortedDomains().find(d => d.id === sk.did)||{}).name || '')}</div>` : ''}
+      </div>
+      ${link.niveau ? `<span class="lb l${link.niveau}" style="width:22px;height:22px;font-size:11px">${link.niveau}</span>` : `<span class="formation-chip">niveau non précisé</span>`}
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:#aaa">Aucune compétence liée.</div>';
+  document.getElementById('m-body').innerHTML = `
+    <div class="formation-meta" style="margin-bottom:12px">
+      ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+      ${f.format ? `<span class="formation-chip"><i class="ti ti-device-laptop"></i>${escapeHtml(f.format)}</span>` : ''}
+      ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+      ${f.tarif ? `<span class="formation-chip"><i class="ti ti-currency-euro"></i>${escapeHtml(f.tarif)}</span>` : ''}
+      ${f.actif === false ? `<span class="formation-chip warn">Inactive</span>` : ''}
+    </div>
+    <div class="csect"><div class="csect-lbl"><i class="ti ti-award"></i>Compétences liées</div>${skillsHtml}</div>
+    ${f.objectifs ? `<div class="csect"><div class="csect-lbl"><i class="ti ti-target-arrow"></i>Objectifs pédagogiques</div><div class="formation-text">${escapeHtml(f.objectifs)}</div></div>` : ''}
+    ${f.programme ? `<div class="csect"><div class="csect-lbl"><i class="ti ti-list-details"></i>Programme</div><div class="formation-text">${escapeHtml(f.programme)}</div></div>` : ''}`;
+  document.getElementById('m-footer').innerHTML = `
+    ${returnSkillId && collabEdit.Id ? `<button class="btn" style="margin-right:auto" onclick="openCollabModal('${collabEdit.Id}','${returnSkillId}')"><i class="ti ti-arrow-back-up"></i>Retour à la fiche</button>` : ''}
+    ${canManageFormations() ? `<button class="btn" onclick="openFormationModal('${f.id}')"><i class="ti ti-edit"></i>Modifier</button>` : ''}
+    ${url ? `<a class="btn btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Inscription Simbel</a>` : ''}
+    <button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function openFormationModal(id) {
+  if (!canManageFormations()) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!formationsListAvailable) { alert('La liste SharePoint Formations doit être créée avant d’ajouter une fiche.'); return; }
+  const f = id ? formationById(id) : null;
+  formationEdit = f ? JSON.parse(JSON.stringify(f)) : { id:null, title:'', prestataire:'', type:'Interne', format:'', duree:'', tarif:'', lien:'', skills:[], objectifs:'', programme:'', actif:true };
+  formationEdit.skills = normalizeFormationSkillLinks(formationEdit.skills);
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-school" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier la formation' : 'Nouvelle formation';
+  document.getElementById('m-sub').textContent = 'Formation ou autre moyen de développement';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Intitulé</label><input type="text" id="f-title" value="${escapeHtml(formationEdit.title||'')}" placeholder="Ex : Bilan carbone — niveau avancé"></div>
+      <div class="field"><label>Prestataire</label><input type="text" id="f-prestataire" value="${escapeHtml(formationEdit.prestataire||'')}" placeholder="Interne, organisme externe…"></div>
+      <div class="field"><label>Type</label>
+        <select id="f-type">
+          ${['Interne','Externe','Autre moyen'].map(t => `<option value="${t}"${formationTypeLabel(formationEdit)===t?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Format</label><input type="text" id="f-format" value="${escapeHtml(formationEdit.format||'')}" placeholder="Présentiel, distanciel, tutorat…"></div>
+      <div class="field"><label>Durée</label><input type="text" id="f-duree" value="${escapeHtml(formationEdit.duree||'')}" placeholder="Ex : 2 jours"></div>
+      <div class="field"><label>Tarif</label><input type="text" id="f-tarif" value="${escapeHtml(formationEdit.tarif||'')}" placeholder="Ex : 850 € HT"></div>
+      <div class="field"><label>Lien Simbel</label><input type="text" id="f-lien" value="${escapeHtml(formationEdit.lien||'')}" placeholder="https://..."></div>
+      <div class="field full"><label>Compétences liées et niveau visé</label>
+        <div id="f-skill-links" style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;background:#fafaf8"></div>
+        <button class="btn btn-sm" style="margin-top:8px" onclick="addFormationSkillLink()"><i class="ti ti-plus"></i>Ajouter une compétence</button>
+      </div>
+      <div class="field full"><label>Objectifs pédagogiques</label><textarea id="f-objectifs" style="min-height:90px" placeholder="Un objectif par ligne si besoin…">${escapeHtml(formationEdit.objectifs||'')}</textarea></div>
+      <div class="field full"><label>Programme</label><textarea id="f-programme" style="min-height:120px" placeholder="Programme détaillé, sur plusieurs lignes…">${escapeHtml(formationEdit.programme||'')}</textarea></div>
+      <div class="field full"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="f-actif" ${formationEdit.actif !== false ? 'checked' : ''} style="width:15px;height:15px">Fiche active</label></div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    ${id ? `<button class="btn btn-danger" style="margin-right:auto" onclick="deleteFormation('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveFormation('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+  renderFormationSkillLinksEditor();
+}
+
+function renderFormationSkillLinksEditor() {
+  const wrap = document.getElementById('f-skill-links');
+  if (!wrap) return;
+  if (!formationEdit.skills.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:#aaa;padding:4px">Aucune compétence liée.</div>`;
+    return;
+  }
+  wrap.innerHTML = formationEdit.skills.map((link, i) => `
+    <div class="form-link-row">
+      <select onchange="formationEdit.skills[${i}].skillId=this.value">${skillOptionsHtml(link.skillId)}</select>
+      <select onchange="formationEdit.skills[${i}].niveau=parseInt(this.value,10)||0">
+        <option value="0"${!link.niveau?' selected':''}>Niveau non précisé</option>
+        ${[1,2,3,4].map(n => `<option value="${n}"${Number(link.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}
+      </select>
+      <button class="btn btn-sm btn-danger" onclick="removeFormationSkillLink(${i})"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+}
+function addFormationSkillLink() {
+  formationEdit.skills.push({ skillId: SKILLS[0]?.id || '', niveau: 1 });
+  renderFormationSkillLinksEditor();
+}
+function removeFormationSkillLink(i) {
+  formationEdit.skills.splice(i, 1);
+  renderFormationSkillLinksEditor();
+}
+
+async function saveFormation(id) {
+  if (!canManageFormations()) { alert('Accès réservé aux administrateurs.'); return; }
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) return alert('Intitulé requis.');
+  const links = normalizeFormationSkillLinks(formationEdit.skills);
+  showSave('Enregistrement formation...');
+  try {
+    const data = {
+      Title: title,
+      Prestataire: document.getElementById('f-prestataire').value.trim(),
+      TypeFormation: document.getElementById('f-type').value,
+      Format: document.getElementById('f-format').value.trim(),
+      Duree: document.getElementById('f-duree').value.trim(),
+      Tarif: document.getElementById('f-tarif').value.trim(),
+      LienInscription: document.getElementById('f-lien').value.trim(),
+      CompetencesNiveaux: JSON.stringify(links),
+      Objectifs: document.getElementById('f-objectifs').value.trim(),
+      Programme: document.getElementById('f-programme').value.trim(),
+      Actif: !!document.getElementById('f-actif').checked
+    };
+    if (id) await spPatch(CONFIG.lists.formations, id, data);
+    else await spPost(CONFIG.lists.formations, data);
+    await loadData();
+    hideSave('Formation enregistrée ✓');
+    closeModal();
+    if (currentView === 'formations') renderFormations();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l’enregistrement de la formation : ' + e.message);
+  }
+}
+
+async function deleteFormation(id) {
+  if (!canManageFormations()) { alert('Accès réservé aux administrateurs.'); return; }
+  if (!confirm('Supprimer cette fiche formation ?')) return;
+  showSave('Suppression formation...');
+  try {
+    await spDelete(CONFIG.lists.formations, id);
+    await loadData();
+    hideSave('Formation supprimée ✓');
+    closeModal();
+    if (currentView === 'formations') renderFormations();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de la suppression : ' + e.message);
+  }
 }
 
 // =====================================================================
@@ -1395,6 +1827,9 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   const canEditMgrComment = canEditManagerCommentForCollab(c.Id);
   const canEditColComment = canEditCollaborateurCommentForCollab(c.Id);
   const pendingLevel = pending ? Number(pending.niveau || 0) : null;
+  const devOptions = getDevelopmentOptionsForSkill(sk.id, lvl, target);
+  const targetArg = target != null ? Number(target) : 'null';
+  const devBtn = devOptions.length ? `<button class="cm-btn dev-btn has" title="Formations et moyens pour progresser" onclick="openSkillDevelopmentModal('${sk.id}',${Number(lvl)||0},${targetArg})"><i class="ti ti-school"></i><span class="dev-count">${devOptions.length}</span></button>` : '';
   const btnAction = n => {
     if (canDirectLevelEdit) return `setLvl('${sk.id}',${n})`;
     if (canSuggestLevel) return `requestLevelSuggestion('${sk.id}',${n})`;
@@ -1432,6 +1867,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
           return `<button class="${classes.join(' ')}" ${action ? `onclick="${action}"` : 'disabled'}><span class="twrap">${n}${levelTT(sk,n,'tup',posteIdForDesc)}</span></button>`;
         }).join('')}
       </div>
+      ${devBtn}
       <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
     </div>
     ${pendingBox}
