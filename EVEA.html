@@ -216,6 +216,24 @@ textarea.cm-input:focus{border-color:#534AB7}
 .impersonation-row:hover{border-color:#534AB7;background:#fafaf8}
 .impersonation-row.active{border-color:#534AB7;background:#EEEDFE}
 .impersonation-row .av{margin-bottom:0;flex-shrink:0}
+
+/* Ajustements ergonomiques v9 */
+.matrix-wrap .twrap .tt{background:#fff;color:#1a1a18;border:.5px solid #D3D1C7;box-shadow:0 4px 16px rgba(0,0,0,.14)}
+.matrix-wrap table.mx tbody td:first-child .twrap .tt:not(.tup){left:calc(100% + 12px);top:50%;bottom:auto;transform:translateY(-50%)}
+table.mx tbody td.dr{position:relative!important;left:auto!important;z-index:7!important;min-width:0!important;max-width:none!important;text-align:left!important;padding:6px 10px!important;border-right:.5px solid #e8e7e0!important}
+.matrix-domain-label{position:sticky;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none}
+.strategy-level-help{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:4px 0 2px;padding:8px;border:.5px solid #e8e7e0;border-radius:8px;background:#fff}
+.strategy-level-item{display:flex;gap:6px;align-items:flex-start;font-size:11px;color:#5F5E5A;line-height:1.35;padding:4px;border-radius:6px}
+.strategy-level-item.sel{background:#EEEDFE;color:#3C3489;font-weight:500}
+.strategy-skill-link,.strategy-hit{border:none;background:none;color:#534AB7;cursor:pointer;font:inherit;text-align:left;padding:0;text-decoration:underline;text-underline-offset:2px}
+.strategy-hit{font-weight:700;text-align:center;display:inline-flex;align-items:center;justify-content:center}
+.strategy-skill-link:hover,.strategy-hit:hover{color:#3C3489}
+.departure-row{border:.5px solid #e8e7e0;border-radius:10px;background:#fff;padding:10px;margin-bottom:8px}
+.departure-row.critical{border-color:#F7C1C1;background:#fffafa}.departure-row.watch{border-color:#FAEEDA;background:#fffdf7}
+.departure-title{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;font-weight:600;font-size:13px;margin-bottom:5px}
+.departure-people{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.modal-hint{font-size:11px;color:#aaa;margin-left:auto;margin-right:8px}
+
 </style>
 </head>
 <body>
@@ -592,7 +610,7 @@ let realUser = null;          // compte Microsoft réellement connecté
 let returnViewAfterImpersonation = 'matrix';
 let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '', filterStrategy = '';
-let collabSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
+let collabSort = 'alpha', matrixSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
 let formationTypeFilter = '', formationSkillFilter = '';
 let strategyTeamFilter = '', strategyStatusFilter = 'active';
 let collabEdit = {}, editCtx = {}, formationEdit = {}, strategyEdit = {};
@@ -634,7 +652,7 @@ function missingTargetStyle(level) {
 }
 function levelLegendHtml(options = {}) {
   const rare = options.rare ? `<span class="legend-item" style="color:#7A3A28">■ compétence rare</span>` : '';
-  const targetLabel = options.targetReached ? 'Entourage coloré = cible atteinte ou dépassée' : 'Entourage coloré = niveau cible du poste';
+  const targetLabel = options.targetReached ? 'Entourage coloré = cible atteinte ou dépassée' : 'Entourage coloré = niveau cible de la fonction';
   const target = options.target ? `<span class="legend-item"><span class="ldot l2 l-ring l-ring-2">2</span>${targetLabel}</span>` : '';
   const pending = options.pending ? `<span class="legend-item"><span class="ldot l2 pending-lvl pending-lvl-2">2</span>Pointillé = proposition en attente de validation</span>` : '';
   return `<div class="legend">
@@ -658,6 +676,10 @@ function collabTeamKey(c) {
   const names = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean);
   names.sort((a,b) => a.localeCompare(b, 'fr', { sensitivity:'base' }));
   return names[0] || 'zzzzzz';
+}
+function collabFunctionKey(c) {
+  const p = posteById(c.PosteId);
+  return p ? (p.name || '').toLowerCase() : 'zzzzzz';
 }
 function getCollabMastery(c) {
   const p = posteById(c.PosteId);
@@ -684,9 +706,37 @@ function sortCollabsForCards(collabs) {
   });
   return list;
 }
+function sortCollabsForMatrix(collabs) {
+  const list = collabs.slice();
+  list.sort((a,b) => {
+    if (matrixSort === 'team') {
+      const byTeam = collabTeamKey(a).localeCompare(collabTeamKey(b), 'fr', { sensitivity:'base' });
+      if (byTeam) return byTeam;
+    }
+    if (matrixSort === 'function') {
+      const byFunction = collabFunctionKey(a).localeCompare(collabFunctionKey(b), 'fr', { sensitivity:'base' });
+      if (byFunction) return byFunction;
+    }
+    return collabAlphaKey(a).localeCompare(collabAlphaKey(b), 'fr', { sensitivity:'base' });
+  });
+  return list;
+}
 function getCollabDisplayName(c) {
   if (!c) return '';
   return `${c.prenom || ''} ${c.Nom || ''}`.trim() || c.Email || 'Utilisateur';
+}
+function roleDisplayName(roleName) {
+  const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
+  return labels[(roleName || '').toLowerCase()] || roleName || 'Rôle personnalisé';
+}
+function roleCssClass(roleName) {
+  const r = (roleName || '').toLowerCase();
+  if (r === 'admin') return 'rb-admin';
+  if (r === 'directeur' || r === 'manager') return 'rb-manager';
+  return 'rb-collab';
+}
+function normalizeRoleNameForSave(value) {
+  return normalizeText(value).replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || '';
 }
 
 function makeUserFromCollab(c, impersonated = false) {
@@ -758,6 +808,7 @@ function resetFiltersAfterUserSwitch() {
   strategyTeamFilter = '';
   strategyStatusFilter = 'active';
   collabSort = 'alpha';
+  matrixSort = 'alpha';
   const search = document.getElementById('search-input');
   if (search) search.value = '';
 }
@@ -961,7 +1012,7 @@ function sharepointFormationWarningHtml() {
 // STRATÉGIE
 // =====================================================================
 function canManageStrategy() {
-  return !!currentUser && ['admin','directeur'].includes(currentUser.role) && hasDroit('strategie_administration');
+  return !!currentUser && hasDroit('strategie_administration');
 }
 function sharepointStrategyWarningHtml() {
   if (strategyListAvailable) return '';
@@ -1384,6 +1435,8 @@ function getUserRole(email) {
   for (const r of ordre) {
     if (rolesUser.includes(r)) return r;
   }
+  const customRole = rolesUser.find(r => !ordre.includes(r));
+  if (customRole) return customRole;
 
   // Fallback : vérifier si manager d'une équipe
   const collab = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === e);
@@ -1454,8 +1507,6 @@ function getRareSkills() {
 // SIDEBAR & NAV
 // =====================================================================
 function buildSidebar() {
-  const roleLabel = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
-  const roleClass = { admin:'rb-admin', directeur:'rb-manager', manager:'rb-manager', collaborateur:'rb-collab' };
   const role = currentUser?.role || 'collaborateur';
   const impersonating = isImpersonating();
   const switchBtn = isRealAdmin()
@@ -1471,7 +1522,7 @@ function buildSidebar() {
   </div>` : '';
 
   document.getElementById('sidebar-user').innerHTML = `
-    <span class="rb ${roleClass[role]||'rb-collab'}">${roleLabel[role]||'Collaborateur'}</span>
+    <span class="rb ${roleCssClass(role)}">${escapeHtml(roleDisplayName(role))}</span>
     <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(currentUser?.email || '')}">${escapeHtml(currentUser?.name || '')}</span>
     <button class="btn btn-sm" onclick="logout()" title="Déconnexion"><i class="ti ti-logout"></i></button>
     ${realInfo}${switchActions}`;
@@ -1498,7 +1549,7 @@ function buildSidebar() {
     nav += `<div class="nav-section">Administration</div>
       <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
       <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
-      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Postes</div>
+      <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Fonctions</div>
       <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
       <div class="nav-item" onclick="showView('admin-roles')" id="nav-admin-roles"><i class="ti ti-shield"></i>Rôles</div>
       <div class="nav-item" onclick="showView('import')" id="nav-import"><i class="ti ti-upload"></i>Import / Export</div>`;
@@ -1515,14 +1566,14 @@ function showView(v) {
   const titles = {
     matrix:'Matrice globale', collabs:'Collaborateurs', strategy:'Stratégie', formations:'Formations',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
-    'admin-postes':'Postes', 'admin-skills':'Compétences', import:'Import / Export',
+    'admin-postes':'Fonctions', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
     'admin-roles': 'Administration des rôles'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
     matrix:'Collaborateur', collabs:'Collaborateur', strategy:'Axe stratégique', formations:'Formation',
-    'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Poste'
+    'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Fonction'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
@@ -1566,7 +1617,7 @@ function openImpersonationModal(filter = '') {
   document.getElementById('m-body').innerHTML = `
     <div class="field" style="margin-bottom:12px">
       <label>Utilisateur à simuler</label>
-      <input type="text" id="impersonation-search" value="${escapeHtml(filter)}" placeholder="Rechercher par nom, email, poste ou équipe…" oninput="renderImpersonationList(this.value)">
+      <input type="text" id="impersonation-search" value="${escapeHtml(filter)}" placeholder="Rechercher par nom, email, fonction ou équipe…" oninput="renderImpersonationList(this.value)">
     </div>
     <div class="lock-note" style="margin-bottom:10px">
       Le mode test applique les droits et le périmètre de l’utilisateur choisi. Les appels SharePoint restent effectués avec votre session administrateur.
@@ -1586,8 +1637,6 @@ function renderImpersonationList(filter = '') {
   const wrap = document.getElementById('impersonation-list');
   if (!wrap) return;
   const q = (filter || '').toLowerCase();
-  const roleLabel = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
-  const roleClass = { admin:'rb-admin', directeur:'rb-manager', manager:'rb-manager', collaborateur:'rb-collab' };
   const list = db.collaborateurs
     .filter(c => {
       const p = posteById(c.PosteId);
@@ -1612,9 +1661,9 @@ function renderImpersonationList(filter = '') {
       <div style="flex:1;min-width:0">
         <div style="font-weight:500;font-size:13px">${escapeHtml(getCollabDisplayName(c))}${active ? ' <span style="font-size:10px;color:#534AB7">(affichage actuel)</span>' : ''}</div>
         <div style="font-size:11px;color:#5F5E5A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(c.Email || 'Email non renseigné')}</div>
-        <div style="font-size:11px;color:#aaa;margin-top:2px">${escapeHtml(p ? p.name : 'Poste non renseigné')}${teams ? ' · ' + escapeHtml(teams) : ''}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">${escapeHtml(p ? p.name : 'Fonction non renseignée')}${teams ? ' · ' + escapeHtml(teams) : ''}</div>
       </div>
-      <span class="rb ${roleClass[role]||'rb-collab'}" style="flex-shrink:0">${roleLabel[role]||'Collaborateur'}</span>
+      <span class="rb ${roleCssClass(role)}" style="flex-shrink:0">${escapeHtml(roleDisplayName(role))}</span>
     </button>`;
   }).join('');
 }
@@ -1658,6 +1707,7 @@ function renderMatrix() {
   const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
   let collabs = getVisibleCollabs();
   if (filterTeam) collabs = collabs.filter(c => c.teamIds && c.teamIds.includes(filterTeam));
+  collabs = sortCollabsForMatrix(collabs);
   const grouped = {};
   skills.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
 
@@ -1675,6 +1725,11 @@ function renderMatrix() {
       <option value="">Tous les axes stratégiques</option>
       ${strategyOptionsHtml(filterStrategy)}
     </select>
+    <select onchange="matrixSort=this.value;applyFilters()">
+      <option value="alpha"${matrixSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
+      <option value="team"${matrixSort==='team'?' selected':''}>Tri : équipe</option>
+      <option value="function"${matrixSort==='function'?' selected':''}>Tri : fonction</option>
+    </select>
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
     <th>Compétence</th>
@@ -1689,7 +1744,7 @@ function renderMatrix() {
   getSortedDomains().forEach(dom => {
     const list = grouped[dom.id];
     if (!list || !list.length) return;
-    h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}">${dom.name}</td></tr>`;
+    h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}"><span class="matrix-domain-label">${escapeHtml(dom.name)}</span></td></tr>`;
     list.forEach(sk => {
       const isRare = !!rareMap[sk.id];
       h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${skillTT(sk)}</span></td>`;
@@ -1763,7 +1818,7 @@ function renderStrategy() {
       const totalLinks = (axis.skills || []).length;
       const skillPreview = (axis.skills || []).slice(0, 3).map(link => {
         const sk = skillById(link.skillId);
-        return `<span class="formation-skill"><span>${escapeHtml(sk ? sk.name : link.skillId)}</span><span class="ldot l${link.niveau}" style="width:16px;height:16px;font-size:9px">${link.niveau}</span></span>`;
+        return `<button class="formation-skill" style="cursor:pointer;font-family:inherit" onclick="openStrategySkillFormations('${link.skillId}',${Number(link.niveau)||0},'${axis.id}')" title="Voir les formations liées"><span>${escapeHtml(sk ? sk.name : link.skillId)}</span><span class="ldot l${link.niveau}" style="width:16px;height:16px;font-size:9px">${link.niveau}</span></button>`;
       }).join('');
       const more = totalLinks > 3 ? `<span class="formation-chip">+${totalLinks - 3}</span>` : '';
       h += `<div class="strategy-card${axis.actif === false ? ' inactive' : ''}">
@@ -1775,7 +1830,7 @@ function renderStrategy() {
         <div class="strategy-kpis">
           <div class="strategy-kpi"><b>${totalLinks}</b><span>compétence(s)</span></div>
           <div class="strategy-kpi"><b>${progress.target || '—'}</b><span>objectif</span></div>
-          <div class="strategy-kpi"><b>${progress.actual}</b><span>atteints</span></div>
+          <div class="strategy-kpi"><button class="strategy-hit" onclick="showStrategyAchievers('${axis.id}')"><b>${progress.actual}</b></button><span>atteints</span></div>
         </div>
         ${progress.pct != null ? `<div><div class="strategy-progress"><div class="strategy-progress-fill" style="width:${progress.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:11px;color:#5F5E5A;margin-top:3px">${progress.pct}% de progression</div></div>` : `<div class="lock-note">Aucun objectif chiffré sur le périmètre sélectionné.</div>`}
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:#5F5E5A">
@@ -1821,9 +1876,9 @@ function openStrategyDetail(id) {
       const lp = getStrategyLinkProgress(link, scopeIds);
       const dist = skillLevelDistribution(link.skillId, scopeCollabs);
       body += `<tr>
-        <td><div style="font-weight:500">${escapeHtml(sk ? sk.name : link.skillId)}</div>${sk ? `<div style="font-size:11px;color:#aaa">${escapeHtml(getSortedDomains().find(d => d.id === sk.did)?.name || '')}</div>` : ''}</td>
+        <td><button class="strategy-skill-link" onclick="openStrategySkillFormations('${link.skillId}',${Number(link.niveau)||0},'${axis.id}')"><b>${escapeHtml(sk ? sk.name : link.skillId)}</b></button>${sk ? `<div style="font-size:11px;color:#aaa">${escapeHtml(getSortedDomains().find(d => d.id === sk.did)?.name || '')}</div>` : ''}</td>
         <td><span class="lb l${link.niveau}" style="width:22px;height:22px;font-size:11px">${link.niveau}</span></td>
-        <td><b>${lp.actual}</b></td>
+        <td><button class="strategy-hit" onclick="showStrategyAchievers('${axis.id}','${link.skillId}',${Number(link.niveau)||0})">${lp.actual}</button></td>
         <td>${lp.target || '<span style="color:#aaa">—</span>'}</td>
         <td>${lp.pct != null ? `<div class="strategy-progress" style="min-width:80px"><div class="strategy-progress-fill" style="width:${lp.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:11px;color:#5F5E5A;margin-top:2px">${lp.pct}%</div>` : '<span style="color:#aaa">—</span>'}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">${[1,2,3,4].map(n => `<span class="lb l${n}" style="width:20px;height:20px;font-size:10px" title="Niveau ${n}">${dist[n]}</span>`).join('')}</div></td>
@@ -1839,7 +1894,7 @@ function openStrategyDetail(id) {
       const people = getStrategyScopeCollabs([String(t.id)]).length;
       body += `<div style="display:grid;grid-template-columns:1fr 70px 70px 90px;gap:8px;align-items:center;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:12px">
         <div><b>${escapeHtml(t.name)}</b><div style="font-size:11px;color:#aaa">${people} personne(s)</div></div>
-        <div>${p.actual} atteints</div><div>${p.target || '—'} obj.</div>
+        <div><button class="strategy-hit" onclick="showStrategyAchievers('${axis.id}','',0,'${String(t.id)}')">${p.actual}</button> atteints</div><div>${p.target || '—'} obj.</div>
         <div>${p.pct != null ? `<div class="strategy-progress"><div class="strategy-progress-fill" style="width:${p.pct}%;background:${escapeHtml(axis.couleur || '#534AB7')}"></div></div><div style="font-size:10px;color:#5F5E5A;margin-top:2px">${p.pct}%</div>` : '<span style="color:#aaa">—</span>'}</div>
       </div>`;
     });
@@ -1891,13 +1946,14 @@ function renderStrategyLinksEditor() {
   wrap.innerHTML = strategyEdit.links.map((link, i) => {
     const open = !!link._openTeams;
     return `<div class="form-link-row" style="align-items:flex-start;flex-wrap:wrap">
-      <select onchange="strategyEdit.links[${i}].skillId=this.value">${skillOptionsHtml(link.skillId)}</select>
-      <select onchange="strategyEdit.links[${i}].niveau=parseInt(this.value,10)||1">
+      <select onchange="strategyEdit.links[${i}].skillId=this.value;renderStrategyLinksEditor()">${skillOptionsHtml(link.skillId)}</select>
+      <select onchange="strategyEdit.links[${i}].niveau=parseInt(this.value,10)||1;renderStrategyLinksEditor()">
         ${[1,2,3,4].map(n => `<option value="${n}"${Number(link.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}
       </select>
       <input type="number" min="0" step="1" value="${Number(link.objectif)||0}" placeholder="Objectif global" title="Objectif global" oninput="strategyEdit.links[${i}].objectif=parseInt(this.value,10)||0" style="width:110px;padding:5px 7px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px">
       <button class="btn btn-sm" onclick="toggleStrategyTeamTargets(${i})"><i class="ti ti-layout-grid"></i>Équipes</button>
       <button class="btn btn-sm btn-danger" onclick="removeStrategyLink(${i})"><i class="ti ti-trash"></i></button>
+      ${strategyLevelHelpHtml(link.skillId, link.niveau)}
       ${open ? `<div class="strategy-team-targets">${db.equipes.slice().sort((a,b)=>nameCompareFr(a.name,b.name)).map(t => `<div class="strategy-team-row"><span>${escapeHtml(t.name)}</span><input type="number" min="0" step="1" value="${Number((link.equipes||{})[String(t.id)]||0)}" oninput="setStrategyTeamTarget(${i},'${String(t.id)}',this.value)"></div>`).join('')}</div>` : ''}
     </div>`;
   }).join('');
@@ -1921,6 +1977,110 @@ function setStrategyTeamTarget(i, teamId, value) {
   if (n > 0) strategyEdit.links[i].equipes[String(teamId)] = n;
   else delete strategyEdit.links[i].equipes[String(teamId)];
 }
+
+function strategyLevelHelpHtml(skillId, selectedLevel = 1) {
+  const sk = skillById(skillId);
+  if (!sk) return `<div class="strategy-level-help"><div style="font-size:11px;color:#aaa">Sélectionnez une compétence pour afficher les niveaux.</div></div>`;
+  return `<div class="strategy-level-help">${[1,2,3,4].map(n => `<div class="strategy-level-item${Number(selectedLevel)===n?' sel':''}"><span class="lb l${n}" style="width:18px;height:18px;font-size:10px;flex-shrink:0">${n}</span><span>${escapeHtml(getLevelDesc(sk, n) || '—')}</span></div>`).join('')}</div>`;
+}
+function strategyAchieverRows(axis, skillId = '', niveau = 0, teamIds = getStrategyScopeTeamIds()) {
+  if (!axis) return [];
+  const links = (axis.skills || []).filter(link => {
+    if (skillId && String(link.skillId) !== String(skillId)) return false;
+    if (niveau && Number(link.niveau) !== Number(niveau)) return false;
+    return true;
+  });
+  const collabs = getStrategyScopeCollabs(teamIds);
+  const rows = [];
+  links.forEach(link => {
+    const sk = skillById(link.skillId);
+    collabs.forEach(c => {
+      const lvl = getCollabComps(c.Id)[link.skillId] || 0;
+      if (lvl >= Number(link.niveau || 0)) rows.push({ c, lvl, link, sk });
+    });
+  });
+  return rows.sort((a,b) => nameCompareFr(a.sk?.name || a.link.skillId, b.sk?.name || b.link.skillId) || collabAlphaKey(a.c).localeCompare(collabAlphaKey(b.c), 'fr', { sensitivity:'base' }));
+}
+function showStrategyAchievers(axisId, skillId = '', niveau = 0, teamId = '') {
+  const axis = strategyById(axisId);
+  if (!axis) return;
+  const teamIds = teamId ? [String(teamId)] : getStrategyScopeTeamIds();
+  const rows = strategyAchieverRows(axis, skillId, niveau, teamIds);
+  const scopeLabel = teamId ? (teamById(teamId)?.name || 'Équipe') : strategyScopeLabel(teamIds);
+  const sk = skillId ? skillById(skillId) : null;
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-users" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = sk ? `${sk.name} — niveau ${niveau}` : axis.title;
+  document.getElementById('m-sub').textContent = `${scopeLabel} · ${rows.length} personne(s) au niveau attendu ou au-dessus`;
+  let body = rows.length ? '' : `<div class="empty"><i class="ti ti-users"></i>Personne n'a encore atteint cet objectif dans le périmètre sélectionné.</div>`;
+  const grouped = {};
+  rows.forEach(r => {
+    const key = strategyKey(r.link.skillId, r.link.niveau);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(r);
+  });
+  Object.entries(grouped).forEach(([key, items]) => {
+    const first = items[0];
+    body += `<div class="csect"><div class="csect-lbl"><i class="ti ti-award"></i>${escapeHtml(first.sk ? first.sk.name : first.link.skillId)} <span class="ldot l${first.link.niveau}" style="width:18px;height:18px;font-size:10px">${first.link.niveau}</span></div>`;
+    items.forEach(({c,lvl}) => {
+      const teams = (c.teamIds||[]).map(tid => teamById(tid)).filter(Boolean).map(t => `<span class="team-tag">${escapeHtml(t.name)}</span>`).join('');
+      const p = posteById(c.PosteId);
+      body += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid #f0efe8">
+        <div class="av" style="width:30px;height:30px;font-size:12px;margin-bottom:0;flex-shrink:0">${escapeHtml((c.prenom||'?')[0] + (c.Nom||'?')[0])}</div>
+        <div style="flex:1">
+          <button class="strategy-skill-link" onclick="openCollabModal('${c.Id}')"><b>${escapeHtml((c.prenom||'') + ' ' + (c.Nom||''))}</b></button>
+          <div style="font-size:11px;color:#5F5E5A">${escapeHtml(p ? p.name : 'Fonction non renseignée')}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${teams || '<span style="color:#aaa">Aucune équipe</span>'}</div>
+        </div>
+        <span class="lb l${lvl}" style="width:22px;height:22px;font-size:11px">${lvl}</span>
+      </div>`;
+    });
+    body += `</div>`;
+  });
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="openStrategyDetail('${axis.id}')"><i class="ti ti-arrow-back-up"></i>Retour à l’axe</button><button class="btn btn-primary" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+function openStrategySkillFormations(skillId, targetLevel = 0, axisId = '') {
+  const sk = skillById(skillId);
+  const target = Number(targetLevel) || 0;
+  const options = db.formations
+    .filter(f => f.actif !== false || canManageFormations())
+    .filter(f => normalizeFormationSkillLinks(f.skills).some(link => String(link.skillId) === String(skillId) && (!target || !link.niveau || Number(link.niveau) >= target)))
+    .sort((a,b) => Number(isAlternativeDevelopment(a)) - Number(isAlternativeDevelopment(b)) || nameCompareFr(a.title, b.title));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-school" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = sk ? sk.name : 'Formations liées';
+  document.getElementById('m-sub').textContent = target ? `Ressources liées au niveau ${target} ou supérieur` : 'Ressources liées';
+  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Formations et moyens alternatifs rattachés à cette compétence${target ? ' pour atteindre le niveau stratégique visé ou au-delà' : ''}.</div>`;
+  if (!options.length) {
+    body += `<div class="empty"><i class="ti ti-school"></i>Aucune formation ou moyen associé à cette compétence.</div>`;
+  } else {
+    options.forEach(f => {
+      const alt = isAlternativeDevelopment(f);
+      const links = normalizeFormationSkillLinks(f.skills).filter(link => String(link.skillId) === String(skillId));
+      const levels = links.map(link => link.niveau).filter((n,i,a) => n && a.indexOf(n) === i).sort((a,b)=>a-b);
+      const url = safeExternalUrl(f.lien);
+      body += `<div class="dev-option${alt ? ' alt' : ''}">
+        <div class="dev-option-title"><span>${escapeHtml(f.title || 'Sans titre')}</span><span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span></div>
+        <div class="formation-meta" style="margin-bottom:5px">
+          ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+          ${f.format ? `<span class="formation-chip"><i class="ti ti-device-laptop"></i>${escapeHtml(f.format)}</span>` : ''}
+          ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+          ${f.tarif ? `<span class="formation-chip"><i class="ti ti-currency-euro"></i>${escapeHtml(f.tarif)}</span>` : ''}
+          <span class="formation-chip">${levels.length ? 'Vise N' + levels.join(', N') : 'Niveau non précisé'}</span>
+        </div>
+        ${f.objectifs ? `<div class="formation-text">${escapeHtml(truncateText(f.objectifs, 220))}</div>` : ''}
+        <div class="formation-actions" style="margin-top:8px">
+          <button class="btn btn-sm" onclick="openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Voir la fiche</button>
+          ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `${axisId ? `<button class="btn" style="margin-right:auto" onclick="openStrategyDetail('${axisId}')"><i class="ti ti-arrow-back-up"></i>Retour à l’axe</button>` : ''}<button class="btn btn-primary" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
 async function saveStrategyAxis(id) {
   if (!canManageStrategy()) { alert('Accès réservé aux administrateurs et directeurs autorisés.'); return; }
   const title = document.getElementById('s-title').value.trim();
@@ -2047,11 +2207,11 @@ function renderFormations() {
 function openSkillDevelopmentModal(skillId, currentLevel = 0, targetLevel = null) {
   const sk = skillById(skillId);
   const options = getDevelopmentOptionsForSkill(skillId, currentLevel, targetLevel);
-  const targetTxt = targetLevel != null ? ` · objectif poste : niveau ${targetLevel}` : '';
+  const targetTxt = targetLevel != null ? ` · objectif fonction : niveau ${targetLevel}` : '';
   document.getElementById('m-av').innerHTML = '<i class="ti ti-school" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = sk ? sk.name : 'Développement de compétence';
   document.getElementById('m-sub').textContent = `Niveau actuel : ${currentLevel || '—'}${targetTxt}`;
-  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Ressources liées au niveau supérieur${targetLevel && Number(targetLevel) > Number(currentLevel) ? ' et à l’objectif du poste' : ''}. Les moyens alternatifs signalent qu'une progression peut aussi se faire hors formation.</div>`;
+  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Ressources liées au niveau supérieur${targetLevel && Number(targetLevel) > Number(currentLevel) ? ' et à l’objectif de la fonction' : ''}. Les moyens alternatifs signalent qu'une progression peut aussi se faire hors formation.</div>`;
   if (!options.length) {
     body += `<div class="empty"><i class="ti ti-school"></i>Aucune ressource liée pour le niveau suivant.</div>`;
   } else {
@@ -2258,13 +2418,13 @@ function renderCollabs() {
       ${db.equipes.map(t => `<option value="${t.id}"${filterTeam===t.id?' selected':''}>${t.name}</option>`).join('')}
     </select>
     <select onchange="filterPoste=this.value;applyFilters()">
-      <option value="">Tous les postes</option>
+      <option value="">Toutes les fonctions</option>
       ${POSTES.map(p => `<option value="${p.id}"${filterPoste===p.id?' selected':''}>${p.name}</option>`).join('')}
     </select>
     <select onchange="collabSort=this.value;applyFilters()">
       <option value="alpha"${collabSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
       <option value="team"${collabSort==='team'?' selected':''}>Tri : équipe</option>
-      <option value="mastery"${collabSort==='mastery'?' selected':''}>Tri : maîtrise du poste</option>
+      <option value="mastery"${collabSort==='mastery'?' selected':''}>Tri : maîtrise de la fonction</option>
     </select>
   </div><div class="collab-grid">`;
   list.forEach(c => {
@@ -2320,8 +2480,10 @@ function openCollabModal(id, focusSkill) {
   // Droits d'édition selon le contexte
   const canEdit = canSaveCollab(id || null);
 
+  const departureBtn = id ? `<button class="btn btn-sm" style="margin-right:auto" onclick="openDepartureSimulation('${id}')"><i class="ti ti-door-exit"></i>Simuler le départ</button>` : '';
+  const deleteBtn = id && hasStrictAdminAccess() ? `<button class="btn btn-danger btn-sm" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : '';
   document.getElementById('m-footer').innerHTML = `
-    ${id && hasStrictAdminAccess() ? `<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="deleteCollab('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    ${departureBtn}${deleteBtn}
     <button class="btn" onclick="closeModal()">Fermer</button>
     ${canEdit ? `<button class="btn btn-primary" onclick="saveCollab('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>` : ''}`;
   document.getElementById('modal').style.display = 'flex';
@@ -2371,7 +2533,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   return `<div class="crow"${isFocus?' data-focus="1"':''} ${isExtra?'style="opacity:0.75;border-left:2px dashed #D3D1C7;padding-left:6px"':''}>
     <div class="crow-main"${isFocus?' style="background:#EEEDFE;border-radius:8px;margin:0 -6px;padding:6px"':''}>
       <span class="crow-name twrap">${escapeHtml(sk.name)}
-        ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors poste)</span>' : ''}
+        ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors fonction)</span>' : ''}
         ${target!=null?` <span class="tt-tag">cible:${target}</span>`:''}
         ${strategyTagsHtml(sk.id)}
         ${pending ? ` <span class="tt-tag" style="border:.5px dashed #A32D2D;color:#7A3A28;background:#fffaf5">en attente:${pendingLevelLabel(pending)}</span>` : ''}
@@ -2443,7 +2605,7 @@ function renderCollabBody(focusSkill) {
     <div class="field"><label>Prénom</label><input type="text" id="c-prenom" value="${escapeHtml(c.prenom||'')}" oninput="collabEdit.prenom=this.value"${headerDisabled}>${!canHeader?headerNote:''}</div>
     <div class="field"><label>Nom</label><input type="text" id="c-nom" value="${escapeHtml(c.Nom||'')}" oninput="collabEdit.Nom=this.value"${headerDisabled}></div>
     <div class="field"><label>Email</label><input type="text" id="c-email" value="${escapeHtml(c.Email||'')}" oninput="collabEdit.Email=this.value"${headerDisabled}></div>
-    <div class="field"><label>Poste</label>
+    <div class="field"><label>Fonction</label>
       <select id="c-poste" onchange="collabEdit.PosteId=this.value;renderCollabBody()"${headerDisabled}>
         <option value="">— Sélectionner —</option>
         ${POSTES.map(p => `<option value="${p.id}"${c.PosteId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
@@ -2459,12 +2621,12 @@ function renderCollabBody(focusSkill) {
         ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x => `<option value="${x.Id}"${String(c.ManagerID)===String(x.Id)?' selected':''}>${escapeHtml((x.prenom||'') + ' ' + (x.Nom||''))}</option>`).join('')}
       </select>
     </div>
-    <div class="field full"><label>Se projeter dans un poste</label>
+    <div class="field full"><label>Se projeter dans une fonction</label>
       <select id="c-projection-poste" onchange="collabEdit._projectionPosteId=this.value;collabEdit._showExtra=false;renderCollabBody()">
-        <option value="">— Poste actuel${currentPoste ? ' : ' + escapeHtml(currentPoste.name) : ''} —</option>
+        <option value="">— Fonction actuelle${currentPoste ? ' : ' + escapeHtml(currentPoste.name) : ''} —</option>
         ${POSTES.map(p => `<option value="${p.id}"${projectionId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
       </select>
-      <div class="lock-note">Affiche uniquement les compétences du poste observé, en conservant les niveaux actuels du collaborateur.</div>
+      <div class="lock-note">Affiche uniquement les compétences de la fonction observée, en conservant les niveaux actuels du collaborateur.</div>
     </div>
     <div class="field full"><label>Dernière mise à jour officielle</label>
       <input type="text" id="c-last-update" value="${escapeHtml(lastUpdate.text||'')}" placeholder="Ex : entretien du 18/06/2026"${canLastUpdate ? '' : ' disabled'}>
@@ -2510,7 +2672,7 @@ function renderCollabBody(focusSkill) {
 
     if (showExtra && extraSkills.length) {
       h += `<div style="margin:8px 0 4px;font-size:11px;color:#aaa;border-top:.5px dashed #D3D1C7;padding-top:6px">
-        — Compétences hors poste —
+        — Compétences hors fonction —
       </div>`;
       extraSkills.forEach(sk => {
         renderedSkills++;
@@ -2522,14 +2684,14 @@ function renderCollabBody(focusSkill) {
   });
 
   if (!renderedSkills) {
-    h += `<div class="empty"><i class="ti ti-award"></i>Aucune compétence cible pour ce poste.</div>`;
+    h += `<div class="empty"><i class="ti ti-award"></i>Aucune compétence cible pour cette fonction.</div>`;
   }
 
   if (!isProjection && c.PosteId) {
     h += `<div style="text-align:center;margin:10px 0">
       <button class="btn btn-sm" onclick="collabEdit._showExtra=!collabEdit._showExtra;renderCollabBody()">
         <i class="ti ti-${showExtra ? 'eye-off' : 'eye'}"></i>
-        ${showExtra ? 'Masquer les compétences hors poste' : 'Afficher les compétences hors poste'}
+        ${showExtra ? 'Masquer les compétences hors fonction' : 'Afficher les compétences hors fonction'}
       </button>
     </div>`;
   }
@@ -2553,6 +2715,50 @@ function renderCollabBody(focusSkill) {
   });
   h += `</div>`;
   document.getElementById('m-body').innerHTML = h;
+}
+
+
+function openDepartureSimulation(collabId) {
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+  if (!c || !getVisibleCollabs().some(x => String(x.Id) === String(collabId))) return;
+  const comps = Object.entries(getCollabComps(collabId)).filter(([,lvl]) => Number(lvl) > 0);
+  const rows = comps.map(([sid, lvl]) => {
+    const sk = skillById(sid);
+    const holdersAtLeast = db.collaborateurs.filter(other => String(other.Id) !== String(collabId) && (getCollabComps(other.Id)[sid] || 0) >= Number(lvl));
+    const holdersExact = db.collaborateurs.filter(other => String(other.Id) !== String(collabId) && Number(getCollabComps(other.Id)[sid] || 0) === Number(lvl));
+    return { sid, lvl:Number(lvl), sk, holdersAtLeast, holdersExact };
+  }).sort((a,b) => a.holdersAtLeast.length - b.holdersAtLeast.length || b.lvl - a.lvl || nameCompareFr(a.sk?.name || a.sid, b.sk?.name || b.sid));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-door-exit" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = `Simulation de départ — ${getCollabDisplayName(c)}`;
+  document.getElementById('m-sub').textContent = `${rows.length} compétence(s) détenue(s)`;
+  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Lecture : “couverture” compte les personnes qui ont la même compétence au même niveau ou à un niveau supérieur. Les lignes rouges signalent une compétence sans relais identifié.</div>`;
+  if (!rows.length) {
+    body += `<div class="empty"><i class="ti ti-award"></i>Aucune compétence renseignée pour cette personne.</div>`;
+  }
+  rows.forEach(r => {
+    const riskClass = r.holdersAtLeast.length === 0 ? ' critical' : (r.holdersAtLeast.length <= 2 ? ' watch' : '');
+    const dom = r.sk ? getSortedDomains().find(d => d.id === r.sk.did) : null;
+    const people = r.holdersAtLeast.slice(0, 12).map(o => {
+      const lvlOther = getCollabComps(o.Id)[r.sid] || 0;
+      const teams = (o.teamIds||[]).map(tid => teamById(tid)).filter(Boolean).map(t => t.name).join(', ');
+      return `<button class="formation-chip" style="cursor:pointer;font-family:inherit" onclick="openCollabModal('${o.Id}','${r.sid}')"><span>${escapeHtml(getCollabDisplayName(o))}</span><span class="ldot l${lvlOther}" style="width:16px;height:16px;font-size:9px">${lvlOther}</span>${teams ? `<span style="color:#888">${escapeHtml(teams)}</span>` : ''}</button>`;
+    }).join('');
+    body += `<div class="departure-row${riskClass}">
+      <div class="departure-title">
+        <div>${escapeHtml(r.sk ? r.sk.name : r.sid)}${dom ? `<div style="font-size:11px;color:#aaa;font-weight:400">${escapeHtml(dom.name)}</div>` : ''}</div>
+        <span class="lb l${r.lvl}" style="width:24px;height:24px;font-size:12px;flex-shrink:0">${r.lvl}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px;color:#5F5E5A">
+        <span class="stat-pill">${r.holdersAtLeast.length} couverture(s) niveau ≥ ${r.lvl}</span>
+        <span class="stat-pill">${r.holdersExact.length} au niveau exact</span>
+        ${r.holdersAtLeast.length === 0 ? '<span class="formation-chip warn">Critique : aucun relais</span>' : r.holdersAtLeast.length <= 2 ? '<span class="formation-chip warn">À surveiller</span>' : ''}
+      </div>
+      <div class="departure-people">${people || '<span style="font-size:12px;color:#aaa">Aucune autre personne identifiée.</span>'}</div>
+    </div>`;
+  });
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="openCollabModal('${c.Id}')"><i class="ti ti-arrow-back-up"></i>Retour à la fiche</button><button class="btn btn-primary" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
 }
 
 function toggleTeamModal(id) {
@@ -2623,7 +2829,6 @@ function openTextPrompt({ title, subtitle = '', label = 'Commentaire', placehold
       </div>
     </div>`;
     const close = value => { document.body.removeChild(overlay); resolve(value); };
-    overlay.addEventListener('click', () => close(null));
     document.body.appendChild(overlay);
     const textarea = overlay.querySelector('#prompt-textarea');
     const ok = overlay.querySelector('#prompt-ok');
@@ -2910,11 +3115,11 @@ function renderAdminCollabs(filterPoste = '') {
   let h = `<div class="admin-card">
     <div class="admin-hdr"><h3>Collaborateurs (${list.length})</h3>
       <select onchange="renderAdminCollabs(this.value)" style="font-size:13px">
-        <option value="">— Tous les postes —</option>
+        <option value="">— Toutes les fonctions —</option>
         ${posteOptions}
       </select>
     </div>
-  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Poste</th><th>Équipe</th><th>Manager</th><th>Rôle</th><th></th></tr></thead><tbody>`;
+  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Fonction</th><th>Équipe</th><th>Manager</th><th>Rôle</th><th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const p = posteById(c.PosteId);
     const teamSelects = db.equipes.map(t => {
@@ -2939,14 +3144,10 @@ function renderAdminCollabs(filterPoste = '') {
       ).join('')}
     </select>`;
     // Rôle actuel du collaborateur
-    const emailLow = (c.Email||'').toLowerCase();
-    const roleActuel = db.roles.find(r => r.emails.includes(emailLow));
-    const roleNom = roleActuel ? roleActuel.name : 'collaborateur';
+    const roleNom = getUserRole(c.Email || '');
+    const allRoles = roleDefinitionList();
     const roleSelect = c.Email ? `<select class="tsel" onchange="quickUpdateRole('${c.Id}', '${c.Email}', this.value)">
-      <option value="collaborateur" ${roleNom==='collaborateur'?'selected':''}>Collaborateur</option>
-      <option value="manager"       ${roleNom==='manager'?'selected':''}>Manager</option>
-      <option value="directeur"     ${roleNom==='directeur'?'selected':''}>Directeur</option>
-      <option value="admin"         ${roleNom==='admin'?'selected':''}>Admin</option>
+      ${allRoles.map(r => `<option value="${escapeHtml(r.name)}" ${roleNom===r.name?'selected':''}>${escapeHtml(roleDisplayName(r.name))}</option>`).join('')}
     </select>` : '<span style="color:#aaa;font-size:11px">—</span>';
     h += `<tr>
       <td style="font-weight:500">${c.prenom||''} ${c.Nom||''}</td>
@@ -3157,15 +3358,15 @@ async function deleteTeam(id) {
 }
 
 // =====================================================================
-// ADMIN POSTES — édition complète
+// ADMIN FONCTIONS — édition complète
 // =====================================================================
 let POSTES_STATE = JSON.parse(JSON.stringify(POSTES)); // copie mutable
 
 function renderAdminPostes() {
   if (!ensureStrictAdminAccess()) return;
   const hasStaticPostes = POSTES_STATE.some(p => isNaN(Number(p.id)));
-  const btnLabel = hasStrictAdminAccess() ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouveau poste</button>` : '';
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Postes (${POSTES_STATE.length})</h3>
+  const btnLabel = hasStrictAdminAccess() ? `<button class="btn btn-primary" onclick="openPosteModal(null)"><i class="ti ti-plus"></i>Nouvelle fonction</button>` : '';
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Fonctions (${POSTES_STATE.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
       <button class="btn" onclick="exportPostesReferentiel()"><i class="ti ti-download"></i>Exporter référentiel</button>
@@ -3173,7 +3374,7 @@ function renderAdminPostes() {
     </div>
   </div>
   ${hasStaticPostes ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
-    <i class="ti ti-alert-triangle"></i> <b>Postes non persistés et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateurs seront mises à jour en conséquence).
+    <i class="ti ti-alert-triangle"></i> <b>Fonctions non persistées et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateurs seront mises à jour en conséquence).
   </div>` : ''}
   <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateurs</th><th></th></tr></thead><tbody>`;
   POSTES_STATE.forEach(p => {
@@ -3222,13 +3423,13 @@ function exportPostesReferentiel() {
         ]);
       });
     });
-    if (!rows.length) { alert('Aucune compétence cible définie pour les postes.'); return; }
-    const headers = ['Poste','Domaine','Compétence','Niveau cible','Description niveau cible','ID Poste','ID Compétence'];
+    if (!rows.length) { alert('Aucune compétence cible définie pour les fonctions.'); return; }
+    const headers = ['Fonction','Domaine','Compétence','Niveau cible','Description niveau cible','ID Fonction','ID Compétence'];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = [{wch:24},{wch:16},{wch:42},{wch:12},{wch:55},{wch:10},{wch:10}];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Référentiel postes');
-    XLSX.writeFile(wb, 'referentiel_postes_competences.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, 'Référentiel fonctions');
+    XLSX.writeFile(wb, 'referentiel_fonctions_competences.xlsx');
   } catch(e) {
     alert('Erreur lors de l\'export : ' + e.message);
     console.error(e);
@@ -3263,7 +3464,7 @@ function exportPostesReferentiel() {
       <div style="font-size:13px">${sk ? sk.name : sid}</div>
       ${desc
         ? `<div style="font-size:11px;color:#5F5E5A;margin-top:2px">${desc}</div>`
-        : (lvl == null ? `<div style="font-size:11px;color:#aaa;margin-top:2px">Associée au poste, sans niveau cible précis</div>` : '')}
+        : (lvl == null ? `<div style="font-size:11px;color:#aaa;margin-top:2px">Associée à la fonction, sans niveau cible précis</div>` : '')}
     </div>
     ${lvl != null
       ? `<span class="lb l${lvl}" style="width:20px;height:20px;font-size:11px;flex-shrink:0">${lvl}</span>`
@@ -3300,7 +3501,7 @@ function showPosteCollabs(id) {
           </div>
         </div>`;
       }).join('')
-    : `<p style="color:#aaa;font-size:13px">Aucun collaborateur sur ce poste.</p>`;
+    : `<p style="color:#aaa;font-size:13px">Aucun collaborateur sur cette fonction.</p>`;
   document.getElementById('m-body').innerHTML = body;
   document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
   document.getElementById('modal').style.display = 'flex';
@@ -3312,7 +3513,7 @@ function openPosteModal(id) {
   const targets = p.targets || {};
   const customLevels = p.customLevels || {};
   document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
-  document.getElementById('m-title').textContent = id ? 'Modifier le poste' : 'Nouveau poste';
+  document.getElementById('m-title').textContent = id ? 'Modifier la fonction' : 'Nouvelle fonction';
   document.getElementById('m-sub').textContent = '';
   let skillRows = getSortedDomains().map(dom => {
     const domSkills = SKILLS.filter(s => s.did === dom.id);
@@ -3334,7 +3535,7 @@ function openPosteModal(id) {
           </select>
         </td>
         <td style="padding:5px 8px;text-align:center">
-          <button type="button" class="btn btn-sm" style="padding:3px 7px${hasCustom?';border-color:#534AB7;background:#EEEDFE;color:#534AB7':''}" onclick="toggleLevelDesc('${sk.id}')" title="Personnaliser les descriptions de niveaux pour ce poste">
+          <button type="button" class="btn btn-sm" style="padding:3px 7px${hasCustom?';border-color:#534AB7;background:#EEEDFE;color:#534AB7':''}" onclick="toggleLevelDesc('${sk.id}')" title="Personnaliser les descriptions de niveaux pour cette fonction">
             <i class="ti ti-notes"></i>${hasCustom?' Perso.':''}
           </button>
         </td>
@@ -3342,7 +3543,7 @@ function openPosteModal(id) {
       <tr id="ldrow-${sk.id}" style="display:none">
         <td colspan="3" style="padding:10px 14px;background:#fafaf8;border-top:.5px dashed #D3D1C7">
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
-            ${escapeHtml(sk.name)} — descriptions personnalisées pour ce poste
+            ${escapeHtml(sk.name)} — descriptions personnalisées pour cette fonction
           </div>
           <div style="font-size:11px;color:#aaa;margin-bottom:8px">Laissez un champ vide pour conserver la description générale (affichée en filigrane).</div>
           ${descPanel}
@@ -3352,8 +3553,8 @@ function openPosteModal(id) {
     return `<tr><td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
   }).join('');
   document.getElementById('m-body').innerHTML = `
-    <div class="field" style="margin-bottom:14px"><label>Nom du poste</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
-    <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour ce poste.</div>
+    <div class="field" style="margin-bottom:14px"><label>Nom de la fonction</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
+    <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour cette fonction.</div>
     <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px">
       <table style="width:100%;border-collapse:collapse">${skillRows}</table>
     </div>`;
@@ -3395,15 +3596,15 @@ async function savePoste(id) {
     if (isSpId) {
       await spPatch(CONFIG.lists.postes, id, data);
     } else {
-      // Poste statique non encore migré : on en crée une version SharePoint.
+      // Fonction statique non encore migré : on en crée une version SharePoint.
       // Les collaborateurs référençant l'ancien identifiant statique devront être
-      // mis à jour via "Migrer vers SharePoint" pour les autres postes restants.
+      // mis à jour via "Migrer vers SharePoint" pour les autres fonctions restantes.
       await spPost(CONFIG.lists.postes, data);
     }
     await loadData();
     closeModal();
     renderAdminPostes();
-    hideSave('Poste enregistré ✓');
+    hideSave('Fonction enregistrée ✓');
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
@@ -3411,10 +3612,10 @@ async function deletePoste(id) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const isSpId = id && !isNaN(Number(id));
   if (!isSpId) {
-    alert('Ce poste n\'est pas encore enregistré dans SharePoint. Utilisez d\'abord "Migrer vers SharePoint" dans cet onglet.');
+    alert('Cette fonction n\'est pas encore enregistré dans SharePoint. Utilisez d\'abord "Migrer vers SharePoint" dans cet onglet.');
     return;
   }
-  if (!confirm('Supprimer ce poste ?')) return;
+  if (!confirm('Supprimer cette fonction ?')) return;
   showSave('Suppression...');
   try {
     await spDelete(CONFIG.lists.postes, id);
@@ -3425,7 +3626,7 @@ async function deletePoste(id) {
 }
 
 // Table de correspondance ancien id (COMP_xxx, avant migration des compétences) -> nom,
-// utilisée pour recalculer les cibles des postes vers les nouveaux identifiants numériques.
+// utilisée pour recalculer les cibles des fonctions vers les nouveaux identifiants numériques.
 const OLD_SKILLS_REF = [
   ['COMP_001', "Actualiser ses connaissances et s'adapter"],
   ['COMP_002', 'Analyser des données environnementales'],
@@ -3483,16 +3684,16 @@ const OLD_SKILLS_REF = [
   ['COMP_054', 'Évaluer les acquis']
 ];
 
-// Migre les postes statiques (POST_xxx) vers SharePoint :
+// Migre les fonctions statiques (POST_xxx) vers SharePoint :
 // - recalcule les cibles de compétences vers les nouveaux identifiants numériques (via le nom)
 // - met à jour le PosteId des collaborateurs qui référencent les anciens identifiants statiques
 async function migratePostes() {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
   const staticPostes = POSTES.filter(p => isNaN(Number(p.id)));
-  if (!staticPostes.length) return alert('Tous les postes sont déjà dans SharePoint.');
-  if (!confirm(`Migrer ${staticPostes.length} poste(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
+  if (!staticPostes.length) return alert('Toutes les fonctions sont déjà dans SharePoint.');
+  if (!confirm(`Migrer ${staticPostes.length} fonction(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
 
-  showSave('Migration des postes...');
+  showSave('Migration des fonctions...');
   try {
     // 1. Correspondance ancien id de compétence (COMP_xxx) -> nouvel id numérique, via le nom
     const nameToNewSkillId = {};
@@ -3503,12 +3704,12 @@ async function migratePostes() {
       if (newId) skillIdMap[oldId] = newId;
     });
 
-    // 2. Création des postes dans SharePoint avec cibles corrigées
+    // 2. Création des fonctions dans SharePoint avec cibles corrigées
     const posteIdMap = {};
     let i = 0;
     for (const p of staticPostes) {
       i++;
-      document.getElementById('save-msg').textContent = `Migration poste ${i}/${staticPostes.length}...`;
+      document.getElementById('save-msg').textContent = `Migration fonction ${i}/${staticPostes.length}...`;
       const newTargets = {};
       Object.entries(p.targets || {}).forEach(([sid, lvl]) => {
         newTargets[skillIdMap[sid] || sid] = lvl;
@@ -3528,10 +3729,10 @@ async function migratePostes() {
     await loadData();
     hideSave('Migration terminée ✓');
     renderAdminPostes();
-    alert(`Migration réussie !\n${staticPostes.length} poste(s) migré(s) avec cibles corrigées.\n${collabsToUpdate.length} collaborateur(s) réassigné(s).`);
+    alert(`Migration réussie !\n${staticPostes.length} fonction(s) migrée(s) avec cibles corrigées.\n${collabsToUpdate.length} collaborateur(s) réassigné(s).`);
   } catch(e) {
     hideSave('Erreur migration !');
-    alert('Erreur pendant la migration : ' + e.message + '\n\nLa migration est partielle. Vérifiez la liste Postes dans SharePoint (doublons possibles) avant de relancer.');
+    alert('Erreur pendant la migration : ' + e.message + '\n\nLa migration est partielle. Vérifiez la liste Fonctions dans SharePoint (doublons possibles) avant de relancer.');
     console.error(e);
   }
 }
@@ -3851,8 +4052,8 @@ async function migrateSkills() {
       await spPatch(CONFIG.lists.commentaires, c.Id, { SkillId: idMap[c.SkillId] });
     }
 
-    // Mettre à jour les targets des postes (JSON stocké dans SharePoint)
-    document.getElementById('save-msg').textContent = 'Mise à jour des cibles de postes...';
+    // Mettre à jour les targets des fonctions (JSON stocké dans SharePoint)
+    document.getElementById('save-msg').textContent = 'Mise à jour des cibles de fonctions...';
     for (const poste of POSTES) {
       const isSpId = poste.id && !isNaN(Number(poste.id));
       if (!isSpId) continue;
@@ -3887,7 +4088,7 @@ function renderImport() {
   document.getElementById('content').innerHTML = `<div style="max-width:580px">
   <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Importer des collaborateurs</h3>
   <p style="font-size:13px;color:#5F5E5A;margin-bottom:6px">Format attendu : une ligne par compétence, avec les colonnes :</p>
-  <p style="font-size:12px;color:#888;background:#f5f5f0;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-family:monospace">Prénom | NOM | Mail | Poste | Compétence | Niveau | Commentaire</p>
+  <p style="font-size:12px;color:#888;background:#f5f5f0;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-family:monospace">Prénom | NOM | Mail | Fonction | Compétence | Niveau | Commentaire</p>
   <div class="import-zone" onclick="document.getElementById('fi').click()">
     <i class="ti ti-file-spreadsheet"></i>
     <div style="font-weight:500;margin-bottom:4px">Cliquer pour importer (.xlsx, .xls)</div>
@@ -3930,7 +4131,7 @@ async function handleImport(e) {
         const prenom     = (row['Prénom'] || row['prenom'] || '').toString().trim();
         const nom        = (row['NOM']    || row['Nom']    || row['nom'] || '').toString().trim();
         const email      = (row['Mail']   || row['Email']  || row['email'] || '').toString().trim().toLowerCase();
-        const posteName  = (row['Poste']  || row['poste']  || '').toString().trim();
+        const posteName  = (row['Fonction'] || row['fonction'] || row['Poste'] || row['poste']  || '').toString().trim();
         const skillName  = (row['Compétence'] || row['Competence'] || row['competence'] || '').toString().trim();
         const niveau     = parseInt(row['Niveau'] || row['niveau'] || 0);
         const commentaire = (row['Commentaire'] || row['commentaire'] || '').toString().trim();
@@ -4043,7 +4244,7 @@ function exportExcel(teamId = '') {
     }
     if (!collabs.length) { alert('Aucun collaborateur à exporter pour ce périmètre.'); return; }
 
-    const headers = ['Prénom','Nom','Email','Poste','Équipes', ...SKILLS.map(s => s.name)];
+    const headers = ['Prénom','Nom','Email','Fonction','Équipes', ...SKILLS.map(s => s.name)];
     const rows = collabs.map(c => {
       const p     = posteById(c.PosteId);
       const comps = getCollabComps(c.Id);
@@ -4091,7 +4292,7 @@ function getCollabExportRows() {
       const cm     = c._comments[sk.id] || {};
       const hasCm  = cm.manager || cm.collaborateur || cm.pending;
       const pendingLabel = cm.pending ? `${pendingLevelLabel(cm.pending)} — ${cm.pending.commentaire || ''}` : '';
-      // On exporte uniquement les compétences pertinentes : ciblées par le poste,
+      // On exporte uniquement les compétences pertinentes : ciblées par la fonction,
       // renseignées (niveau > 0), ou commentées
       if (target == null && lvl === 0 && !hasCm) return;
       rows.push({
@@ -4225,7 +4426,7 @@ function exportCollabExcel() {
 // =====================================================================
 // MODAL
 // =====================================================================
-function maybeClose(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+function maybeClose(e) { /* Fermeture par clic sur l’arrière-plan désactivée pour éviter les pertes de saisie. */ }
 function closeModal()  { document.getElementById('modal').style.display = 'none'; }
 
 // =====================================================================
@@ -4369,39 +4570,53 @@ function showSkillDetail(skillId) {
   document.getElementById('modal').style.display = 'flex';
 }
 
-function renderAdminRoles() {
-  if (!ensureStrictAdminAccess()) return;
-  const rolesDef = [
+function roleDefinitionList() {
+  const base = [
     { name: 'admin',         label: 'Administrateur', icon: 'ti-shield-lock',  desc: 'Accès complet + paramètres' },
     { name: 'directeur',     label: 'Directeur',      icon: 'ti-crown',        desc: 'Toutes les fiches en lecture' },
     { name: 'manager',       label: 'Manager',        icon: 'ti-user-star',    desc: 'Fiches de son équipe + validation' },
     { name: 'collaborateur', label: 'Collaborateur',  icon: 'ti-user',         desc: 'Sa propre fiche uniquement' }
   ];
+  const baseNames = base.map(r => r.name);
+  const custom = db.roles
+    .filter(r => r.name && !baseNames.includes((r.name || '').toLowerCase()))
+    .map(r => ({ name:r.name, label:r.name, icon:'ti-shield-plus', desc:'Rôle personnalisé' }))
+    .sort((a,b) => nameCompareFr(a.label, b.label));
+  return [...base, ...custom];
+}
+
+function renderAdminRoles() {
+  if (!ensureStrictAdminAccess()) return;
+  const rolesDef = roleDefinitionList();
   let h = `<div class="admin-card"><div class="admin-hdr"><h3>Rôles utilisateurs</h3>
-    <span style="font-size:12px;color:#5F5E5A">Cliquez sur Gérer pour modifier les droits ou ajouter des profils personnalisés</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;color:#5F5E5A">Cliquez sur Gérer pour modifier les droits ou les utilisateurs</span>
+      <button class="btn btn-primary btn-sm" onclick="openRoleModal('')"><i class="ti ti-plus"></i>Nouveau rôle</button>
+    </div>
   </div>`;
   rolesDef.forEach(rd => {
-    const dbRole = db.roles.find(r => r.name === rd.name);
+    const dbRole = db.roles.find(r => (r.name || '').toLowerCase() === rd.name.toLowerCase());
     const emails = dbRole ? dbRole.emails.join(', ') : '';
     const droits = getDroitsForRole(rd.name);
     const droitsActifs = Object.entries(DROITS_LABELS)
       .filter(([k]) => droits[k])
       .map(([,v]) => `<span style="background:#EEEDFE;color:#534AB7;border-radius:4px;padding:1px 6px;font-size:10px;margin:2px;display:inline-block">${v}</span>`)
       .join('');
+    const isCustom = !['admin','directeur','manager','collaborateur'].includes(rd.name.toLowerCase());
     h += `<div style="padding:16px;border-bottom:.5px solid #D3D1C7">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <i class="ti ${rd.icon}" style="font-size:18px;color:#534AB7"></i>
         <div style="flex:1">
-          <div style="font-weight:600">${rd.label}</div>
-          <div style="font-size:12px;color:#5F5E5A">${rd.desc}</div>
+          <div style="font-weight:600">${escapeHtml(roleDisplayName(rd.name))}${isCustom ? ' <span class="formation-chip">personnalisé</span>' : ''}</div>
+          <div style="font-size:12px;color:#5F5E5A">${escapeHtml(rd.desc)}</div>
         </div>
-        <button class="btn btn-sm" onclick="openRoleModal('${rd.name}')">
+        <button class="btn btn-sm" onclick="openRoleModal('${escapeHtml(rd.name)}')">
           <i class="ti ti-edit"></i> Gérer
         </button>
       </div>
       <div style="margin-bottom:6px">${droitsActifs || '<span style="color:#aaa;font-size:11px">Aucun droit actif</span>'}</div>
       <div style="font-size:12px;color:#5F5E5A">
-        ${emails ? `<b>Utilisateurs :</b> ${emails}` : '<i>Aucun utilisateur assigné</i>'}
+        ${emails ? `<b>Utilisateurs :</b> ${escapeHtml(emails)}` : '<i>Aucun utilisateur assigné</i>'}
       </div>
     </div>`;
   });
@@ -4411,10 +4626,11 @@ function renderAdminRoles() {
 
 function openRoleModal(roleName) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
-  const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
-  const dbRole = db.roles.find(r => r.name === roleName);
+  const isNew = !roleName;
+  const normalized = (roleName || '').toLowerCase();
+  const dbRole = db.roles.find(r => (r.name || '').toLowerCase() === normalized);
   const emails = dbRole ? dbRole.emails.join('\n') : '';
-  const droits = getDroitsForRole(roleName);
+  const droits = getDroitsForRole(roleName || 'collaborateur');
 
   const droitsHtml = Object.entries(DROITS_LABELS).map(([key, label]) => {
     const adminOnly = ADMIN_ONLY_DROITS.includes(key);
@@ -4432,41 +4648,48 @@ function openRoleModal(roleName) {
   }).join('');
 
   document.getElementById('m-av').innerHTML = '<i class="ti ti-shield" style="font-size:20px"></i>';
-  document.getElementById('m-title').textContent = labels[roleName] || roleName;
+  document.getElementById('m-title').textContent = isNew ? 'Nouveau rôle' : roleDisplayName(roleName);
   document.getElementById('m-sub').textContent = 'Configurer les droits et les utilisateurs';
   document.getElementById('m-body').innerHTML = `
+    ${isNew ? `<div class="field full" style="margin-bottom:14px"><label>Nom du rôle</label><input type="text" id="role-name" placeholder="Ex : référent compétence"><div class="lock-note">Le nom sera enregistré en minuscules, sans accent ni espace.</div></div>` : `<div class="lock-note" style="margin-bottom:12px">Rôle : <b>${escapeHtml(roleName)}</b></div>`}
     <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Droits</div>
     <div style="margin-bottom:18px">${droitsHtml}</div>
     <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Utilisateurs (une adresse par ligne)</div>
     <textarea id="role-emails" style="width:100%;height:120px;font-size:13px;
       border:.5px solid #D3D1C7;border-radius:8px;padding:10px;resize:vertical"
-      placeholder="prenom.nom@evea-conseil.com">${emails}</textarea>
+      placeholder="prenom.nom@evea-conseil.com">${escapeHtml(emails)}</textarea>
     <div style="font-size:11px;color:#aaa;margin-top:4px">
       Les adresses doivent correspondre aux comptes Microsoft utilisés pour la connexion.
     </div>`;
   document.getElementById('m-footer').innerHTML = `
     <button class="btn" onclick="closeModal()">Annuler</button>
-    <button class="btn btn-primary" onclick="saveRole('${roleName}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+    <button class="btn btn-primary" onclick="saveRole('${escapeHtml(roleName || '')}')"><i class="ti ti-check"></i>Enregistrer</button>`;
   document.getElementById('modal').style.display = 'flex';
 }
 
 async function saveRole(roleName) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux administrateurs.'); return; }
+  const isNew = !roleName;
+  const finalRoleName = isNew ? normalizeRoleNameForSave(document.getElementById('role-name')?.value || '') : roleName;
+  if (!finalRoleName) return alert('Nom du rôle requis.');
+  const builtins = ['admin','directeur','manager','collaborateur'];
+  if (isNew && builtins.includes(finalRoleName)) return alert('Ce rôle existe déjà.');
+  if (isNew && db.roles.some(r => (r.name || '').toLowerCase() === finalRoleName.toLowerCase())) return alert('Ce rôle existe déjà.');
   const emails = document.getElementById('role-emails').value
     .split('\n').map(e => e.trim().toLowerCase()).filter(Boolean).join(',');
   const droits = {};
   Object.keys(DROITS_LABELS).forEach(key => {
     droits[key] = document.getElementById('droit-' + key)?.checked || false;
   });
-  const droitsSanitized = sanitizeDroitsForRole(roleName, droits);
+  const droitsSanitized = sanitizeDroitsForRole(finalRoleName, droits);
   showSave();
   try {
-    const dbRole = db.roles.find(r => r.name === roleName);
+    const dbRole = db.roles.find(r => (r.name || '').toLowerCase() === finalRoleName.toLowerCase());
     const data = { Emails: emails, Droits: JSON.stringify(droitsSanitized) };
     if (dbRole) {
       await spPatch(CONFIG.lists.roles, dbRole.spId, data);
     } else {
-      await spPost(CONFIG.lists.roles, { Title: roleName, ...data });
+      await spPost(CONFIG.lists.roles, { Title: finalRoleName, ...data });
     }
     await loadData();
     closeModal();
@@ -4474,6 +4697,7 @@ async function saveRole(roleName) {
     hideSave('Rôle enregistré ✓');
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
+
   
 // =====================================================================
 // LOGOUT
