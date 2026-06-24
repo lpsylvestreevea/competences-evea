@@ -201,6 +201,32 @@ textarea.cm-input:focus{border-color:#534AB7}
 .form-link-row:last-child{border-bottom:none}
 .form-link-row select{min-width:110px}
 
+.parcours-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+.parcours-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px;transition:border-color .15s,box-shadow .15s;cursor:pointer}
+.parcours-card:hover{border-color:#534AB7;box-shadow:0 3px 12px rgba(83,74,183,.08)}
+.parcours-card.inactive{opacity:.62;border-style:dashed}
+.parcours-title{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:14px;font-weight:600;line-height:1.3}
+.parcours-meta{display:flex;gap:5px;flex-wrap:wrap;font-size:11px;color:#5F5E5A}
+.parcours-steps{display:flex;gap:5px;flex-wrap:wrap}
+.parcours-step-chip{display:inline-flex;align-items:center;gap:4px;border:.5px solid #e0ded8;border-radius:999px;padding:2px 7px;font-size:11px;background:#fafaf8;color:#5F5E5A;max-width:100%}
+.parcours-step-chip span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.parcours-timeline{display:flex;flex-direction:column;gap:8px}
+.parcours-step{border:.5px solid #D3D1C7;border-radius:12px;background:#fff;padding:10px;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.parcours-step.done{border-color:#B8DED2;background:#fbfffd}.parcours-step.current{border-color:#534AB7;background:#fbfbff}.parcours-step.locked{opacity:.72;background:#fafaf8}.parcours-step.prevalidated{border-color:#FAEEDA;background:#fffdf7}
+.parcours-step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f5f5f0;color:#5F5E5A;font-size:12px;font-weight:700;flex-shrink:0}
+.parcours-step.done .parcours-step-num{background:#E1F5EE;color:#085041}.parcours-step.current .parcours-step-num{background:#EEEDFE;color:#3C3489}.parcours-step.prevalidated .parcours-step-num{background:#FAEEDA;color:#633806}
+.parcours-step-title{font-weight:600;font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.parcours-step-desc{font-size:12px;color:#5F5E5A;line-height:1.45;margin-bottom:6px}
+.parcours-bank{border:.5px solid #D3D1C7;border-radius:10px;background:#fafaf8;padding:8px;max-height:280px;overflow:auto}
+.parcours-bank-row{border-bottom:.5px solid #ebe9e0;padding:8px 0}.parcours-bank-row:last-child{border-bottom:none}
+.parcours-level-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:6px}
+.parcours-level-add{border:.5px solid #D3D1C7;border-radius:8px;background:#fff;padding:5px;text-align:left;cursor:pointer;font-family:inherit;color:#1a1a18;font-size:11px;line-height:1.25;min-height:60px}
+.parcours-level-add:hover{border-color:#534AB7;background:#fbfbff}
+.parcours-targets{border:.5px solid #D3D1C7;border-radius:8px;background:#fafaf8;padding:8px;margin-top:6px}
+.parcours-target-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.parcours-progress-row{display:grid;grid-template-columns:minmax(0,1fr)110px 90px;gap:8px;align-items:center;padding:8px;border-bottom:.5px solid #f0efe8;font-size:12px}
+.parcours-progress-row:last-child{border-bottom:none}
+
 .strategy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
 .strategy-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px;transition:border-color .15s,box-shadow .15s}
 .strategy-card:hover{border-color:#534AB7;box-shadow:0 3px 12px rgba(83,74,183,.08)}
@@ -309,6 +335,7 @@ const CONFIG = {
     competencesRef: 'CompetencesRef',
     roles:          'Roles',
     formations:     'Formations',
+    parcours:       'Parcours',
     axesStrategiques:'AxesStrategiques'
   }
 };
@@ -323,7 +350,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
-    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true,
+    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true, parcours_consultation: true, parcours_administration: true,
     matrice_equipe: true, matrice_complete: true, administration: true,
     export_individuel: true, export_global: true
   },
@@ -332,7 +359,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
-    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false,
+    recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: true,
     matrice_equipe: true, matrice_complete: true, administration: false,
     export_individuel: true, export_global: true
   },
@@ -341,7 +368,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false,
+    recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
     matrice_equipe: true, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   },
@@ -350,7 +377,7 @@ const DROITS_DEFAUT = {
     simulation_utilisateur: false,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
-    recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false,
+    recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
     matrice_equipe: false, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   }
@@ -371,6 +398,8 @@ const DROITS_LABELS = {
   strategie_administration:  'Stratégie : administration',
   formations_consultation:   'Formations : consultation',
   formations_administration: 'Formations : administration',
+  parcours_consultation:    'Parcours : consultation',
+  parcours_administration:  'Parcours : administration',
   matrice_equipe:            'Matrice globale : vue équipe',
   matrice_complete:          'Matrice globale : vue complète',
   administration:            'Administration : accès complet',
@@ -444,6 +473,7 @@ async function spGetOptional(listName, filter = '', select = '') {
     return await spGet(listName, filter, select);
   } catch (e) {
     if (listName === CONFIG.lists.formations) formationsListAvailable = false;
+    if (listName === CONFIG.lists.parcours) parcoursListAvailable = false;
     if (listName === CONFIG.lists.axesStrategiques) strategyListAvailable = false;
     console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
     return [];
@@ -617,10 +647,12 @@ let currentView = 'matrix';
 let filterDomain = '', filterTeam = '', filterPoste = '', filterStrategy = '', matrixPosteFilter = '';
 let collabSort = 'alpha', matrixSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
 let formationTypeFilter = '', formationSkillFilter = '';
+let parcoursStatusFilter = 'active', parcoursDomainFilter = '', parcoursScopeFilter = 'mine';
 let strategyTeamFilter = '', strategyStatusFilter = 'active';
-let collabEdit = {}, editCtx = {}, formationEdit = {}, strategyEdit = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], axesStrategiques:[] };
+let collabEdit = {}, editCtx = {}, formationEdit = {}, parcoursEdit = {}, strategyEdit = {};
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], parcours:[], axesStrategiques:[] };
 let formationsListAvailable = true;
+let parcoursListAvailable = true;
 let strategyListAvailable = true;
 let pendingSaves = 0; // ← ajouter ici
 
@@ -894,6 +926,9 @@ function resetFiltersAfterUserSwitch() {
   searchSkillQuery = '';
   formationTypeFilter = '';
   formationSkillFilter = '';
+  parcoursStatusFilter = 'active';
+  parcoursDomainFilter = '';
+  parcoursScopeFilter = 'mine';
   filterStrategy = '';
   strategyTeamFilter = '';
   strategyStatusFilter = 'active';
@@ -909,13 +944,14 @@ function canAccessView(v) {
   if (v === 'search-skills') return hasDroit('recherche');
   if (v === 'strategy') return hasDroit('strategie_consultation');
   if (v === 'formations') return hasDroit('formations_consultation');
+  if (v === 'parcours') return hasDroit('parcours_consultation');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
   if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
 
 function getDefaultViewForCurrentUser() {
-  const order = ['matrix', 'search-skills', 'strategy', 'formations', 'collabs'];
+  const order = ['matrix', 'search-skills', 'strategy', 'formations', 'parcours', 'collabs'];
   return order.find(canAccessView) || 'collabs';
 }
 
@@ -925,6 +961,7 @@ function ensureAdminAccess() {
 
 function canUseAddButton(v) {
   if (v === 'formations') return canManageFormations();
+  if (v === 'parcours') return canManageParcours();
   if (v === 'strategy') return canManageStrategy();
   if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasStrictAdminAccess();
   return false;
@@ -1133,6 +1170,157 @@ function sharepointFormationWarningHtml() {
   return `<div class="fb-err" style="margin-bottom:14px"><b>Liste SharePoint Formations introuvable ou inaccessible.</b><br>Créez la liste et les colonnes indiquées dans le message de livraison, puis rechargez l'application.</div>`;
 }
 
+
+
+// =====================================================================
+// PARCOURS
+// =====================================================================
+function canManageParcours() {
+  return hasDroit('parcours_administration');
+}
+function sharepointParcoursWarningHtml() {
+  if (parcoursListAvailable) return '';
+  return `<div class="fb-err" style="margin-bottom:14px"><b>Liste SharePoint Parcours introuvable ou inaccessible.</b><br>Créez la liste et les colonnes indiquées dans le message de livraison, puis rechargez l'application.</div>`;
+}
+function normalizeParcoursMilestones(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, []) : (value || []);
+  let arr = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([skillId, niveau]) => arr.push({ skillId, niveau }));
+  }
+  return arr.map((x, idx) => ({
+      skillId: String(x.skillId || x.SkillId || x.id || '').trim(),
+      niveau: Math.max(1, Math.min(4, parseInt(x.niveau ?? x.level ?? x.Niveau ?? 1, 10) || 1)),
+      ordre: Math.max(1, parseInt(x.ordre ?? x.order ?? x.Position ?? idx + 1, 10) || idx + 1)
+    }))
+    .filter(x => x.skillId)
+    .sort((a,b) => a.ordre - b.ordre || nameCompareFr(skillById(a.skillId)?.name || a.skillId, skillById(b.skillId)?.name || b.skillId))
+    .map((x, idx) => ({ ...x, ordre: idx + 1 }));
+}
+function normalizeParcoursTargets(value) {
+  const raw = typeof value === 'string' ? safeJsonParse(value, {}) : (value || {});
+  const teamIds = Array.isArray(raw.teamIds || raw.TeamIds) ? (raw.teamIds || raw.TeamIds).map(String).filter(Boolean) : [];
+  const collabIds = Array.isArray(raw.collabIds || raw.CollabIds) ? (raw.collabIds || raw.CollabIds).map(String).filter(Boolean) : [];
+  let mode = String(raw.mode || raw.Mode || '').toLowerCase();
+  if (!['all','teams','collabs'].includes(mode)) {
+    if (raw.all === true || raw.All === true) mode = 'all';
+    else if (teamIds.length) mode = 'teams';
+    else if (collabIds.length) mode = 'collabs';
+    else mode = 'all';
+  }
+  return { mode, teamIds, collabIds };
+}
+function parcoursById(id) {
+  return db.parcours.find(p => String(p.id) === String(id));
+}
+function parcoursAppliesToCollab(parcours, collab) {
+  if (!parcours || !collab) return false;
+  const cibles = normalizeParcoursTargets(parcours.cibles || {});
+  if (cibles.mode === 'all') return true;
+  if (cibles.mode === 'teams') return (collab.teamIds || []).some(tid => cibles.teamIds.includes(String(tid)));
+  if (cibles.mode === 'collabs') return cibles.collabIds.includes(String(collab.Id));
+  return true;
+}
+function parcoursTargetsLabel(cibles = {}) {
+  const t = normalizeParcoursTargets(cibles);
+  if (t.mode === 'all') return 'Tous les collaborateurs';
+  if (t.mode === 'teams') {
+    const names = t.teamIds.map(id => teamById(id)?.name).filter(Boolean);
+    return names.length ? names.join(', ') : 'Équipes ciblées';
+  }
+  const names = t.collabIds.map(id => getCollabDisplayName(db.collaborateurs.find(c => String(c.Id) === String(id)))).filter(Boolean);
+  return names.length ? names.join(', ') : 'Collaborateurs ciblés';
+}
+function parcoursMilestoneLabel(m) {
+  const sk = skillById(m.skillId);
+  return `${sk ? sk.name : m.skillId} · N${m.niveau}`;
+}
+function parcoursMilestoneChipHtml(m) {
+  const sk = skillById(m.skillId);
+  return `<span class="parcours-step-chip"><span>${escapeHtml(sk ? sk.name : m.skillId)}</span><span class="ldot l${m.niveau}" style="width:16px;height:16px;font-size:9px">${m.niveau}</span></span>`;
+}
+function getParcoursFormationsForMilestone(skillId, niveau) {
+  const target = Math.max(1, Math.min(4, parseInt(niveau, 10) || 1));
+  return db.formations
+    .filter(f => f.actif !== false)
+    .filter(f => normalizeFormationSkillLinks(f.skills).some(link => String(link.skillId) === String(skillId) && (!link.niveau || Number(link.niveau) >= target)))
+    .sort((a,b) => Number(isAlternativeDevelopment(a)) - Number(isAlternativeDevelopment(b)) || nameCompareFr(a.title, b.title));
+}
+function getParcoursProgressForCollab(parcours, collab) {
+  const jalons = normalizeParcoursMilestones(parcours?.jalons || []);
+  const comps = collab ? getCollabComps(collab.Id) : {};
+  let blocked = false;
+  let done = 0;
+  const steps = jalons.map((m, idx) => {
+    const currentLevel = parseInt(comps[m.skillId], 10) || 0;
+    const mastered = currentLevel >= Number(m.niveau);
+    let status = 'locked';
+    if (!blocked && mastered) {
+      status = 'done';
+      done++;
+    } else if (!blocked) {
+      status = 'current';
+      blocked = true;
+    } else if (mastered) {
+      status = 'prevalidated';
+    }
+    return { ...m, index: idx + 1, currentLevel, mastered, status };
+  });
+  const total = steps.length;
+  return { steps, done, total, pct: total ? Math.round(done / total * 100) : null, completed: total > 0 && done === total };
+}
+function parcoursStatusLabel(status) {
+  if (status === 'done') return 'Validé';
+  if (status === 'current') return 'À travailler';
+  if (status === 'prevalidated') return 'Maîtrisé, jalon précédent à valider';
+  return 'À venir';
+}
+function parcoursStepIcon(status) {
+  if (status === 'done') return '<i class="ti ti-check"></i>';
+  if (status === 'current') return '<i class="ti ti-player-play"></i>';
+  if (status === 'prevalidated') return '<i class="ti ti-clock-check"></i>';
+  return '<i class="ti ti-lock"></i>';
+}
+function getParcoursScopedCollabs(parcours, scope = parcoursScopeFilter) {
+  const me = getCurrentCollab();
+  let collabs = getVisibleCollabs().filter(c => parcoursAppliesToCollab(parcours, c));
+  if (scope === 'mine') return me && parcoursAppliesToCollab(parcours, me) ? [me] : [];
+  if (scope === 'team' && !hasDroit('toutes_consultation')) {
+    const managerTeamIds = getCurrentManagerTeamIds();
+    collabs = collabs.filter(c => (c.teamIds || []).some(tid => managerTeamIds.includes(String(tid))));
+  }
+  return collabs.sort((a,b) => collabAlphaKey(a).localeCompare(collabAlphaKey(b), 'fr', { sensitivity:'base' }));
+}
+function getVisibleParcours() {
+  const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase().trim();
+  let list = db.parcours.slice();
+  if (!canManageParcours() || parcoursStatusFilter === 'active') list = list.filter(p => p.actif !== false);
+  else if (parcoursStatusFilter === 'inactive') list = list.filter(p => p.actif === false);
+  if (parcoursDomainFilter) list = list.filter(p => normalizeParcoursMilestones(p.jalons).some(m => skillById(m.skillId)?.did === parcoursDomainFilter));
+  if (q) list = list.filter(p => {
+    const hay = [p.title, p.description, parcoursTargetsLabel(p.cibles), ...normalizeParcoursMilestones(p.jalons).map(m => parcoursMilestoneLabel(m))].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  if (!canManageParcours() && parcoursScopeFilter === 'mine') {
+    const me = getCurrentCollab();
+    list = list.filter(p => parcoursAppliesToCollab(p, me));
+  } else if (parcoursScopeFilter !== 'all' || !canManageParcours()) {
+    list = list.filter(p => getParcoursScopedCollabs(p, parcoursScopeFilter).length > 0);
+  }
+  return list.sort((a,b) => nameCompareFr(a.title, b.title));
+}
+function parcoursSkillOptionsHtml(selected = '', domainId = '') {
+  return getSortedDomains().filter(d => !domainId || String(d.id) === String(domainId)).map(dom => {
+    const skills = SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name));
+    if (!skills.length) return '';
+    return `<optgroup label="${escapeHtml(dom.name)}">${skills.map(sk => `<option value="${sk.id}"${String(selected)===String(sk.id)?' selected':''}>${escapeHtml(sk.name)}</option>`).join('')}</optgroup>`;
+  }).join('');
+}
+function getDefaultSkillForParcoursDomain(domainId = '') {
+  const list = SKILLS.filter(s => !domainId || s.did === domainId).sort((a,b) => nameCompareFr(a.name, b.name));
+  return list[0]?.id || SKILLS[0]?.id || '';
+}
 
 
 // =====================================================================
@@ -1362,8 +1550,9 @@ function levelTT(sk, lvl, dir = '', posteId = '') {
 async function loadData() {
   document.getElementById('loading-msg').textContent = 'Chargement des données...';
   formationsListAvailable = true;
+  parcoursListAvailable = true;
   strategyListAvailable = true;
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, axesStrategiquesRaw] = await Promise.all([
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -1374,6 +1563,7 @@ async function loadData() {
   spGet(CONFIG.lists.roles),
   spGet(CONFIG.lists.competencesRef),
   spGetOptional(CONFIG.lists.formations),
+  spGetOptional(CONFIG.lists.parcours),
   spGetOptional(CONFIG.lists.axesStrategiques)
 ]);
 
@@ -1464,6 +1654,17 @@ db.formations = formationsRaw.map(f => ({
   programme:   f.Programme || '',
   actif:       f.Actif === undefined || f.Actif === null ? true : !!f.Actif
 }));
+
+
+// Charge les parcours et leurs jalons.
+db.parcours = parcoursRaw.map(p => ({
+  id:          String(p.Id),
+  title:       p.Title || '',
+  description: p.Description || '',
+  jalons:      normalizeParcoursMilestones(p.Jalons || ''),
+  cibles:      normalizeParcoursTargets(p.Cibles || ''),
+  actif:       p.Actif === undefined || p.Actif === null ? true : !!p.Actif
+})).sort((a,b) => nameCompareFr(a.title, b.title));
 
 // Charge les axes stratégiques et leurs objectifs.
 db.axesStrategiques = axesStrategiquesRaw.map((a, idx) => {
@@ -1675,6 +1876,9 @@ function buildSidebar() {
   if (hasDroit('formations_consultation')) {
     nav += `<div class="nav-item" onclick="showView('formations')" id="nav-formations"><i class="ti ti-school"></i>Formations</div>`;
   }
+  if (hasDroit('parcours_consultation')) {
+    nav += `<div class="nav-item" onclick="showView('parcours')" id="nav-parcours"><i class="ti ti-route"></i>Parcours</div>`;
+  }
   if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
     nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
   }
@@ -1698,7 +1902,7 @@ function showView(v) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + v)?.classList.add('active');
   const titles = {
-    matrix:'Matrice globale', collabs:'Collaborateurs', strategy:'Stratégie', formations:'Formations',
+    matrix:'Matrice globale', collabs:'Collaborateurs', strategy:'Stratégie', formations:'Formations', parcours:'Parcours',
     'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
     'admin-postes':'Fonctions', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
@@ -1706,17 +1910,18 @@ function showView(v) {
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
-    matrix:'Collaborateur', collabs:'Collaborateur', strategy:'Axe stratégique', formations:'Formation',
+    matrix:'Collaborateur', collabs:'Collaborateur', strategy:'Axe stratégique', formations:'Formation', parcours:'Parcours',
     'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Fonction'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
   document.getElementById('btn-export').style.display = (['matrix','collabs','import'].includes(v) && hasDroit('export_global')) ? 'inline-flex' : 'none';
-  document.getElementById('search-wrap').style.display = ['matrix','collabs','formations','strategy'].includes(v) ? 'flex' : 'none';
+  document.getElementById('search-wrap').style.display = ['matrix','collabs','formations','strategy','parcours'].includes(v) ? 'flex' : 'none';
 if      (v === 'matrix')        renderMatrix();
 else if (v === 'search-skills') renderSearchSkills();
 else if (v === 'strategy')      renderStrategy();
 else if (v === 'formations')    renderFormations();
+else if (v === 'parcours')      renderParcours();
 else if (v === 'collabs')       renderCollabs();
 else if (v === 'admin-collabs') renderAdminCollabs();
 else if (v === 'admin-teams')   renderAdminTeams();
@@ -1735,6 +1940,7 @@ function handleAddBtn() {
     matrix:         () => openCollabModal(null),
     collabs:        () => openCollabModal(null),
     formations:     () => openFormationModal(null),
+    parcours:       () => openParcoursModal(null),
     strategy:       () => openStrategyModal(null),
     'admin-collabs':() => openCollabModal(null),
     'admin-teams':  () => openTeamModal(null),
@@ -1829,6 +2035,7 @@ function applyFilters() {
   if (currentView === 'matrix')  renderMatrix();
   else if (currentView === 'collabs') renderCollabs();
   else if (currentView === 'formations') renderFormations();
+  else if (currentView === 'parcours') renderParcours();
   else if (currentView === 'strategy') renderStrategy();
 }
 
@@ -2548,6 +2755,403 @@ async function deleteFormation(id) {
     alert('Erreur lors de la suppression : ' + e.message);
   }
 }
+
+
+// =====================================================================
+// PARCOURS — VUE ET ÉDITION
+// =====================================================================
+function renderParcours() {
+  const me = getCurrentCollab();
+  if (parcoursScopeFilter === 'mine' && !me) parcoursScopeFilter = 'team';
+  const list = getVisibleParcours();
+  const canSeeScope = hasDroit('equipe_consultation') || hasDroit('toutes_consultation') || canManageParcours();
+  let h = `${sharepointParcoursWarningHtml()}
+    <div class="filters">
+      ${canSeeScope ? `<select onchange="parcoursScopeFilter=this.value;renderParcours()">
+        <option value="mine"${parcoursScopeFilter==='mine'?' selected':''}>Mes parcours</option>
+        <option value="team"${parcoursScopeFilter==='team'?' selected':''}>Périmètre accessible</option>
+        ${(hasDroit('toutes_consultation') || canManageParcours()) ? `<option value="all"${parcoursScopeFilter==='all'?' selected':''}>Tous les parcours</option>` : ''}
+      </select>` : ''}
+      <select onchange="parcoursDomainFilter=this.value;renderParcours()">
+        <option value="">Tous les domaines</option>
+        ${getSortedDomains().map(d => `<option value="${d.id}"${parcoursDomainFilter===String(d.id)?' selected':''}>${escapeHtml(d.name)}</option>`).join('')}
+      </select>
+      ${canManageParcours() ? `<select onchange="parcoursStatusFilter=this.value;renderParcours()">
+        <option value="active"${parcoursStatusFilter==='active'?' selected':''}>Parcours actifs</option>
+        <option value="all"${parcoursStatusFilter==='all'?' selected':''}>Tous les parcours</option>
+        <option value="inactive"${parcoursStatusFilter==='inactive'?' selected':''}>Parcours inactifs</option>
+      </select>` : ''}
+      <span class="stat-pill">${list.length} parcours</span>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="parcours-step-num" style="width:20px;height:20px;font-size:10px;background:#E1F5EE;color:#085041"><i class="ti ti-check"></i></span>Jalon validé</span>
+      <span class="legend-item"><span class="parcours-step-num" style="width:20px;height:20px;font-size:10px;background:#EEEDFE;color:#3C3489"><i class="ti ti-player-play"></i></span>Jalon en cours</span>
+      <span class="legend-item"><span class="parcours-step-num" style="width:20px;height:20px;font-size:10px;background:#f5f5f0;color:#5F5E5A"><i class="ti ti-lock"></i></span>Jalon à venir</span>
+    </div>`;
+
+  if (!list.length) {
+    h += `<div class="empty"><i class="ti ti-route"></i>Aucun parcours à afficher.</div>`;
+  } else {
+    h += `<div class="parcours-grid">`;
+    list.forEach(p => {
+      const jalons = normalizeParcoursMilestones(p.jalons);
+      const mine = me && parcoursAppliesToCollab(p, me) ? getParcoursProgressForCollab(p, me) : null;
+      const scoped = getParcoursScopedCollabs(p, parcoursScopeFilter === 'mine' ? 'team' : parcoursScopeFilter);
+      const completed = scoped.filter(c => getParcoursProgressForCollab(p, c).completed).length;
+      const preview = jalons.slice(0, 4).map(parcoursMilestoneChipHtml).join('');
+      const more = jalons.length > 4 ? `<span class="formation-chip">+${jalons.length - 4}</span>` : '';
+      h += `<div class="parcours-card${p.actif === false ? ' inactive' : ''}" onclick="openParcoursDetail('${p.id}')">
+        <div class="parcours-title">
+          <span>${escapeHtml(p.title || 'Sans titre')}</span>
+          ${p.actif === false ? '<span class="formation-chip warn">Inactif</span>' : ''}
+        </div>
+        ${p.description ? `<div class="strategy-desc">${escapeHtml(truncateText(p.description, 180))}</div>` : ''}
+        <div class="parcours-meta">
+          <span class="formation-chip"><i class="ti ti-flag"></i>${jalons.length} jalon(s)</span>
+          <span class="formation-chip"><i class="ti ti-users"></i>${escapeHtml(truncateText(parcoursTargetsLabel(p.cibles), 42))}</span>
+        </div>
+        ${mine ? `<div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#5F5E5A;margin-bottom:4px"><span>Mon avancée</span><b>${mine.done}/${mine.total}</b></div>
+          <div class="strategy-progress"><div class="strategy-progress-fill" style="width:${mine.pct || 0}%"></div></div>
+        </div>` : ''}
+        ${scoped.length && parcoursScopeFilter !== 'mine' ? `<div class="strategy-kpis" style="grid-template-columns:repeat(2,1fr)">
+          <div class="strategy-kpi"><b>${completed}/${scoped.length}</b><span>terminés</span></div>
+          <div class="strategy-kpi"><b>${Math.round(scoped.reduce((sum,c)=>sum+(getParcoursProgressForCollab(p,c).pct||0),0)/scoped.length)}%</b><span>avancement moyen</span></div>
+        </div>` : ''}
+        <div class="parcours-steps">${preview}${more}</div>
+        <div class="formation-actions">
+          <button class="btn btn-sm" onclick="event.stopPropagation();openParcoursDetail('${p.id}')"><i class="ti ti-eye"></i>Détails</button>
+          ${scoped.length > 1 ? `<button class="btn btn-sm" onclick="event.stopPropagation();showParcoursProgress('${p.id}')"><i class="ti ti-users"></i>Suivi</button>` : ''}
+          ${canManageParcours() ? `<button class="btn btn-sm" onclick="event.stopPropagation();openParcoursModal('${p.id}')"><i class="ti ti-edit"></i>Modifier</button>` : ''}
+        </div>
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  document.getElementById('content').innerHTML = h;
+}
+
+function openParcoursDetail(id, collabId = '') {
+  const p = parcoursById(id);
+  if (!p) return;
+  const scoped = getParcoursScopedCollabs(p, parcoursScopeFilter === 'mine' ? 'team' : parcoursScopeFilter);
+  let collab = collabId ? db.collaborateurs.find(c => String(c.Id) === String(collabId)) : null;
+  if (!collab || !parcoursAppliesToCollab(p, collab)) {
+    const me = getCurrentCollab();
+    collab = me && parcoursAppliesToCollab(p, me) ? me : scoped[0];
+  }
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-route" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = p.title || 'Parcours';
+  document.getElementById('m-sub').textContent = collab ? `${getCollabDisplayName(collab)} · ${parcoursTargetsLabel(p.cibles)}` : parcoursTargetsLabel(p.cibles);
+  let body = '';
+  if (p.description) body += `<div class="projection-note" style="white-space:pre-line"><i class="ti ti-info-circle"></i> ${escapeHtml(p.description)}</div>`;
+  if (scoped.length > 1) {
+    body += `<div class="filters" style="margin-bottom:12px"><select onchange="openParcoursDetail('${p.id}',this.value)">
+      ${scoped.map(c => `<option value="${c.Id}"${collab && String(collab.Id)===String(c.Id)?' selected':''}>${escapeHtml(getCollabDisplayName(c))}</option>`).join('')}
+    </select>
+    <button class="btn btn-sm" onclick="showParcoursProgress('${p.id}')"><i class="ti ti-users"></i>Voir le suivi</button></div>`;
+  }
+  if (!collab) {
+    body += `<div class="empty"><i class="ti ti-user-off"></i>Aucun collaborateur accessible pour ce parcours.</div>`;
+  } else {
+    const progress = getParcoursProgressForCollab(p, collab);
+    body += `<div class="strategy-kpis" style="margin-bottom:10px">
+      <div class="strategy-kpi"><b>${progress.done}/${progress.total}</b><span>jalons validés</span></div>
+      <div class="strategy-kpi"><b>${progress.pct != null ? progress.pct + '%' : '—'}</b><span>avancement</span></div>
+      <div class="strategy-kpi"><b>${progress.completed ? 'Oui' : 'Non'}</b><span>terminé</span></div>
+    </div>
+    ${progress.pct != null ? `<div class="strategy-progress" style="margin-bottom:14px"><div class="strategy-progress-fill" style="width:${progress.pct}%"></div></div>` : ''}
+    <div class="parcours-timeline">${progress.steps.map(step => renderParcoursStepDetail(step, collab, p)).join('')}</div>`;
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `
+    ${canManageParcours() ? `<button class="btn" style="margin-right:auto" onclick="openParcoursModal('${p.id}')"><i class="ti ti-edit"></i>Modifier</button>` : ''}
+    <button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function renderParcoursStepDetail(step, collab, parcours) {
+  const sk = skillById(step.skillId);
+  const desc = sk ? getLevelDesc(sk, step.niveau) : '';
+  const formations = getParcoursFormationsForMilestone(step.skillId, step.niveau);
+  const statusClass = step.status === 'prevalidated' ? 'prevalidated' : step.status;
+  const formationHtml = formations.length ? formations.slice(0, 3).map(f => {
+    const url = safeExternalUrl(f.lien);
+    const alt = isAlternativeDevelopment(f);
+    return `<div class="dev-option${alt ? ' alt' : ''}" style="padding:8px;margin-top:6px;margin-bottom:0">
+      <div class="dev-option-title"><span>${escapeHtml(f.title || 'Sans titre')}</span><span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span></div>
+      <div class="formation-meta">
+        ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+        ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+        ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+        <button class="btn btn-sm" onclick="openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Fiche</button>
+      </div>
+    </div>`;
+  }).join('') + (formations.length > 3 ? `<button class="btn btn-sm" style="margin-top:6px" onclick="openParcoursSkillFormations('${step.skillId}',${Number(step.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Voir les ${formations.length} ressources</button>` : '') : `<div class="lock-note">Aucune formation ou moyen de développement n’est encore rattaché à ce jalon.</div>`;
+  return `<div class="parcours-step ${statusClass}">
+    <div class="parcours-step-num">${parcoursStepIcon(step.status)}</div>
+    <div>
+      <div class="parcours-step-title">
+        <span>Jalon ${step.index}</span>
+        <span class="formation-chip">${escapeHtml(parcoursStatusLabel(step.status))}</span>
+        <span class="ldot l${step.niveau}" style="width:18px;height:18px;font-size:10px">${step.niveau}</span>
+      </div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${escapeHtml(sk ? sk.name : step.skillId)}</div>
+      <div class="parcours-step-desc">${escapeHtml(desc || 'Description du niveau non renseignée.')}</div>
+      <div class="formation-meta" style="margin-bottom:6px">
+        <span class="formation-chip">Niveau actuel : ${step.currentLevel || '—'}</span>
+        <button class="btn btn-sm" onclick="openCollabModal('${collab.Id}','${step.skillId}')"><i class="ti ti-award"></i>Ouvrir la compétence</button>
+        <button class="btn btn-sm" onclick="openParcoursSkillFormations('${step.skillId}',${Number(step.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Formations</button>
+      </div>
+      ${formationHtml}
+    </div>
+  </div>`;
+}
+
+function showParcoursProgress(id) {
+  const p = parcoursById(id);
+  if (!p) return;
+  const scope = parcoursScopeFilter === 'mine' ? ((hasDroit('equipe_consultation') || hasDroit('toutes_consultation') || canManageParcours()) ? 'team' : 'mine') : parcoursScopeFilter;
+  const collabs = getParcoursScopedCollabs(p, scope);
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-users" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = `Suivi · ${p.title || 'Parcours'}`;
+  document.getElementById('m-sub').textContent = `${collabs.length} personne(s) dans le périmètre accessible`;
+  let body = '';
+  if (!collabs.length) {
+    body = `<div class="empty"><i class="ti ti-user-off"></i>Aucun collaborateur accessible pour ce parcours.</div>`;
+  } else {
+    body = `<div class="admin-card"><div class="parcours-progress-row" style="font-weight:600;background:#f5f5f0"><div>Collaborateur</div><div>Progression</div><div>Action</div></div>`;
+    collabs.forEach(c => {
+      const pr = getParcoursProgressForCollab(p, c);
+      const teams = (c.teamIds || []).map(tid => teamById(tid)?.name).filter(Boolean).join(', ') || '—';
+      body += `<div class="parcours-progress-row">
+        <div><button class="clickable-text" style="font-weight:600" onclick="openParcoursDetail('${p.id}','${c.Id}')">${escapeHtml(getCollabDisplayName(c))}</button><div style="font-size:11px;color:#5F5E5A">${escapeHtml(teams)}</div></div>
+        <div><b>${pr.done}/${pr.total}</b><div class="strategy-progress" style="margin-top:4px"><div class="strategy-progress-fill" style="width:${pr.pct || 0}%"></div></div></div>
+        <div><button class="btn btn-sm" onclick="openParcoursDetail('${p.id}','${c.Id}')"><i class="ti ti-eye"></i>Détail</button></div>
+      </div>`;
+    });
+    body += `</div>`;
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function openParcoursSkillFormations(skillId, targetLevel = 1, parcoursId = '', collabId = '') {
+  const sk = skillById(skillId);
+  const target = Math.max(1, Math.min(4, parseInt(targetLevel, 10) || 1));
+  const options = getParcoursFormationsForMilestone(skillId, target);
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-school" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = sk ? sk.name : 'Formations liées';
+  document.getElementById('m-sub').textContent = `Ressources pour viser le niveau ${target}`;
+  let body = `<div class="projection-note"><i class="ti ti-info-circle"></i> Ces formations et moyens alternatifs sont rattachés à la compétence du jalon, avec un niveau visé égal ou supérieur.</div>`;
+  if (!options.length) {
+    body += `<div class="empty"><i class="ti ti-school"></i>Aucune ressource associée à ce jalon.</div>`;
+  } else {
+    options.forEach(f => {
+      const alt = isAlternativeDevelopment(f);
+      const url = safeExternalUrl(f.lien);
+      body += `<div class="dev-option${alt ? ' alt' : ''}">
+        <div class="dev-option-title"><span>${escapeHtml(f.title || 'Sans titre')}</span><span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span></div>
+        <div class="formation-meta" style="margin-bottom:5px">
+          ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+          ${f.format ? `<span class="formation-chip"><i class="ti ti-device-laptop"></i>${escapeHtml(f.format)}</span>` : ''}
+          ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+          ${f.tarif ? `<span class="formation-chip"><i class="ti ti-currency-euro"></i>${escapeHtml(f.tarif)}</span>` : ''}
+        </div>
+        ${f.objectifs ? `<div class="formation-text">${escapeHtml(truncateText(f.objectifs, 240))}</div>` : ''}
+        <div class="formation-actions" style="margin-top:8px">
+          <button class="btn btn-sm" onclick="openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Voir la fiche</button>
+          ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('m-body').innerHTML = body;
+  document.getElementById('m-footer').innerHTML = `${parcoursId ? `<button class="btn" style="margin-right:auto" onclick="openParcoursDetail('${parcoursId}','${collabId}')"><i class="ti ti-arrow-back-up"></i>Retour au parcours</button>` : ''}<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function openParcoursModal(id) {
+  if (!canManageParcours()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  if (!parcoursListAvailable) { alert('La liste SharePoint Parcours doit être créée avant d’ajouter un parcours.'); return; }
+  const existing = id ? parcoursById(id) : null;
+  parcoursEdit = existing ? JSON.parse(JSON.stringify(existing)) : { id:null, title:'', description:'', jalons:[], cibles:{ mode:'all', teamIds:[], collabIds:[] }, actif:true };
+  parcoursEdit.jalons = normalizeParcoursMilestones(parcoursEdit.jalons);
+  parcoursEdit.cibles = normalizeParcoursTargets(parcoursEdit.cibles);
+  parcoursEdit._domainFilter = parcoursEdit._domainFilter || '';
+  parcoursEdit._collabFilter = '';
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-route" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier le parcours' : 'Nouveau parcours';
+  document.getElementById('m-sub').textContent = 'Jalons de compétences séquentiels';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Nom du parcours</label><input type="text" id="p-title" value="${escapeHtml(parcoursEdit.title||'')}" placeholder="Ex : Parcours chef de projet climat"></div>
+      <div class="field full"><label>Description</label><textarea id="p-description" style="min-height:80px" placeholder="Objectif du parcours, public concerné, contexte…">${escapeHtml(parcoursEdit.description||'')}</textarea></div>
+      <div class="field"><label>Statut</label><select id="p-actif"><option value="1"${parcoursEdit.actif!==false?' selected':''}>Actif</option><option value="0"${parcoursEdit.actif===false?' selected':''}>Inactif</option></select></div>
+      <div class="field"><label>Filtre domaine pour choisir les jalons</label><select id="p-domain" onchange="parcoursEdit._domainFilter=this.value;renderParcoursMilestonesEditor()"><option value="">Tous les domaines</option>${getSortedDomains().map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}</select></div>
+      <div class="field full"><label>Public du parcours</label><div id="p-targets" class="parcours-targets"></div></div>
+      <div class="field full"><label>Jalons du parcours</label>
+        <div class="projection-note"><i class="ti ti-info-circle"></i> Les jalons se débloquent dans l’ordre. Un jalon est validé dès que le niveau officiel de la compétence est validé sur la fiche collaborateur.</div>
+        <div id="p-milestones" style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;background:#fafaf8;margin-bottom:10px"></div>
+        <button class="btn btn-sm" onclick="addParcoursMilestone()"><i class="ti ti-plus"></i>Ajouter un jalon vide</button>
+      </div>
+      <div class="field full"><label>Référentiel filtré</label><div id="p-skill-bank" class="parcours-bank"></div></div>
+    </div>`;
+  document.getElementById('m-footer').innerHTML = `
+    ${id ? `<button class="btn btn-danger" style="margin-right:auto" onclick="deleteParcours('${id}')"><i class="ti ti-trash"></i>Supprimer</button>` : ''}
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveParcours('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+  renderParcoursTargetsEditor();
+  renderParcoursMilestonesEditor();
+}
+
+function renderParcoursTargetsEditor(filter = parcoursEdit._collabFilter || '') {
+  const wrap = document.getElementById('p-targets');
+  if (!wrap) return;
+  parcoursEdit.cibles = normalizeParcoursTargets(parcoursEdit.cibles || {});
+  parcoursEdit._collabFilter = filter;
+  const mode = parcoursEdit.cibles.mode || 'all';
+  let h = `<select onchange="parcoursEdit.cibles.mode=this.value;renderParcoursTargetsEditor()" style="margin-bottom:8px">
+    <option value="all"${mode==='all'?' selected':''}>Tous les collaborateurs</option>
+    <option value="teams"${mode==='teams'?' selected':''}>Certaines équipes</option>
+    <option value="collabs"${mode==='collabs'?' selected':''}>Certaines personnes</option>
+  </select>`;
+  if (mode === 'teams') {
+    h += `<div class="team-checks">${db.equipes.slice().sort((a,b)=>nameCompareFr(a.name,b.name)).map(t => {
+      const checked = parcoursEdit.cibles.teamIds.includes(String(t.id));
+      return `<label class="tcheck${checked?' checked':''}"><input type="checkbox" ${checked?'checked':''} onchange="toggleParcoursTargetTeam('${String(t.id)}')">${escapeHtml(t.name)}</label>`;
+    }).join('')}</div>`;
+  } else if (mode === 'collabs') {
+    const q = normalizeText(filter);
+    const selected = parcoursEdit.cibles.collabIds || [];
+    const collabs = db.collaborateurs.slice().sort((a,b)=>collabAlphaKey(a).localeCompare(collabAlphaKey(b),'fr',{sensitivity:'base'})).filter(c => !q || normalizeText(getCollabDisplayName(c) + ' ' + (c.Email||'')).includes(q));
+    h += `<div class="search-box" style="width:100%;max-width:360px;margin-bottom:8px"><i class="ti ti-search"></i><input type="text" value="${escapeHtml(filter)}" placeholder="Rechercher une personne…" oninput="renderParcoursTargetsEditor(this.value)"></div>
+      <div class="team-checks" style="max-height:180px;overflow:auto">${collabs.map(c => {
+        const checked = selected.includes(String(c.Id));
+        return `<label class="tcheck${checked?' checked':''}"><input type="checkbox" ${checked?'checked':''} onchange="toggleParcoursTargetCollab('${String(c.Id)}')">${escapeHtml(getCollabDisplayName(c))}</label>`;
+      }).join('')}</div>`;
+  } else {
+    h += `<div class="lock-note">Le parcours sera visible par tous les collaborateurs.</div>`;
+  }
+  wrap.innerHTML = h;
+}
+function toggleParcoursTargetTeam(teamId) {
+  parcoursEdit.cibles = normalizeParcoursTargets(parcoursEdit.cibles || {});
+  const id = String(teamId);
+  const arr = parcoursEdit.cibles.teamIds || [];
+  parcoursEdit.cibles.teamIds = arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
+  renderParcoursTargetsEditor();
+}
+function toggleParcoursTargetCollab(collabId) {
+  parcoursEdit.cibles = normalizeParcoursTargets(parcoursEdit.cibles || {});
+  const id = String(collabId);
+  const arr = parcoursEdit.cibles.collabIds || [];
+  parcoursEdit.cibles.collabIds = arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
+  renderParcoursTargetsEditor(parcoursEdit._collabFilter || '');
+}
+function renderParcoursMilestonesEditor() {
+  const wrap = document.getElementById('p-milestones');
+  const bank = document.getElementById('p-skill-bank');
+  if (!wrap || !bank) return;
+  parcoursEdit.jalons = normalizeParcoursMilestones(parcoursEdit.jalons || []);
+  if (!parcoursEdit.jalons.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:#aaa;padding:4px">Aucun jalon défini.</div>`;
+  } else {
+    wrap.innerHTML = parcoursEdit.jalons.map((m, i) => `
+      <div class="form-link-row" style="align-items:flex-start;flex-wrap:wrap">
+        <span class="parcours-step-num" style="width:24px;height:24px;font-size:11px">${i+1}</span>
+        <select onchange="setParcoursMilestoneSkill(${i},this.value)" style="min-width:240px">${skillOptionsHtml(m.skillId)}</select>
+        <select onchange="setParcoursMilestoneLevel(${i},this.value)">${[1,2,3,4].map(n => `<option value="${n}"${Number(m.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}</select>
+        <button class="btn btn-sm" ${i===0?'disabled':''} onclick="moveParcoursMilestone(${i},-1)"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm" ${i===parcoursEdit.jalons.length-1?'disabled':''} onclick="moveParcoursMilestone(${i},1)"><i class="ti ti-arrow-down"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="removeParcoursMilestone(${i})"><i class="ti ti-trash"></i></button>
+        ${strategyLevelHelpHtml(m.skillId, m.niveau)}
+      </div>`).join('');
+  }
+  const domain = parcoursEdit._domainFilter || '';
+  const skills = SKILLS.filter(s => !domain || s.did === domain).sort((a,b) => nameCompareFr(a.name,b.name));
+  bank.innerHTML = skills.length ? skills.map(sk => {
+    const dom = DOMAINS.find(d => d.id === sk.did);
+    return `<div class="parcours-bank-row">
+      <div style="font-weight:600;font-size:12px">${escapeHtml(sk.name)} ${dom ? `<span class="tag" style="background:${dom.bg};color:${dom.c};margin-left:5px">${escapeHtml(dom.name)}</span>` : ''}</div>
+      <div class="parcours-level-actions">${[1,2,3,4].map(n => `<button class="parcours-level-add" title="${escapeHtml(getLevelDesc(sk,n)||'')}" onclick="addParcoursMilestone('${sk.id}',${n})"><span class="ldot l${n}" style="width:16px;height:16px;font-size:9px;display:inline-flex;margin-bottom:3px">${n}</span><br>${escapeHtml(truncateText(getLevelDesc(sk,n)||'—', 80))}</button>`).join('')}</div>
+    </div>`;
+  }).join('') : `<div style="font-size:12px;color:#aaa;padding:6px">Aucune compétence dans ce domaine.</div>`;
+}
+function addParcoursMilestone(skillId = '', niveau = 1) {
+  const sid = skillId || getDefaultSkillForParcoursDomain(parcoursEdit._domainFilter || '');
+  parcoursEdit.jalons = normalizeParcoursMilestones(parcoursEdit.jalons || []);
+  parcoursEdit.jalons.push({ skillId:sid, niveau:Math.max(1, Math.min(4, parseInt(niveau,10)||1)), ordre:parcoursEdit.jalons.length + 1 });
+  renderParcoursMilestonesEditor();
+}
+function setParcoursMilestoneSkill(i, skillId) {
+  if (!parcoursEdit.jalons[i]) return;
+  parcoursEdit.jalons[i].skillId = skillId;
+  renderParcoursMilestonesEditor();
+}
+function setParcoursMilestoneLevel(i, niveau) {
+  if (!parcoursEdit.jalons[i]) return;
+  parcoursEdit.jalons[i].niveau = Math.max(1, Math.min(4, parseInt(niveau,10)||1));
+  renderParcoursMilestonesEditor();
+}
+function removeParcoursMilestone(i) {
+  parcoursEdit.jalons.splice(i,1);
+  renderParcoursMilestonesEditor();
+}
+function moveParcoursMilestone(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= parcoursEdit.jalons.length) return;
+  const tmp = parcoursEdit.jalons[i];
+  parcoursEdit.jalons[i] = parcoursEdit.jalons[j];
+  parcoursEdit.jalons[j] = tmp;
+  parcoursEdit.jalons.forEach((m, idx) => m.ordre = idx + 1);
+  renderParcoursMilestonesEditor();
+}
+async function saveParcours(id) {
+  if (!canManageParcours()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  const title = document.getElementById('p-title').value.trim();
+  if (!title) return alert('Nom du parcours requis.');
+  const jalons = normalizeParcoursMilestones(parcoursEdit.jalons || []);
+  if (!jalons.length) return alert('Ajoutez au moins un jalon.');
+  const cibles = normalizeParcoursTargets(parcoursEdit.cibles || {});
+  showSave('Enregistrement du parcours...');
+  try {
+    const data = {
+      Title: title,
+      Description: document.getElementById('p-description').value.trim(),
+      Jalons: JSON.stringify(jalons.map((m, idx) => ({ skillId:m.skillId, niveau:m.niveau, ordre:idx + 1 }))),
+      Cibles: JSON.stringify(cibles),
+      Actif: document.getElementById('p-actif').value === '1'
+    };
+    if (id) await spPatch(CONFIG.lists.parcours, id, data);
+    else await spPost(CONFIG.lists.parcours, data);
+    await loadData();
+    hideSave('Parcours enregistré ✓');
+    closeModal();
+    if (currentView === 'parcours') renderParcours();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l’enregistrement du parcours : ' + e.message);
+  }
+}
+async function deleteParcours(id) {
+  if (!canManageParcours()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  if (!confirm('Supprimer ce parcours ?')) return;
+  showSave('Suppression du parcours...');
+  try {
+    await spDelete(CONFIG.lists.parcours, id);
+    await loadData();
+    hideSave('Parcours supprimé ✓');
+    closeModal();
+    if (currentView === 'parcours') renderParcours();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de la suppression : ' + e.message);
+  }
+}
+
 
 // =====================================================================
 // COLLABS
