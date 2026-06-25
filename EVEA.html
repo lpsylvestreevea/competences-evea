@@ -113,6 +113,8 @@ table.adm tr:hover td{background:#fafaf8}
 .level-inline-desc{font-size:11px;color:#5F5E5A;line-height:1.35;margin-top:4px;max-width:420px}
 .clickable-text{border:none;background:none;color:inherit;cursor:pointer;font:inherit;text-align:left;padding:0;text-decoration:none}
 .clickable-text:hover{color:inherit;text-decoration:none}
+a{color:inherit;text-decoration:none}
+a:hover{color:inherit;text-decoration:none;cursor:pointer}
 .field input:focus,.field select:focus{border-color:#534AB7}
 .field.full{grid-column:span 2}
 .csect{margin-bottom:16px}
@@ -152,6 +154,9 @@ table.adm tr:hover td{background:#fafaf8}
 .cm-lbl.mgr{color:#3C3489}.cm-lbl.col{color:#085041}
 .cm-existing{background:#fff;border:.5px solid #e0ded8;border-radius:6px;padding:6px 8px;font-size:12px;line-height:1.4;margin-bottom:4px;color:#444}
 .cm-meta{font-size:10px;color:#aaa;margin-bottom:2px}
+.cm-history{margin-top:6px;border-top:.5px dashed #e0ded8;padding-top:6px}
+.cm-history-title{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.cm-history-item{background:#fff;border:.5px solid #eee;border-radius:6px;padding:5px 7px;font-size:11px;line-height:1.35;margin-bottom:4px;color:#444}
 textarea.cm-input{width:100%;padding:6px 8px;border:.5px solid #D3D1C7;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;min-height:48px;outline:none;background:#fff}
 textarea.cm-input:focus{border-color:#534AB7}
 .hist-item{display:flex;gap:8px;padding:7px 0;border-bottom:.5px solid #f0efe8;font-size:12px}
@@ -270,8 +275,10 @@ table.mx tbody td.dr{position:relative!important;left:auto!important;z-index:7!i
 .departure-title{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;font-weight:600;font-size:13px;margin-bottom:5px}
 .departure-people{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 .modal-hint{font-size:11px;color:#aaa;margin-left:auto;margin-right:8px}
-.matrix-wrap .twrap .tt{z-index:2000}
-.matrix-wrap table.mx tbody tr:hover td:first-child{z-index:60}
+.matrix-wrap .twrap .tt{z-index:5000}
+.matrix-wrap .twrap:hover{z-index:5001}
+.matrix-wrap table.mx tbody tr:hover td:first-child,.matrix-wrap table.mx tbody td:first-child:hover{z-index:5002!important}
+.matrix-wrap table.mx tbody td:first-child.dr{z-index:7!important}
 
 </style>
 </head>
@@ -351,7 +358,7 @@ const DROITS_DEFAUT = {
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
     toutes_consultation: true, toutes_modification: true,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true, parcours_consultation: true, parcours_administration: true,
-    matrice_equipe: true, matrice_complete: true, administration: true,
+    matrice_individuelle: true, matrice_equipe: true, matrice_complete: true, administration: true,
     export_individuel: true, export_global: true
   },
   directeur: {
@@ -360,7 +367,7 @@ const DROITS_DEFAUT = {
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
     toutes_consultation: true, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: true,
-    matrice_equipe: true, matrice_complete: true, administration: false,
+    matrice_individuelle: true, matrice_equipe: true, matrice_complete: true, administration: false,
     export_individuel: true, export_global: true
   },
   manager: {
@@ -369,7 +376,7 @@ const DROITS_DEFAUT = {
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
-    matrice_equipe: true, matrice_complete: false, administration: false,
+    matrice_individuelle: true, matrice_equipe: true, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   },
   collaborateur: {
@@ -378,7 +385,7 @@ const DROITS_DEFAUT = {
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
-    matrice_equipe: false, matrice_complete: false, administration: false,
+    matrice_individuelle: false, matrice_equipe: false, matrice_complete: false, administration: false,
     export_individuel: true, export_global: false
   }
 };
@@ -386,7 +393,7 @@ const DROITS_DEFAUT = {
 const DROITS_LABELS = {
   fiche_propre_consultation: 'Sa propre fiche : consultation',
   fiche_propre_modification: 'Sa propre fiche : modification',
-  fiche_entete_modification:  'Entête collaborateur : modification',
+  fiche_entete_modification:  'Entête collaborateur·ice : modification',
   simulation_utilisateur:   'Administration : simulation utilisateur',
   equipe_consultation:       'Fiches équipe : consultation',
   equipe_validation:         'Fiches équipe : validation compétences',
@@ -400,10 +407,11 @@ const DROITS_LABELS = {
   formations_administration: 'Formations : administration',
   parcours_consultation:    'Parcours : consultation',
   parcours_administration:  'Parcours : administration',
+  matrice_individuelle:      'Matrice globale : vue individuelle',
   matrice_equipe:            'Matrice globale : vue équipe',
   matrice_complete:          'Matrice globale : vue complète',
   administration:            'Administration : accès complet',
-  export_individuel:         'Export individuel (fiche collaborateur)',
+  export_individuel:         'Export individuel (fiche collaborateur·ice)',
   export_global:             'Export global (matrice / équipe)'
 };
 
@@ -644,8 +652,8 @@ let currentUser = null;       // utilisateur effectif : réel, ou simulé en mod
 let realUser = null;          // compte Microsoft réellement connecté
 let returnViewAfterImpersonation = 'matrix';
 let currentView = 'matrix';
-let filterDomain = '', filterTeam = '', filterPoste = '', filterStrategy = '', matrixPosteFilter = '';
-let collabSort = 'alpha', matrixSort = 'alpha', searchSkillTeam = '', searchSkillQuery = '';
+let filterDomain = '', filterTeam = '', filterPoste = '', filterStrategy = '', matrixPosteFilter = '', matrixTeamFilter = '__default__';
+let collabSort = 'alpha', matrixSort = 'alpha', matrixHideEmpty = false, searchSkillTeam = '', searchSkillQuery = '';
 let formationTypeFilter = '', formationSkillFilter = '';
 let parcoursStatusFilter = 'active', parcoursDomainFilter = '', parcoursScopeFilter = 'mine';
 let strategyTeamFilter = '', strategyStatusFilter = 'active';
@@ -848,7 +856,7 @@ function getCollabDisplayName(c) {
   return `${c.prenom || ''} ${c.Nom || ''}`.trim() || c.Email || 'Utilisateur';
 }
 function roleDisplayName(roleName) {
-  const labels = { admin:'Administrateur', directeur:'Directeur', manager:'Manager', collaborateur:'Collaborateur' };
+  const labels = { admin:'Administrateur·ice', directeur:'Directeur·ice', manager:'Manager', collaborateur:'Collaborateur·ice' };
   return labels[(roleName || '').toLowerCase()] || roleName || 'Rôle personnalisé';
 }
 function roleCssClass(roleName) {
@@ -935,12 +943,14 @@ function resetFiltersAfterUserSwitch() {
   collabSort = 'alpha';
   matrixSort = 'alpha';
   matrixPosteFilter = '';
+  matrixTeamFilter = '__default__';
+  matrixHideEmpty = false;
   const search = document.getElementById('search-input');
   if (search) search.value = '';
 }
 
 function canAccessView(v) {
-  if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe');
+  if (v === 'matrix') return hasDroit('matrice_complete') || hasDroit('matrice_equipe') || hasDroit('matrice_individuelle');
   if (v === 'search-skills') return hasDroit('recherche');
   if (v === 'strategy') return hasDroit('strategie_consultation');
   if (v === 'formations') return hasDroit('formations_consultation');
@@ -1021,6 +1031,17 @@ function canSaveCollab(collabId) {
     || canValidateCompetencesForCollab(collabId)
     || canEditManagerCommentForCollab(collabId)
     || canEditOfficialUpdate(collabId);
+}
+
+function commentHistoryHtml(cm, type) {
+  const history = (cm && cm[type + 'History']) || [];
+  if (history.length <= 1) return '';
+  const oldItems = history.slice(1, 6);
+  return `<div class="cm-history">
+    <div class="cm-history-title">Historique des commentaires</div>
+    ${oldItems.map(item => `<div class="cm-history-item"><div class="cm-meta">${fmtDate(item.ts || 0)}</div>${escapeHtml(item.contenu || '').replace(/\n/g,'<br>')}</div>`).join('')}
+    ${history.length > 6 ? `<div style="font-size:10px;color:#aaa">${history.length - 6} ancien(s) commentaire(s) supplémentaire(s) dans SharePoint.</div>` : ''}
+  </div>`;
 }
 function getSearchSkillCollabs() {
   let collabs = getVisibleCollabs();
@@ -1224,13 +1245,13 @@ function parcoursAppliesToCollab(parcours, collab) {
 }
 function parcoursTargetsLabel(cibles = {}) {
   const t = normalizeParcoursTargets(cibles);
-  if (t.mode === 'all') return 'Tous les collaborateurs';
+  if (t.mode === 'all') return 'Tous les collaborateur·ices';
   if (t.mode === 'teams') {
     const names = t.teamIds.map(id => teamById(id)?.name).filter(Boolean);
     return names.length ? names.join(', ') : 'Équipes ciblées';
   }
   const names = t.collabIds.map(id => getCollabDisplayName(db.collaborateurs.find(c => String(c.Id) === String(id)))).filter(Boolean);
-  return names.length ? names.join(', ') : 'Collaborateurs ciblés';
+  return names.length ? names.join(', ') : 'Collaborateur·ices ciblé·es';
 }
 function parcoursMilestoneLabel(m) {
   const sk = skillById(m.skillId);
@@ -1733,10 +1754,18 @@ function getCollabComments(collabId) {
         r[sid].pendingTs = new Date(c.DateSaisie||0).getTime();
         return;
       }
+      if (!r[sid][type + 'History']) r[sid][type + 'History'] = [];
+      const ts = new Date(c.DateSaisie||0).getTime();
+      r[sid][type + 'History'].push({ spId:c.Id, ts, contenu:c.Contenu || '' });
       r[sid][type] = c.Contenu;
-      r[sid][type + 'Ts'] = new Date(c.DateSaisie).getTime();
+      r[sid][type + 'Ts'] = ts;
       r[sid][type + 'SpId'] = c.Id;
     });
+  Object.values(r).forEach(cm => {
+    ['manager','collaborateur'].forEach(type => {
+      if (cm[type + 'History']) cm[type + 'History'].sort((a,b) => b.ts - a.ts);
+    });
+  });
   return r;
 }
 
@@ -1828,6 +1857,63 @@ function getVisibleCollabs() {
   return me ? [me] : [];
 }
 
+function getManagedTeamIdsForCurrentUser() {
+  const me = getCurrentCollab();
+  if (!me) return [];
+  return db.equipes
+    .filter(t => (t.managerIds || []).includes(String(me.Id)))
+    .map(t => String(t.id));
+}
+
+function getMatrixBaseCollabs() {
+  const me = getCurrentCollab();
+  if (hasDroit('matrice_complete')) return db.collaborateurs.slice();
+  if (hasDroit('matrice_equipe')) {
+    const teamIds = getManagedTeamIdsForCurrentUser();
+    if (!teamIds.length) return me ? [me] : [];
+    return db.collaborateurs.filter(c =>
+      String(c.Id) === String(me?.Id || '') ||
+      (c.teamIds || []).some(tid => teamIds.includes(String(tid)))
+    );
+  }
+  if (hasDroit('matrice_individuelle')) return me ? [me] : [];
+  return [];
+}
+
+function resolveMatrixTeamFilter() {
+  if (matrixTeamFilter !== '__default__') return;
+  const managedIds = getManagedTeamIdsForCurrentUser();
+  matrixTeamFilter = managedIds.length ? '__my_teams__' : '';
+}
+
+function applyMatrixTeamFilter(collabs) {
+  resolveMatrixTeamFilter();
+  if (!matrixTeamFilter) return collabs;
+  if (matrixTeamFilter === '__my_teams__') {
+    const ids = getManagedTeamIdsForCurrentUser();
+    if (!ids.length) return collabs;
+    return collabs.filter(c => (c.teamIds || []).some(tid => ids.includes(String(tid))));
+  }
+  return collabs.filter(c => c.teamIds && c.teamIds.includes(String(matrixTeamFilter)));
+}
+
+function matrixTeamOptionsHtml() {
+  resolveMatrixTeamFilter();
+  const managedIds = getManagedTeamIdsForCurrentUser();
+  const allLabel = hasDroit('matrice_complete') ? 'Tout EVEA' : 'Toutes les équipes accessibles';
+  const mine = managedIds.length ? `<option value="__my_teams__"${matrixTeamFilter==='__my_teams__'?' selected':''}>Mes équipes</option>` : '';
+  return `<option value=""${matrixTeamFilter===''?' selected':''}>${allLabel}</option>${mine}${db.equipes.map(t => `<option value="${t.id}"${matrixTeamFilter===String(t.id)?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}`;
+}
+
+function canViewCollabDetail(collabId) {
+  if (!collabId) return hasStrictAdminAccess();
+  const me = getCurrentCollab();
+  if (me && String(me.Id) === String(collabId) && hasDroit('fiche_propre_consultation')) return true;
+  if (getVisibleCollabs().some(c => String(c.Id) === String(collabId))) return true;
+  if (getMatrixBaseCollabs().some(c => String(c.Id) === String(collabId))) return true;
+  return false;
+}
+
 function getRareSkills() {
   const total = db.collaborateurs.length;
   const threshold = Math.max(2, Math.round(total * 0.2));
@@ -1864,7 +1950,7 @@ function buildSidebar() {
 
   let nav = `<div class="nav-section">Vues</div>`;
 
-  if (hasDroit('matrice_complete') || hasDroit('matrice_equipe')) {
+  if (hasDroit('matrice_complete') || hasDroit('matrice_equipe') || hasDroit('matrice_individuelle')) {
     nav += `<div class="nav-item" onclick="showView('matrix')" id="nav-matrix"><i class="ti ti-table"></i>Matrice globale</div>`;
   }
   if (hasDroit('recherche')) {
@@ -1880,12 +1966,12 @@ function buildSidebar() {
     nav += `<div class="nav-item" onclick="showView('parcours')" id="nav-parcours"><i class="ti ti-route"></i>Parcours</div>`;
   }
   if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
-    nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateurs</div>`;
+    nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateur·ices</div>`;
   }
 
   if (hasStrictAdminAccess()) {
     nav += `<div class="nav-section">Administration</div>
-      <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateurs</div>
+      <div class="nav-item" onclick="showView('admin-collabs')" id="nav-admin-collabs"><i class="ti ti-users-group"></i>Collaborateur·ices</div>
       <div class="nav-item" onclick="showView('admin-teams')" id="nav-admin-teams"><i class="ti ti-layout-grid"></i>Équipes</div>
       <div class="nav-item" onclick="showView('admin-postes')" id="nav-admin-postes"><i class="ti ti-briefcase"></i>Fonctions</div>
       <div class="nav-item" onclick="showView('admin-skills')" id="nav-admin-skills"><i class="ti ti-award"></i>Compétences</div>
@@ -1902,16 +1988,16 @@ function showView(v) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('nav-' + v)?.classList.add('active');
   const titles = {
-    matrix:'Matrice globale', collabs:'Collaborateurs', strategy:'Stratégie', formations:'Formations', parcours:'Parcours',
-    'admin-collabs':'Gestion des collaborateurs', 'admin-teams':'Équipes',
+    matrix:'Matrice globale', collabs:'Collaborateur·ices', strategy:'Stratégie', formations:'Formations', parcours:'Parcours',
+    'admin-collabs':'Gestion des collaborateur·ices', 'admin-teams':'Équipes',
     'admin-postes':'Fonctions', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
     'admin-roles': 'Administration des rôles'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
-    matrix:'Collaborateur', collabs:'Collaborateur', strategy:'Axe stratégique', formations:'Formation', parcours:'Parcours',
-    'admin-collabs':'Collaborateur', 'admin-teams':'Équipe', 'admin-postes':'Fonction'
+    matrix:'Collaborateur·ice', collabs:'Collaborateur·ice', strategy:'Axe stratégique', formations:'Formation', parcours:'Parcours',
+    'admin-collabs':'Collaborateur·ice', 'admin-teams':'Équipe', 'admin-postes':'Fonction'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
@@ -2046,8 +2132,7 @@ function renderMatrix() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
   const rareMap = getRareSkills();
   const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
-  let collabs = getVisibleCollabs();
-  if (filterTeam) collabs = collabs.filter(c => c.teamIds && c.teamIds.includes(filterTeam));
+  let collabs = applyMatrixTeamFilter(getMatrixBaseCollabs());
   if (matrixPosteFilter) collabs = collabs.filter(c => collabHasFunction(c, matrixPosteFilter));
   collabs = sortCollabsForMatrix(collabs);
   const grouped = {};
@@ -2055,9 +2140,8 @@ function renderMatrix() {
 
   let h = `${levelLegendHtml({ target:true, targetReached:true, rare:true })}
   <div class="filters">
-    <select onchange="filterTeam=this.value;applyFilters()">
-      <option value="">Toutes les équipes</option>
-      ${db.equipes.map(t => `<option value="${t.id}"${filterTeam===t.id?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+    <select onchange="matrixTeamFilter=this.value;applyFilters()">
+      ${matrixTeamOptionsHtml()}
     </select>
     <select onchange="filterDomain=this.value;applyFilters()">
       <option value="">Tous les domaines</option>
@@ -2075,6 +2159,11 @@ function renderMatrix() {
       <option value="alpha"${matrixSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
       <option value="team"${matrixSort==='team'?' selected':''}>Tri : équipe</option>
     </select>
+    <label class="tcheck${matrixHideEmpty?' checked':''}" style="margin-left:auto">
+      <input type="checkbox" ${matrixHideEmpty?'checked':''} onchange="matrixHideEmpty=this.checked;applyFilters()">
+      Masquer les compétences sans niveau
+    </label>
+    <span class="stat-pill">${collabs.length} personne(s)</span>
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
     <th>Compétence</th>
@@ -2086,11 +2175,13 @@ function renderMatrix() {
     }).join('')}
   </tr></thead><tbody>`;
 
+  let renderedRows = 0;
   getSortedDomains().forEach(dom => {
-    const list = grouped[dom.id];
+    const list = (grouped[dom.id] || []).filter(sk => !matrixHideEmpty || collabs.some(c => (getCollabComps(c.Id)[sk.id] || 0) > 0));
     if (!list || !list.length) return;
     h += `<tr><td colspan="${collabs.length+1}" class="dr" style="background:${dom.bg};color:${dom.c}"><span class="matrix-domain-label">${escapeHtml(dom.name)}</span></td></tr>`;
     list.forEach(sk => {
+      renderedRows++;
       const isRare = !!rareMap[sk.id];
       h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${skillTT(sk)}</span></td>`;
       collabs.forEach(c => {
@@ -2112,6 +2203,7 @@ function renderMatrix() {
       h += `</tr>`;
     });
   });
+  if (!renderedRows) h += `<tr><td colspan="${collabs.length+1}" style="padding:24px;text-align:center;color:#aaa">Aucune compétence à afficher avec les filtres actuels.</td></tr>`;
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
 }
@@ -2852,7 +2944,7 @@ function openParcoursDetail(id, collabId = '') {
     <button class="btn btn-sm" onclick="showParcoursProgress('${p.id}')"><i class="ti ti-users"></i>Voir le suivi</button></div>`;
   }
   if (!collab) {
-    body += `<div class="empty"><i class="ti ti-user-off"></i>Aucun collaborateur accessible pour ce parcours.</div>`;
+    body += `<div class="empty"><i class="ti ti-user-off"></i>Aucun·e collaborateur·ice accessible pour ce parcours.</div>`;
   } else {
     const progress = getParcoursProgressForCollab(p, collab);
     body += `<div class="strategy-kpis" style="margin-bottom:10px">
@@ -2918,9 +3010,9 @@ function showParcoursProgress(id) {
   document.getElementById('m-sub').textContent = `${collabs.length} personne(s) dans le périmètre accessible`;
   let body = '';
   if (!collabs.length) {
-    body = `<div class="empty"><i class="ti ti-user-off"></i>Aucun collaborateur accessible pour ce parcours.</div>`;
+    body = `<div class="empty"><i class="ti ti-user-off"></i>Aucun·e collaborateur·ice accessible pour ce parcours.</div>`;
   } else {
-    body = `<div class="admin-card"><div class="parcours-progress-row" style="font-weight:600;background:#f5f5f0"><div>Collaborateur</div><div>Progression</div><div>Action</div></div>`;
+    body = `<div class="admin-card"><div class="parcours-progress-row" style="font-weight:600;background:#f5f5f0"><div>Collaborateur·ice</div><div>Progression</div><div>Action</div></div>`;
     collabs.forEach(c => {
       const pr = getParcoursProgressForCollab(p, c);
       const teams = (c.teamIds || []).map(tid => teamById(tid)?.name).filter(Boolean).join(', ') || '—';
@@ -2992,7 +3084,7 @@ function openParcoursModal(id) {
       <div class="field"><label>Filtre domaine pour choisir les jalons</label><select id="p-domain" onchange="parcoursEdit._domainFilter=this.value;renderParcoursMilestonesEditor()"><option value="">Tous les domaines</option>${getSortedDomains().map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}</select></div>
       <div class="field full"><label>Public du parcours</label><div id="p-targets" class="parcours-targets"></div></div>
       <div class="field full"><label>Jalons du parcours</label>
-        <div class="projection-note"><i class="ti ti-info-circle"></i> Les jalons se débloquent dans l’ordre. Un jalon est validé dès que le niveau officiel de la compétence est validé sur la fiche collaborateur.</div>
+        <div class="projection-note"><i class="ti ti-info-circle"></i> Les jalons se débloquent dans l’ordre. Un jalon est validé dès que le niveau officiel de la compétence est validé sur la fiche collaborateur·ice.</div>
         <div id="p-milestones" style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;background:#fafaf8;margin-bottom:10px"></div>
         <button class="btn btn-sm" onclick="addParcoursMilestone()"><i class="ti ti-plus"></i>Ajouter un jalon vide</button>
       </div>
@@ -3014,7 +3106,7 @@ function renderParcoursTargetsEditor(filter = parcoursEdit._collabFilter || '') 
   parcoursEdit._collabFilter = filter;
   const mode = parcoursEdit.cibles.mode || 'all';
   let h = `<select onchange="parcoursEdit.cibles.mode=this.value;renderParcoursTargetsEditor()" style="margin-bottom:8px">
-    <option value="all"${mode==='all'?' selected':''}>Tous les collaborateurs</option>
+    <option value="all"${mode==='all'?' selected':''}>Tous les collaborateur·ices</option>
     <option value="teams"${mode==='teams'?' selected':''}>Certaines équipes</option>
     <option value="collabs"${mode==='collabs'?' selected':''}>Certaines personnes</option>
   </select>`;
@@ -3033,7 +3125,7 @@ function renderParcoursTargetsEditor(filter = parcoursEdit._collabFilter || '') 
         return `<label class="tcheck${checked?' checked':''}"><input type="checkbox" ${checked?'checked':''} onchange="toggleParcoursTargetCollab('${String(c.Id)}')">${escapeHtml(getCollabDisplayName(c))}</label>`;
       }).join('')}</div>`;
   } else {
-    h += `<div class="lock-note">Le parcours sera visible par tous les collaborateurs.</div>`;
+    h += `<div class="lock-note">Le parcours sera visible par tou·tes les collaborateur·ices.</div>`;
   }
   wrap.innerHTML = h;
 }
@@ -3198,7 +3290,7 @@ function renderCollabs() {
       ${pct != null ? `<div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>` : ''}
     </div>`;
   });
-  if (!list.length) h += `<div class="empty" style="grid-column:1/-1"><i class="ti ti-users"></i>Aucun collaborateur trouvé</div>`;
+  if (!list.length) h += `<div class="empty" style="grid-column:1/-1"><i class="ti ti-users"></i>Aucun·e collaborateur·ice trouvé·e</div>`;
   h += `</div>`;
   document.getElementById('content').innerHTML = h;
 }
@@ -3211,10 +3303,10 @@ function openCollabModal(id, focusSkill) {
   const me = getCurrentCollab();
   const meId = String(me?.Id || '');
   const isMine = id && String(id) === meId;
-  const isInMyScope = !isMine && getVisibleCollabs().some(c => String(c.Id) === String(id));
 
-  // Vérification des droits d'accès
-  if (id && !isMine && !isInMyScope) return;
+  // Vérification des droits d'accès : les droits Matrice peuvent ouvrir une fiche en lecture seule,
+  // même si la personne n'est pas dans le périmètre modifiable de la vue Collaborateur·ices.
+  if (id && !canViewCollabDetail(id)) return;
 
   const c = id ? db.collaborateurs.find(x => String(x.Id) === String(id)) : null;
   collabEdit = c ? JSON.parse(JSON.stringify(c)) : { Id:null, prenom:'', Nom:'', Email:'', PosteId:'', PosteIds:'', FonctionsPonderation:'', fonctionIds:[], fonctionWeights:{}, teamIds:[], ManagerID:'' };
@@ -3226,7 +3318,7 @@ function openCollabModal(id, focusSkill) {
   collabEdit._changes  = {};
 
   document.getElementById('m-av').textContent = (collabEdit.prenom||'?')[0] + (collabEdit.Nom||'?')[0];
-  document.getElementById('m-title').textContent = id ? `${collabEdit.prenom} ${collabEdit.Nom||''}` : 'Nouveau collaborateur';
+  document.getElementById('m-title').textContent = id ? `${collabEdit.prenom} ${collabEdit.Nom||''}` : 'Nouveau collaborateur·ice';
   document.getElementById('m-sub').textContent = collabFunctionLabel(collabEdit, true);
   renderCollabBody(focusSkill);
 
@@ -3375,7 +3467,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   const pendingBox = pending ? `<div class="validation-box${isFocus?' open':''}" id="vp-${sk.id}" ${canValidateLevel ? `onclick="toggleValidationActions('${sk.id}')"` : ''}>
     <div class="validation-title"><i class="ti ti-clock-hour-4"></i> Proposition en attente : ${pendingLevelLabel(pending)}</div>
     <div>Ancien niveau officiel : ${pending.ancienNiveau ? 'niveau ' + pending.ancienNiveau : '—'}${pending.auteur ? ` · proposé par ${escapeHtml(pending.auteur)}` : ''}${pending.ts ? ` · ${fmtDate(pending.ts)}` : ''}</div>
-    ${pending.commentaire ? `<div class="validation-comment"><b>Justification collaborateur :</b><br>${escapeHtml(pending.commentaire)}</div>` : ''}
+    ${pending.commentaire ? `<div class="validation-comment"><b>Justification collaborateur·ice :</b><br>${escapeHtml(pending.commentaire)}</div>` : ''}
     ${canValidateLevel ? `<div style="font-size:11px;color:#7A3A28;margin-top:6px">Cliquez sur la demande ou sur le niveau pointillé pour afficher les options.</div>
       <div class="validation-actions">
         <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();reviewPendingValidation('${sk.id}',true)"><i class="ti ti-check"></i>Valider</button>
@@ -3411,14 +3503,14 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
       ${hasDroit('equipe_validation') || hasStrictAdminAccess() ? `<div class="cm-block">
         <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
         ${cm.manager ? `<div class="cm-meta">${fmtDate(cm.managerTs||0)}</div>
-          <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Modifier le commentaire…"${canEditMgrComment ? '' : ' disabled'}>${escapeHtml(cm.manager)}</textarea>`
+          <textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un nouveau commentaire…"${canEditMgrComment ? '' : ' disabled'}>${escapeHtml(cm.manager)}</textarea>${commentHistoryHtml(cm,'manager')}`
           : `<textarea class="cm-input" id="cm-mgr-${sk.id}" placeholder="Ajouter un commentaire manager…"${canEditMgrComment ? '' : ' disabled'}></textarea>`}
       </div>` : ''}
       <div class="cm-block">
-        <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur</div>
+        <div class="cm-lbl col"><i class="ti ti-user"></i> Collaborateur·ice</div>
         ${cm.collaborateur ? `<div class="cm-meta">${fmtDate(cm.collaborateurTs||0)}</div>
-          <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Modifier le commentaire…"${canEditColComment ? '' : ' disabled'}>${escapeHtml(cm.collaborateur)}</textarea>`
-          : `<textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur…"${canEditColComment ? '' : ' disabled'}></textarea>`}
+          <textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un nouveau commentaire…"${canEditColComment ? '' : ' disabled'}>${escapeHtml(cm.collaborateur)}</textarea>${commentHistoryHtml(cm,'collaborateur')}`
+          : `<textarea class="cm-input" id="cm-col-${sk.id}" placeholder="Ajouter un commentaire collaborateur·ice…"${canEditColComment ? '' : ' disabled'}></textarea>`}
       </div>
     </div>
   </div>`;
@@ -3478,11 +3570,11 @@ function renderCollabBody(focusSkill) {
         <option value="">— Fonctions actuelles${collabFunctionLabel(c) !== '—' ? ' : ' + escapeHtml(collabFunctionLabel(c)) : ''} —</option>
         ${POSTES.map(p => `<option value="${p.id}"${projectionId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
       </select>
-      <div class="lock-note">Affiche uniquement les compétences de la fonction observée, en conservant les niveaux actuels du collaborateur.</div>
+      <div class="lock-note">Affiche uniquement les compétences de la fonction observée, en conservant les niveaux actuels du/de la collaborateur·ice.</div>
     </div>
     <div class="field full"><label>Dernière mise à jour officielle</label>
       <input type="text" id="c-last-update" value="${escapeHtml(lastUpdate.text||'')}" placeholder="Ex : entretien du 18/06/2026"${canLastUpdate ? '' : ' disabled'}>
-      <div class="lock-note">${canLastUpdate ? 'Champ renseigné par le manager.' : 'Champ renseigné uniquement par le manager du collaborateur.'}</div>
+      <div class="lock-note">${canLastUpdate ? 'Champ renseigné par le manager.' : 'Champ renseigné uniquement par le manager du/de la collaborateur·ice.'}</div>
     </div>
   </div>
   ${isProjection ? `<div class="projection-note"><i class="ti ti-eye"></i> Projection vers <b>${escapeHtml(projectionPoste ? projectionPoste.name : '')}</b> : les niveaux affichés restent ceux de ${escapeHtml((c.prenom||'') + ' ' + (c.Nom||''))}.</div>` : ''}
@@ -3574,7 +3666,7 @@ function renderCollabBody(focusSkill) {
 
 function openDepartureSimulation(collabId) {
   const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-  if (!c || !getVisibleCollabs().some(x => String(x.Id) === String(collabId))) return;
+  if (!c || !canViewCollabDetail(collabId)) return;
   const comps = Object.entries(getCollabComps(collabId)).filter(([,lvl]) => Number(lvl) > 0);
   const rows = comps.map(([sid, lvl]) => {
     const sk = skillById(sid);
@@ -3713,7 +3805,7 @@ async function requestLevelSuggestion(sid, lvl) {
   const commentaire = await openTextPrompt({
     title: 'Proposer un niveau de compétence',
     subtitle: `${sk ? sk.name : sid} — ${old ? 'niveau officiel ' + old : 'aucun niveau officiel'} → ${label}`,
-    label: 'Justification collaborateur',
+    label: 'Justification collaborateur·ice',
     placeholder: 'Expliquez dans quel contexte vous avez acquis ou mobilisé cette compétence…',
     defaultValue: existingPending ? existingPending.commentaire : '',
     required: true
@@ -3734,7 +3826,7 @@ async function requestLevelSuggestion(sid, lvl) {
     await spPost(CONFIG.lists.historique, {
       Title: String(collabEdit.Id),
       Role: getAuditRole(),
-      Description: `Proposition collaborateur — "${sk ? sk.name : sid}" : ${old ? 'niveau '+old : '—'} → ${label}`,
+      Description: `Proposition collaborateur·ice — "${sk ? sk.name : sid}" : ${old ? 'niveau '+old : '—'} → ${label}`,
       DateAction: new Date().toISOString()
     });
     await loadData();
@@ -3759,7 +3851,7 @@ async function cancelPendingValidation(sid) {
     await spPost(CONFIG.lists.historique, {
       Title: String(collabEdit.Id),
       Role: getAuditRole(),
-      Description: `Proposition collaborateur annulée — "${sk ? sk.name : sid}"`,
+      Description: `Proposition collaborateur·ice annulée — "${sk ? sk.name : sid}"`,
       DateAction: new Date().toISOString()
     });
     await loadData();
@@ -3839,6 +3931,14 @@ Proposition du ${pending.ts ? fmtDate(pending.ts) : ''} : ${pendingComment}`
 async function saveCommentValue(collabSpId, skillId, typeAuteur, value, existingSpId) {
   const clean = (value || '').trim();
   const data = { Title: String(collabSpId), SkillId: skillId, TypeAuteur: typeAuteur, Contenu: clean, DateSaisie: new Date().toISOString() };
+  const isHistoricalComment = ['manager','collaborateur'].includes(typeAuteur) && skillId !== META_LAST_UPDATE_SKILL_ID;
+  if (isHistoricalComment) {
+    if (!clean) return;
+    const existing = existingSpId ? db.commentaires.find(x => String(x.Id) === String(existingSpId)) : null;
+    if (existing && String(existing.Contenu || '').trim() === clean) return;
+    await spPost(CONFIG.lists.commentaires, data);
+    return;
+  }
   if (existingSpId) {
     if (clean) await spPatch(CONFIG.lists.commentaires, existingSpId, data);
     else await spDelete(CONFIG.lists.commentaires, existingSpId);
@@ -3910,7 +4010,7 @@ async function saveCollab(id) {
       if (colEl && canColComment) await saveCommentValue(collabSpId, sk.id, 'collaborateur', colEl.value, cm.collaborateurSpId);
     }
 
-    // Dernière mise à jour officielle : seul le manager du collaborateur peut l'éditer.
+    // Dernière mise à jour officielle : seul le manager du/de la collaborateur·ice peut l'éditer.
     const lastUpdateEl = document.getElementById('c-last-update');
     if (lastUpdateEl && canEditOfficialUpdate(collabSpId)) {
       await saveCommentValue(collabSpId, META_LAST_UPDATE_SKILL_ID, 'manager', lastUpdateEl.value, collabEdit._lastUpdate?.spId);
@@ -3944,7 +4044,7 @@ async function saveCollab(id) {
 
 async function deleteCollab(id) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
-  if (!confirm('Supprimer ce collaborateur ?')) return;
+  if (!confirm('Supprimer ce/cette collaborateur·ice ?')) return;
   showSave('Suppression...');
   await spDelete(CONFIG.lists.collaborateurs, id);
   await loadData();
@@ -3972,7 +4072,7 @@ function renderAdminCollabs(filterPoste = '') {
   if (filterPoste) list = list.filter(c => collabHasFunction(c, filterPoste));
   const posteOptions = POSTES.map(p => `<option value="${p.id}" ${filterPoste===p.id?'selected':''}>${p.name}</option>`).join('');
   let h = `<div class="admin-card">
-    <div class="admin-hdr"><h3>Collaborateurs (${list.length})</h3>
+    <div class="admin-hdr"><h3>Collaborateur·ices (${list.length})</h3>
       <select onchange="renderAdminCollabs(this.value)" style="font-size:13px">
         <option value="">— Toutes les fonctions —</option>
         ${posteOptions}
@@ -4040,7 +4140,7 @@ async function quickUpdateManager(collabId, managerId) {
 
 async function quickUpdateRole(collabId, email, newRole) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
-  if (!email) return alert('Ce collaborateur n\'a pas d\'email renseigné.');
+  if (!email) return alert('Ce/cette collaborateur·ice n\'a pas d\'email renseigné.');
   const emailLow = email.toLowerCase();
   showSave('Mise à jour du rôle...');
   try {
@@ -4174,7 +4274,7 @@ function openTeamModal(id) {
     </div>
     <div class="field">
       <label>Managers de l'équipe</label>
-      <input type="text" id="t-mgr-search" placeholder="🔍 Rechercher un collaborateur…"
+      <input type="text" id="t-mgr-search" placeholder="🔍 Rechercher un·e collaborateur·ice…"
   style="width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;margin-bottom:8px;outline:none">
       <div id="t-mgr-list" style="border:.5px solid #D3D1C7;border-radius:8px;padding:6px;max-height:250px;overflow-y:auto">
         ${renderMgrList()}
@@ -4233,9 +4333,9 @@ function renderAdminPostes() {
     </div>
   </div>
   ${hasStaticPostes ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
-    <i class="ti ti-alert-triangle"></i> <b>Fonctions non persistées et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateurs seront mises à jour en conséquence).
+    <i class="ti ti-alert-triangle"></i> <b>Fonctions non persistées et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateur·ices seront mises à jour en conséquence).
   </div>` : ''}
-  <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateurs</th><th></th></tr></thead><tbody>`;
+  <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateur·ices</th><th></th></tr></thead><tbody>`;
   POSTES_STATE.forEach(p => {
     const nt = Object.keys(p.targets||{}).length;
     const collabs = db.collaborateurs.filter(c => collabHasFunction(c, p.id));
@@ -4250,7 +4350,7 @@ function renderAdminPostes() {
       <td>
         <span class="stat-pill" style="cursor:pointer"
           onclick="showPosteCollabs('${p.id}')">
-          ${collabs.length} collaborateur(s)
+          ${collabs.length} collaborateur·ice(s)
         </span>
       </td>
       <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
@@ -4343,7 +4443,7 @@ function showPosteCollabs(id) {
   const collabs = db.collaborateurs.filter(c => collabHasFunction(c, id));
   document.getElementById('m-av').innerHTML = '<i class="ti ti-users" style="font-size:20px"></i>';
   document.getElementById('m-title').textContent = p.name;
-  document.getElementById('m-sub').textContent = `${collabs.length} collaborateur(s)`;
+  document.getElementById('m-sub').textContent = `${collabs.length} collaborateur·ice(s)`;
   const body = collabs.length
     ? collabs.map(c => {
         const teams = (c.teamIds||[]).map(tid => {
@@ -4360,7 +4460,7 @@ function showPosteCollabs(id) {
           </div>
         </div>`;
       }).join('')
-    : `<p style="color:#aaa;font-size:13px">Aucun collaborateur sur cette fonction.</p>`;
+    : `<p style="color:#aaa;font-size:13px">Aucun·e collaborateur·ice sur cette fonction.</p>`;
   document.getElementById('m-body').innerHTML = body;
   document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
   document.getElementById('modal').style.display = 'flex';
@@ -4560,7 +4660,7 @@ async function migratePostes() {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
   const staticPostes = POSTES.filter(p => isNaN(Number(p.id)));
   if (!staticPostes.length) return alert('Toutes les fonctions sont déjà dans SharePoint.');
-  if (!confirm(`Migrer ${staticPostes.length} fonction(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateurs concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
+  if (!confirm(`Migrer ${staticPostes.length} fonction(s) vers SharePoint ?\n\nLes niveaux cibles seront recalculés vers les identifiants actuels des compétences, et les fiches des collaborateur·ices concernés seront mises à jour.\n\nCette opération est rapide mais ne doit pas être interrompue (ne fermez pas la page).`)) return;
 
   showSave('Migration des fonctions...');
   try {
@@ -4590,7 +4690,7 @@ async function migratePostes() {
     // 3. Mise à jour du PosteId des collaborateurs concernés
     const collabsToUpdate = db.collaborateurs.filter(c => posteIdMap[c.PosteId]);
     for (let j = 0; j < collabsToUpdate.length; j++) {
-      document.getElementById('save-msg').textContent = `Mise à jour des collaborateurs (${j+1}/${collabsToUpdate.length})...`;
+      document.getElementById('save-msg').textContent = `Mise à jour des collaborateur·ices (${j+1}/${collabsToUpdate.length})...`;
       const c = collabsToUpdate[j];
       await spPatch(CONFIG.lists.collaborateurs, c.Id, { PosteId: posteIdMap[c.PosteId] });
     }
@@ -4598,7 +4698,7 @@ async function migratePostes() {
     await loadData();
     hideSave('Migration terminée ✓');
     renderAdminPostes();
-    alert(`Migration réussie !\n${staticPostes.length} fonction(s) migrée(s) avec cibles corrigées.\n${collabsToUpdate.length} collaborateur(s) réassigné(s).`);
+    alert(`Migration réussie !\n${staticPostes.length} fonction(s) migrée(s) avec cibles corrigées.\n${collabsToUpdate.length} collaborateur·ice(s) réassigné(s).`);
   } catch(e) {
     hideSave('Erreur migration !');
     alert('Erreur pendant la migration : ' + e.message + '\n\nLa migration est partielle. Vérifiez la liste Fonctions dans SharePoint (doublons possibles) avant de relancer.');
@@ -5647,19 +5747,267 @@ ${plan.staticOnly.length} compétence(s) statique(s) corrigée(s) dans le fichie
 // =====================================================================
 // IMPORT / EXPORT
 // =====================================================================
+
+function backupRows() {
+  return {
+    Collaborateurs: db.collaborateurs.map(c => ({
+      Id:c.Id, Title:c.prenom||'', Prenom:c.Nom||'', Email:c.Email||'', PosteId:c.PosteId||'', PosteIds:JSON.stringify(getCollabFunctionIds(c)), FonctionsPonderation:JSON.stringify(getCollabFunctionWeights(c)), TeamIds:(c.teamIds||[]).join(','), ManagerID:c.ManagerID||c.ManagerId||''
+    })),
+    Competences: db.competences.map(c => ({ Id:c.Id, Title:(c.SkillId||c.Title)||'', SkillId:(c.SkillId||c.Title)||'', CollabId:c.CollabId||'', Niveau:c.Niveau||'' })),
+    Commentaires: db.commentaires.map(c => ({ Id:c.Id, Title:c.Title||'', SkillId:c.SkillId||'', TypeAuteur:c.TypeAuteur||'', Contenu:c.Contenu||'', DateSaisie:c.DateSaisie||'' })),
+    Historique: db.historique.map(h => ({ Id:h.Id, Title:h.Title||'', Role:h.Role||'', Description:h.Description||'', DateAction:h.DateAction||'' })),
+    Equipes: db.equipes.map(t => ({ Id:t.Id||t.id, Title:t.name||t.Title||'', ManagersIds:(t.managerIds||[]).join(',') })),
+    Postes: POSTES.map(p => ({ Id:p.id, Title:p.name||'', Targets:JSON.stringify(p.targets||{}), NiveauxPersos:JSON.stringify(p.customLevels||{}) })),
+    Domaines: DOMAINS.map(d => ({ Id:d.id, Title:d.name||'', Couleur:d.c||'', Fond:d.bg||'' })),
+    Roles: db.roles.map(r => ({ Id:r.spId||r.Id, Title:r.name||'', Emails:(r.emails||[]).join(','), Droits:JSON.stringify(r.droits||{}) })),
+    CompetencesRef: SKILLS.map(sk => ({ Id:sk.id, Title:sk.name||'', DomainId:sk.did||'', Niveaux:JSON.stringify(sk.levels||{}) })),
+    Formations: db.formations.map(f => ({ Id:f.id, Title:f.title||'', Prestataire:f.prestataire||'', TypeFormation:f.type||'', Format:f.format||'', Duree:f.duree||'', Tarif:f.tarif||'', LienInscription:f.lien||'', CompetencesNiveaux:JSON.stringify(normalizeFormationSkillLinks(f.skills||[])), Objectifs:f.objectifs||'', Programme:f.programme||'', Actif:f.actif!==false })),
+    Parcours: db.parcours.map(p => ({ Id:p.id, Title:p.title||'', Description:p.description||'', Jalons:JSON.stringify(normalizeParcoursMilestones(p.jalons||[])), Cibles:JSON.stringify(normalizeParcoursTargets(p.cibles||{})), Actif:p.actif!==false })),
+    AxesStrategiques: db.axesStrategiques.map(a => ({ Id:a.id, Title:a.title||'', Description:a.description||'', Couleur:a.couleur||'', CompetencesNiveaux:JSON.stringify(normalizeStrategyLinks(a.skills||[])), Objectifs:JSON.stringify(a.objectifs||{}), ObjectifsEquipes:JSON.stringify(a.objectifsEquipes||{}), Actif:a.actif!==false }))
+  };
+}
+function exportFullBackup() {
+  try {
+    const wb = XLSX.utils.book_new();
+    const meta = [{ Version:'EVEA backup v1', Date:new Date().toISOString(), Note:'Export complet applicatif. Conserver ce fichier hors SharePoint.' }];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meta), '_META');
+    const rows = backupRows();
+    Object.entries(rows).forEach(([name, data]) => {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), name.slice(0,31));
+    });
+    XLSX.writeFile(wb, `sauvegarde_matrice_evea_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch(e) {
+    alert('Erreur pendant l’export de sauvegarde : ' + e.message);
+    console.error(e);
+  }
+}
+function sheetRows(wb, name) {
+  const ws = wb.Sheets[name];
+  return ws ? XLSX.utils.sheet_to_json(ws, { defval:'' }) : [];
+}
+function remapObjectKeys(raw, map) {
+  const obj = typeof raw === 'string' ? safeJsonParse(raw, {}) : (raw || {});
+  const out = {};
+  Object.entries(obj || {}).forEach(([k,v]) => { out[map[String(k)] || String(k)] = v; });
+  return out;
+}
+function remapArrayIds(raw, map) {
+  return normalizeCollabFunctionIdsFromValue(raw).map(id => map[String(id)] || String(id)).filter(Boolean);
+}
+function remapFormationLinksJson(raw, skillMap) {
+  return JSON.stringify(normalizeFormationSkillLinks(raw).map(x => ({ ...x, skillId: skillMap[String(x.skillId)] || String(x.skillId) })));
+}
+function remapMilestonesJson(raw, skillMap) {
+  return JSON.stringify(normalizeParcoursMilestones(raw).map(x => ({ ...x, skillId: skillMap[String(x.skillId)] || String(x.skillId) })));
+}
+function remapParcoursTargetsJson(raw, teamMap, collabMap) {
+  const t = normalizeParcoursTargets(raw);
+  return JSON.stringify({
+    mode:t.mode,
+    teamIds:t.teamIds.map(id => teamMap[String(id)] || String(id)).filter(Boolean),
+    collabIds:t.collabIds.map(id => collabMap[String(id)] || String(id)).filter(Boolean)
+  });
+}
+function remapStrategyLinksJson(raw, skillMap, teamMap) {
+  return JSON.stringify(normalizeStrategyLinks(raw).map(x => ({
+    ...x,
+    skillId: skillMap[String(x.skillId)] || String(x.skillId),
+    equipes: remapObjectKeys(x.equipes || {}, teamMap)
+  })));
+}
+function remapStrategyObjectivesJson(raw, skillMap) {
+  const obj = normalizeStrategyObjectives(raw);
+  const out = {};
+  Object.entries(obj).forEach(([k,v]) => {
+    const [sid,lvl] = k.split('|');
+    out[strategyKey(skillMap[String(sid)] || sid, lvl)] = v;
+  });
+  return JSON.stringify(out);
+}
+function remapStrategyTeamObjectivesJson(raw, skillMap, teamMap) {
+  const obj = normalizeStrategyTeamObjectives(raw);
+  const out = {};
+  Object.entries(obj).forEach(([k,v]) => {
+    const [sid,lvl] = k.split('|');
+    out[strategyKey(skillMap[String(sid)] || sid, lvl)] = remapObjectKeys(v, teamMap);
+  });
+  return JSON.stringify(out);
+}
+async function upsertFromBackup(listName, oldId, lookupFn, data) {
+  let existing = null;
+  if (oldId && !isNaN(Number(oldId))) {
+    existing = (await spGet(listName, `Id eq ${Number(oldId)}`))[0] || null;
+  }
+  if (existing) { await spPatch(listName, existing.Id, data); return String(existing.Id); }
+  const current = lookupFn ? lookupFn() : null;
+  if (current && !isNaN(Number(current.Id))) { await spPatch(listName, current.Id, data); return String(current.Id); }
+  const res = await spPost(listName, data);
+  return String(res.Id);
+}
+async function importFullBackup(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  if (!confirm('Restaurer une sauvegarde complète ?\n\nCette opération mettra à jour les éléments existants et recréera les éléments absents quand c’est possible. Elle peut prendre plusieurs minutes. Ne fermez pas la page.')) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    showSave('Lecture de la sauvegarde...');
+    try {
+      const wb = XLSX.read(ev.target.result, { type:'array' });
+      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
+      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {};
+      await loadData();
+
+      for (const r of rows.Domaines) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), Couleur:String(r.Couleur||''), Fond:String(r.Fond||'') };
+        const newId = await upsertFromBackup(CONFIG.lists.domaines, oldId, () => dbGetRawByName('domaines', r.Title), data);
+        if (oldId) domainMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of rows.CompetencesRef) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), DomainId:domainMap[String(r.DomainId||'')] || String(r.DomainId||''), Niveaux:String(r.Niveaux||'{}') };
+        const newId = await upsertFromBackup(CONFIG.lists.competencesRef, oldId, () => dbGetRawByName('skills', r.Title), data);
+        if (oldId) skillMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of rows.Postes) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), Targets:JSON.stringify(remapObjectKeys(r.Targets || '{}', skillMap)), NiveauxPersos:JSON.stringify(remapObjectKeys(r.NiveauxPersos || '{}', skillMap)) };
+        const newId = await upsertFromBackup(CONFIG.lists.postes, oldId, () => dbGetRawByName('postes', r.Title), data);
+        if (oldId) posteMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of rows.Collaborateurs) {
+        const oldId = String(r.Id || '');
+        const fonctionIds = remapArrayIds(r.PosteIds || r.PosteId || '', posteMap);
+        const weights = remapObjectKeys(r.FonctionsPonderation || '{}', posteMap);
+        const data = { Title:String(r.Title||''), Prenom:String(r.Prenom||''), Email:String(r.Email||''), PosteId:posteMap[String(r.PosteId||'')] || String(r.PosteId||''), PosteIds:JSON.stringify(fonctionIds), FonctionsPonderation:JSON.stringify(weights), TeamIds:'', ManagerID:'' };
+        const newId = await upsertFromBackup(CONFIG.lists.collaborateurs, oldId, () => dbGetRawByEmailOrName(r.Email, r.Title, r.Prenom), data);
+        if (oldId) collabMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of rows.Equipes) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), ManagersIds:'' };
+        const newId = await upsertFromBackup(CONFIG.lists.equipes, oldId, () => dbGetRawByName('equipes', r.Title), data);
+        if (oldId) teamMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of rows.Collaborateurs) {
+        const newId = collabMap[String(r.Id||'')];
+        if (!newId) continue;
+        const teamIds = String(r.TeamIds||'').split(',').map(x => x.trim()).filter(Boolean).map(id => teamMap[id] || id).join(',');
+        const managerId = collabMap[String(r.ManagerID||'')] || String(r.ManagerID||'');
+        await spPatch(CONFIG.lists.collaborateurs, newId, { TeamIds:teamIds, ManagerID:managerId });
+      }
+      for (const r of rows.Equipes) {
+        const newId = teamMap[String(r.Id||'')];
+        if (!newId) continue;
+        const managers = String(r.ManagersIds||'').split(',').map(x => x.trim()).filter(Boolean).map(id => collabMap[id] || id).join(',');
+        await spPatch(CONFIG.lists.equipes, newId, { ManagersIds:managers });
+      }
+      await loadData();
+      for (const r of rows.Roles) {
+        const data = { Title:String(r.Title||'').toLowerCase(), Emails:String(r.Emails||''), Droits:String(r.Droits||'{}') };
+        await upsertFromBackup(CONFIG.lists.roles, r.Id, () => dbGetRawByName('roles', r.Title), data);
+      }
+      for (const r of rows.Formations) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), Prestataire:String(r.Prestataire||''), TypeFormation:String(r.TypeFormation||''), Format:String(r.Format||''), Duree:String(r.Duree||''), Tarif:String(r.Tarif||''), LienInscription:String(r.LienInscription||''), CompetencesNiveaux:remapFormationLinksJson(r.CompetencesNiveaux||'[]', skillMap), Objectifs:String(r.Objectifs||''), Programme:String(r.Programme||''), Actif:r.Actif === '' ? true : !!r.Actif };
+        const newId = await upsertFromBackup(CONFIG.lists.formations, oldId, () => dbGetRawByName('formations', r.Title), data);
+        if (oldId) formationMap[oldId] = newId;
+      }
+      for (const r of rows.Parcours) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), Description:String(r.Description||''), Jalons:remapMilestonesJson(r.Jalons||'[]', skillMap), Cibles:remapParcoursTargetsJson(r.Cibles||'{}', teamMap, collabMap), Actif:r.Actif === '' ? true : !!r.Actif };
+        const newId = await upsertFromBackup(CONFIG.lists.parcours, oldId, () => dbGetRawByName('parcours', r.Title), data);
+        if (oldId) parcoursMap[oldId] = newId;
+      }
+      for (const r of rows.AxesStrategiques) {
+        const oldId = String(r.Id || '');
+        const data = { Title:String(r.Title||''), Description:String(r.Description||''), Couleur:String(r.Couleur||''), CompetencesNiveaux:remapStrategyLinksJson(r.CompetencesNiveaux||'[]', skillMap, teamMap), Objectifs:remapStrategyObjectivesJson(r.Objectifs||'{}', skillMap), ObjectifsEquipes:remapStrategyTeamObjectivesJson(r.ObjectifsEquipes||'{}', skillMap, teamMap), Actif:r.Actif === '' ? true : !!r.Actif };
+        const newId = await upsertFromBackup(CONFIG.lists.axesStrategiques, oldId, () => dbGetRawByName('axesStrategiques', r.Title), data);
+        if (oldId) strategyMap[oldId] = newId;
+      }
+
+      await loadData();
+      for (const r of rows.Competences) {
+        const sid = skillMap[String(r.SkillId||r.Title||'')] || String(r.SkillId||r.Title||'');
+        const cid = collabMap[String(r.CollabId||'')] || String(r.CollabId||'');
+        if (!sid || !cid) continue;
+        const data = { Title:sid, CollabId:cid, Niveau:parseInt(r.Niveau,10)||0 };
+        await upsertFromBackup(CONFIG.lists.competences, r.Id, () => db.competences.find(x => String(x.CollabId)===String(cid) && String(x.SkillId||x.Title)===String(sid)), data);
+      }
+      for (const r of rows.Commentaires) {
+        const sid = String(r.SkillId||'') === META_LAST_UPDATE_SKILL_ID ? META_LAST_UPDATE_SKILL_ID : (skillMap[String(r.SkillId||'')] || String(r.SkillId||''));
+        const cid = collabMap[String(r.Title||'')] || String(r.Title||'');
+        if (!cid) continue;
+        const data = { Title:cid, SkillId:sid, TypeAuteur:String(r.TypeAuteur||''), Contenu:String(r.Contenu||''), DateSaisie:String(r.DateSaisie||new Date().toISOString()) };
+        await upsertFromBackup(CONFIG.lists.commentaires, r.Id, null, data);
+      }
+      for (const r of rows.Historique) {
+        const cid = collabMap[String(r.Title||'')] || String(r.Title||'');
+        if (!cid) continue;
+        const data = { Title:cid, Role:String(r.Role||''), Description:String(r.Description||''), DateAction:String(r.DateAction||new Date().toISOString()) };
+        await upsertFromBackup(CONFIG.lists.historique, r.Id, null, data);
+      }
+      await loadData();
+      hideSave('Sauvegarde restaurée ✓');
+      renderImport();
+      alert('Restauration terminée. Rechargez l’application si nécessaire pour vérifier l’ensemble des vues.');
+    } catch(e) {
+      hideSave('Erreur !');
+      alert('Erreur pendant la restauration : ' + e.message + '\n\nLa restauration peut être partielle. Vérifiez SharePoint avant de relancer.');
+      console.error(e);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function dbGetRawByName(kind, title) {
+  const name = String(title || '').toLowerCase().trim();
+  if (!name) return null;
+  if (kind === 'domaines') return DOMAINS.find(d => String(d.name||'').toLowerCase().trim() === name) ? { Id:DOMAINS.find(d => String(d.name||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'skills') return SKILLS.find(sk => String(sk.name||'').toLowerCase().trim() === name) ? { Id:SKILLS.find(sk => String(sk.name||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'postes') return POSTES.find(p => String(p.name||'').toLowerCase().trim() === name) ? { Id:POSTES.find(p => String(p.name||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'equipes') return db.equipes.find(t => String(t.name||'').toLowerCase().trim() === name) ? { Id:db.equipes.find(t => String(t.name||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'roles') return db.roles.find(r => String(r.name||'').toLowerCase().trim() === name) ? { Id:db.roles.find(r => String(r.name||'').toLowerCase().trim() === name).spId } : null;
+  if (kind === 'formations') return db.formations.find(f => String(f.title||'').toLowerCase().trim() === name) ? { Id:db.formations.find(f => String(f.title||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'parcours') return db.parcours.find(p => String(p.title||'').toLowerCase().trim() === name) ? { Id:db.parcours.find(p => String(p.title||'').toLowerCase().trim() === name).id } : null;
+  if (kind === 'axesStrategiques') return db.axesStrategiques.find(a => String(a.title||'').toLowerCase().trim() === name) ? { Id:db.axesStrategiques.find(a => String(a.title||'').toLowerCase().trim() === name).id } : null;
+  return null;
+}
+function dbGetRawByEmailOrName(email, prenom, nom) {
+  const e = String(email||'').toLowerCase().trim();
+  const p = String(prenom||'').toLowerCase().trim();
+  const n = String(nom||'').toLowerCase().trim();
+  const c = db.collaborateurs.find(x => (e && String(x.Email||'').toLowerCase().trim() === e) || (String(x.prenom||'').toLowerCase().trim() === p && String(x.Nom||'').toLowerCase().trim() === n));
+  return c ? { Id:c.Id } : null;
+}
+
 function renderImport() {
   if (!ensureStrictAdminAccess()) return;
   document.getElementById('content').innerHTML = `<div style="max-width:580px">
-  <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Importer des collaborateurs</h3>
+  <h3 style="font-size:15px;font-weight:500;margin-bottom:6px">Importer des collaborateur·ices</h3>
   <p style="font-size:13px;color:#5F5E5A;margin-bottom:6px">Format attendu : une ligne par compétence, avec les colonnes :</p>
   <p style="font-size:12px;color:#888;background:#f5f5f0;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-family:monospace">Prénom | NOM | Mail | Fonction | Compétence | Niveau | Commentaire</p>
   <div class="import-zone" onclick="document.getElementById('fi').click()">
     <i class="ti ti-file-spreadsheet"></i>
     <div style="font-weight:500;margin-bottom:4px">Cliquer pour importer (.xlsx, .xls)</div>
-    <div style="font-size:12px">Une ligne par compétence — plusieurs lignes par collaborateur acceptées</div>
+    <div style="font-size:12px">Une ligne par compétence — plusieurs lignes par collaborateur·ice acceptées</div>
   </div>
   <input type="file" id="fi" style="display:none" accept=".xlsx,.xls" onchange="handleImport(event)">
   <div id="fb"></div>
+
+  <h3 style="font-size:15px;font-weight:500;margin:26px 0 6px">Sauvegarde complète</h3>
+  <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px">Exporte toutes les listes utilisées par l'application dans un fichier Excel. Le fichier peut ensuite être réimporté pour restaurer les données après une perte ou une corruption.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn btn-primary" onclick="exportFullBackup()"><i class="ti ti-database-export"></i>Exporter une sauvegarde complète</button>
+    <button class="btn" onclick="document.getElementById('backup-file').click()"><i class="ti ti-database-import"></i>Restaurer depuis une sauvegarde</button>
+    <input type="file" id="backup-file" style="display:none" accept=".xlsx,.xls" onchange="importFullBackup(event)">
+  </div>
+  <div class="lock-note">La restauration est réservée aux administrateur·ices. Elle met à jour les éléments existants et recrée les éléments absents quand SharePoint le permet.</div>
 
   <h3 style="font-size:15px;font-weight:500;margin:26px 0 6px">Corriger les descriptions de niveaux</h3>
   <p style="font-size:13px;color:#5F5E5A;margin-bottom:12px">
@@ -5777,7 +6125,7 @@ async function handleImport(e) {
 
       await loadData();
       hideSave('Import terminé ✓');
-      document.getElementById('fb').innerHTML = `<div class="fb-ok"><i class="ti ti-check"></i> ${added} collaborateur(s) ajouté(s), ${updated} mis à jour.</div>`;
+      document.getElementById('fb').innerHTML = `<div class="fb-ok"><i class="ti ti-check"></i> ${added} collaborateur·ice(s) ajouté(s), ${updated} mis à jour.</div>`;
     } catch (err) {
       hideSave('Erreur !');
       document.getElementById('fb').innerHTML = `<div class="fb-err"><i class="ti ti-alert-triangle"></i> Erreur : ${err.message}</div>`;
@@ -5795,10 +6143,10 @@ function openExportModal() {
     <div class="field full">
       <label>Périmètre</label>
       <select id="export-team-select">
-        <option value="">Toute l'entreprise (${db.collaborateurs.length} collaborateur(s))</option>
+        <option value="">Toute l'entreprise (${db.collaborateurs.length} collaborateur·ice(s))</option>
         ${db.equipes.map(t => {
           const n = db.collaborateurs.filter(c => (c.teamIds||[]).includes(String(t.id))).length;
-          return `<option value="${t.id}">${t.name} (${n} collaborateur(s))</option>`;
+          return `<option value="${t.id}">${t.name} (${n} collaborateur·ice(s))</option>`;
         }).join('')}
       </select>
     </div>`;
@@ -5817,7 +6165,7 @@ function exportExcel(teamId = '') {
       const t = teamById(teamId);
       teamName = t ? t.name : 'equipe';
     }
-    if (!collabs.length) { alert('Aucun collaborateur à exporter pour ce périmètre.'); return; }
+    if (!collabs.length) { alert('Aucun·e collaborateur·ice à exporter pour ce périmètre.'); return; }
 
     const headers = ['Prénom','Nom','Email','Fonction','Équipes', ...SKILLS.map(s => s.name)];
     const rows = collabs.map(c => {
@@ -5838,7 +6186,7 @@ function exportExcel(teamId = '') {
 }
 
 // =====================================================================
-// EXPORT INDIVIDUEL (fiche collaborateur)
+// EXPORT INDIVIDUEL (fiche collaborateur·ice)
 // =====================================================================
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -5851,7 +6199,7 @@ function flashMessage(msg) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// Construit les lignes exportables pour le collaborateur en cours d'édition (collabEdit)
+// Construit les lignes exportables pour le collaborateur·ice en cours d'édition (collabEdit)
 function getCollabExportRows() {
   const c = collabEdit;
   const poste = buildVirtualPosteForCollab(c);
@@ -5899,7 +6247,7 @@ function buildHtmlTable(rows) {
   rows.forEach(r => {
     const commentaire = [
       r.commentaireManager       ? `Manager : ${r.commentaireManager}` : '',
-      r.commentaireCollaborateur ? `Collaborateur : ${r.commentaireCollaborateur}` : '',
+      r.commentaireCollaborateur ? `Collaborateur·ice : ${r.commentaireCollaborateur}` : '',
       r.propositionEnAttente ? `En attente : ${r.propositionEnAttente}` : ''
     ].filter(Boolean).join(' — ');
     html += `<tr>
@@ -5919,7 +6267,7 @@ function buildPlainText(rows) {
   rows.forEach(r => {
     const commentaire = [
       r.commentaireManager       ? `Manager : ${r.commentaireManager}` : '',
-      r.commentaireCollaborateur ? `Collaborateur : ${r.commentaireCollaborateur}` : '',
+      r.commentaireCollaborateur ? `Collaborateur·ice : ${r.commentaireCollaborateur}` : '',
       r.propositionEnAttente ? `En attente : ${r.propositionEnAttente}` : ''
     ].filter(Boolean).join(' — ');
     lines.push([r.domaine, r.competence, r.niveau!==''?r.niveau:'—', r.cible!==''?r.cible:'—', commentaire].join('\t'));
@@ -5930,7 +6278,7 @@ function buildPlainText(rows) {
 // Copie un tableau HTML dans le presse-papier (collable directement dans Word)
 function copyCollabTable() {
   const rows = getCollabExportRows();
-  if (!rows.length) { alert('Aucune compétence à exporter pour ce collaborateur.'); return; }
+  if (!rows.length) { alert('Aucune compétence à exporter pour ce/cette collaborateur·ice.'); return; }
   const html = buildHtmlTable(rows);
   const text = buildPlainText(rows);
 
@@ -5977,19 +6325,19 @@ function fallbackCopy(html) {
   }
 }
 
-// Export Excel des compétences d'un seul collaborateur
+// Export Excel des compétences d'un·e seul·e collaborateur·ice
 function exportCollabExcel() {
   const c = collabEdit;
   const rows = getCollabExportRows();
-  if (!rows.length) { alert('Aucune compétence à exporter pour ce collaborateur.'); return; }
+  if (!rows.length) { alert('Aucune compétence à exporter pour ce/cette collaborateur·ice.'); return; }
   try {
-    const headers = ['Domaine','Compétence','Niveau actuel','Description niveau actuel','Niveau cible','Description niveau cible','Commentaire manager','Commentaire collaborateur','Proposition en attente'];
+    const headers = ['Domaine','Compétence','Niveau actuel','Description niveau actuel','Niveau cible','Description niveau cible','Commentaire manager','Commentaire collaborateur·ice','Proposition en attente'];
     const data = rows.map(r => [r.domaine, r.competence, r.niveau, r.niveauLabel, r.cible, r.cibleLabel, r.commentaireManager, r.commentaireCollaborateur, r.propositionEnAttente || '']);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     ws['!cols'] = [{wch:16},{wch:42},{wch:12},{wch:42},{wch:10},{wch:42},{wch:32},{wch:32},{wch:42}];
     const wb = XLSX.utils.book_new();
-    let sheetName = `${c.prenom||''} ${c.Nom||''}`.trim() || 'Collaborateur';
-    sheetName = sheetName.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Collaborateur';
+    let sheetName = `${c.prenom||''} ${c.Nom||''}`.trim() || 'Collaborateur·ice';
+    sheetName = sheetName.replace(/[\\/?*[\]:]/g, '').slice(0, 31) || 'Collaborateur·ice';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     const safeName = `${c.prenom||''}_${c.Nom||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g, '_');
     XLSX.writeFile(wb, `competences_${safeName}.xlsx`);
@@ -6151,7 +6499,7 @@ function roleDefinitionList() {
     { name: 'admin',         label: 'Administrateur', icon: 'ti-shield-lock',  desc: 'Accès complet + paramètres' },
     { name: 'directeur',     label: 'Directeur',      icon: 'ti-crown',        desc: 'Toutes les fiches en lecture' },
     { name: 'manager',       label: 'Manager',        icon: 'ti-user-star',    desc: 'Fiches de son équipe + validation' },
-    { name: 'collaborateur', label: 'Collaborateur',  icon: 'ti-user',         desc: 'Sa propre fiche uniquement' }
+    { name: 'collaborateur', label: 'Collaborateur·ice',  icon: 'ti-user',         desc: 'Sa propre fiche uniquement' }
   ];
   const baseNames = base.map(r => r.name);
   const custom = db.roles
