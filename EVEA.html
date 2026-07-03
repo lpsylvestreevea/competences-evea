@@ -289,6 +289,19 @@ table.mx tbody td.dr{position:relative!important;left:auto!important;z-index:7!i
   <p id="loading-msg">Connexion à Microsoft...</p>
 </div>
 
+<div class="modal-overlay" id="onboarding" style="display:none">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="mhead">
+      <div class="mavat"><i class="ti ti-user-plus"></i></div>
+      <div class="mtitle"><h2>Créer votre profil</h2><p>Bienvenue sur la Matrice des Compétences EVEA</p></div>
+    </div>
+    <div class="mbody" id="onboarding-body"></div>
+    <div class="mfooter">
+      <button class="btn btn-primary" id="onboarding-submit-btn" onclick="submitOnboarding()"><i class="ti ti-check"></i>Créer mon profil</button>
+    </div>
+  </div>
+</div>
+
 <div class="app" id="app" style="display:none">
   <div class="sidebar">
     <div class="sidebar-logo"><i class="ti ti-chart-grid-dots"></i><span>Compétences</span></div>
@@ -758,6 +771,26 @@ function getCollabFunctionWeights(c) {
   const ids = getCollabFunctionIds(c);
   return normalizeCollabFunctionWeights(c?.fonctionWeights || c?.FonctionsPonderation || {}, ids);
 }
+// Règles de pondération des fonctions : aucune fonction sous 20%, et impossible d'avoir
+// plus de 3 fonctions dès lors que 3 fonctions atteignent déjà 30% ou plus.
+function countHighWeightFunctions(ids, weights) {
+  return (ids || []).filter(id => (Number(weights[id]) || 0) >= 30).length;
+}
+function validateCollabFunctionWeights(fonctionIds, fonctionWeights) {
+  const ids = (fonctionIds || []).filter(Boolean);
+  for (const id of ids) {
+    const w = Number(fonctionWeights[id]) || 0;
+    if (w < 20) {
+      const p = posteById(id);
+      return { valid:false, message: `La fonction "${p ? p.name : id}" a un poids de ${w}%, inférieur au minimum autorisé de 20%.` };
+    }
+  }
+  const highCount = countHighWeightFunctions(ids, fonctionWeights);
+  if (highCount >= 3 && ids.length > 3) {
+    return { valid:false, message: `Dès que 3 fonctions ont un poids ≥30%, le nombre total de fonctions ne peut pas dépasser 3 (actuellement ${ids.length} fonctions, dont ${highCount} à ≥30%).` };
+  }
+  return { valid:true };
+}
 function getCollabFunctions(c) {
   const ids = getCollabFunctionIds(c);
   const weights = getCollabFunctionWeights(c);
@@ -1210,13 +1243,25 @@ function normalizeParcoursMilestones(value) {
   else if (raw && typeof raw === 'object') {
     Object.entries(raw).forEach(([skillId, niveau]) => arr.push({ skillId, niveau }));
   }
-  return arr.map((x, idx) => ({
-      skillId: String(x.skillId || x.SkillId || x.id || '').trim(),
-      niveau: Math.max(1, Math.min(4, parseInt(x.niveau ?? x.level ?? x.Niveau ?? 1, 10) || 1)),
-      ordre: Math.max(1, parseInt(x.ordre ?? x.order ?? x.Position ?? idx + 1, 10) || idx + 1)
-    }))
-    .filter(x => x.skillId)
-    .sort((a,b) => a.ordre - b.ordre || nameCompareFr(skillById(a.skillId)?.name || a.skillId, skillById(b.skillId)?.name || b.skillId))
+  return arr.map((x, idx) => {
+      let items;
+      if (Array.isArray(x.items) && x.items.length) {
+        items = x.items.map(it => ({
+          skillId: String(it.skillId || it.SkillId || it.id || '').trim(),
+          niveau: Math.max(1, Math.min(4, parseInt(it.niveau ?? it.level ?? it.Niveau ?? 1, 10) || 1))
+        })).filter(it => it.skillId);
+      } else {
+        const sid = String(x.skillId || x.SkillId || x.id || '').trim();
+        items = sid ? [{ skillId: sid, niveau: Math.max(1, Math.min(4, parseInt(x.niveau ?? x.level ?? x.Niveau ?? 1, 10) || 1)) }] : [];
+      }
+      return {
+        items,
+        description: String(x.description || x.Description || '').trim(),
+        ordre: Math.max(1, parseInt(x.ordre ?? x.order ?? x.Position ?? idx + 1, 10) || idx + 1)
+      };
+    })
+    .filter(x => x.items.length)
+    .sort((a,b) => a.ordre - b.ordre || nameCompareFr(skillById(a.items[0].skillId)?.name || a.items[0].skillId, skillById(b.items[0].skillId)?.name || b.items[0].skillId))
     .map((x, idx) => ({ ...x, ordre: idx + 1 }));
 }
 function normalizeParcoursTargets(value) {
@@ -1254,12 +1299,16 @@ function parcoursTargetsLabel(cibles = {}) {
   return names.length ? names.join(', ') : 'Collaborateur·ices ciblé·es';
 }
 function parcoursMilestoneLabel(m) {
-  const sk = skillById(m.skillId);
-  return `${sk ? sk.name : m.skillId} · N${m.niveau}`;
+  return (m.items || []).map(it => {
+    const sk = skillById(it.skillId);
+    return `${sk ? sk.name : it.skillId} · N${it.niveau}`;
+  }).join(' + ') || 'Jalon';
 }
 function parcoursMilestoneChipHtml(m) {
-  const sk = skillById(m.skillId);
-  return `<span class="parcours-step-chip"><span>${escapeHtml(sk ? sk.name : m.skillId)}</span><span class="ldot l${m.niveau}" style="width:16px;height:16px;font-size:9px">${m.niveau}</span></span>`;
+  return `<span class="parcours-step-chip">${(m.items || []).map(it => {
+    const sk = skillById(it.skillId);
+    return `<span>${escapeHtml(sk ? sk.name : it.skillId)}</span><span class="ldot l${it.niveau}" style="width:16px;height:16px;font-size:9px">${it.niveau}</span>`;
+  }).join(' + ')}</span>`;
 }
 function getParcoursFormationsForMilestone(skillId, niveau) {
   const target = Math.max(1, Math.min(4, parseInt(niveau, 10) || 1));
@@ -1271,22 +1320,25 @@ function getParcoursFormationsForMilestone(skillId, niveau) {
 function getParcoursProgressForCollab(parcours, collab) {
   const jalons = normalizeParcoursMilestones(parcours?.jalons || []);
   const comps = collab ? getCollabComps(collab.Id) : {};
-  let blocked = false;
   let done = 0;
+  let currentAssigned = false;
   const steps = jalons.map((m, idx) => {
-    const currentLevel = parseInt(comps[m.skillId], 10) || 0;
-    const mastered = currentLevel >= Number(m.niveau);
-    let status = 'locked';
-    if (!blocked && mastered) {
+    const items = (m.items || []).map(it => ({
+      ...it,
+      currentLevel: parseInt(comps[it.skillId], 10) || 0
+    }));
+    const mastered = items.length > 0 && items.every(it => it.currentLevel >= Number(it.niveau));
+    let status;
+    if (mastered) {
       status = 'done';
       done++;
-    } else if (!blocked) {
+    } else if (!currentAssigned) {
       status = 'current';
-      blocked = true;
-    } else if (mastered) {
-      status = 'prevalidated';
+      currentAssigned = true;
+    } else {
+      status = 'locked';
     }
-    return { ...m, index: idx + 1, currentLevel, mastered, status };
+    return { ...m, items, index: idx + 1, mastered, status };
   });
   const total = steps.length;
   return { steps, done, total, pct: total ? Math.round(done / total * 100) : null, completed: total > 0 && done === total };
@@ -1294,13 +1346,11 @@ function getParcoursProgressForCollab(parcours, collab) {
 function parcoursStatusLabel(status) {
   if (status === 'done') return 'Validé';
   if (status === 'current') return 'À travailler';
-  if (status === 'prevalidated') return 'Maîtrisé, jalon précédent à valider';
   return 'À venir';
 }
 function parcoursStepIcon(status) {
   if (status === 'done') return '<i class="ti ti-check"></i>';
   if (status === 'current') return '<i class="ti ti-player-play"></i>';
-  if (status === 'prevalidated') return '<i class="ti ti-clock-check"></i>';
   return '<i class="ti ti-lock"></i>';
 }
 function getParcoursScopedCollabs(parcours, scope = parcoursScopeFilter) {
@@ -1318,7 +1368,7 @@ function getVisibleParcours() {
   let list = db.parcours.slice();
   if (!canManageParcours() || parcoursStatusFilter === 'active') list = list.filter(p => p.actif !== false);
   else if (parcoursStatusFilter === 'inactive') list = list.filter(p => p.actif === false);
-  if (parcoursDomainFilter) list = list.filter(p => normalizeParcoursMilestones(p.jalons).some(m => skillById(m.skillId)?.did === parcoursDomainFilter));
+  if (parcoursDomainFilter) list = list.filter(p => normalizeParcoursMilestones(p.jalons).some(m => (m.items || []).some(it => skillById(it.skillId)?.did === parcoursDomainFilter)));
   if (q) list = list.filter(p => {
     const hay = [p.title, p.description, parcoursTargetsLabel(p.cibles), ...normalizeParcoursMilestones(p.jalons).map(m => parcoursMilestoneLabel(m))].join(' ').toLowerCase();
     return hay.includes(q);
@@ -2963,39 +3013,47 @@ function openParcoursDetail(id, collabId = '') {
 }
 
 function renderParcoursStepDetail(step, collab, parcours) {
-  const sk = skillById(step.skillId);
-  const desc = sk ? getLevelDesc(sk, step.niveau) : '';
-  const formations = getParcoursFormationsForMilestone(step.skillId, step.niveau);
-  const statusClass = step.status === 'prevalidated' ? 'prevalidated' : step.status;
-  const formationHtml = formations.length ? formations.slice(0, 3).map(f => {
-    const url = safeExternalUrl(f.lien);
-    const alt = isAlternativeDevelopment(f);
-    return `<div class="dev-option${alt ? ' alt' : ''}" style="padding:8px;margin-top:6px;margin-bottom:0">
-      <div class="dev-option-title"><span>${escapeHtml(f.title || 'Sans titre')}</span><span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span></div>
-      <div class="formation-meta">
-        ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
-        ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
-        ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
-        <button class="btn btn-sm" onclick="openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Fiche</button>
+  const itemsHtml = (step.items || []).map(it => {
+    const sk = skillById(it.skillId);
+    const desc = sk ? getLevelDesc(sk, it.niveau) : '';
+    const itemMastered = it.currentLevel >= Number(it.niveau);
+    const formations = getParcoursFormationsForMilestone(it.skillId, it.niveau);
+    const formationHtml = formations.length ? formations.slice(0, 3).map(f => {
+      const url = safeExternalUrl(f.lien);
+      const alt = isAlternativeDevelopment(f);
+      return `<div class="dev-option${alt ? ' alt' : ''}" style="padding:8px;margin-top:6px;margin-bottom:0">
+        <div class="dev-option-title"><span>${escapeHtml(f.title || 'Sans titre')}</span><span class="formation-chip ${alt ? 'alt' : 'train'}"><i class="ti ti-${alt ? 'route' : 'school'}"></i>${escapeHtml(formationTypeLabel(f))}</span></div>
+        <div class="formation-meta">
+          ${f.prestataire ? `<span class="formation-chip"><i class="ti ti-building"></i>${escapeHtml(f.prestataire)}</span>` : ''}
+          ${f.duree ? `<span class="formation-chip"><i class="ti ti-clock"></i>${escapeHtml(f.duree)}</span>` : ''}
+          ${url ? `<a class="btn btn-sm btn-primary" href="${escapeHtml(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>Simbel</a>` : ''}
+          <button class="btn btn-sm" onclick="openFormationDetail('${f.id}')"><i class="ti ti-eye"></i>Fiche</button>
+        </div>
+      </div>`;
+    }).join('') + (formations.length > 3 ? `<button class="btn btn-sm" style="margin-top:6px" onclick="openParcoursSkillFormations('${it.skillId}',${Number(it.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Voir les ${formations.length} ressources</button>` : '') : `<div class="lock-note">Aucune formation ou moyen de développement n’est encore rattaché à cette compétence.</div>`;
+    return `<div class="parcours-milestone-item" style="margin-top:8px;padding-top:8px;border-top:.5px dashed #e8e7e0">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+        <span class="ldot l${it.niveau}" style="width:18px;height:18px;font-size:10px">${it.niveau}</span>
+        <span style="font-weight:600;font-size:13px">${escapeHtml(sk ? sk.name : it.skillId)}</span>
+        <span class="formation-chip">${itemMastered ? 'Acquis' : 'Niveau actuel : ' + (it.currentLevel || '—')}</span>
       </div>
+      <div class="parcours-step-desc">${escapeHtml(desc || 'Description du niveau non renseignée.')}</div>
+      <div class="formation-meta" style="margin-bottom:6px">
+        <button class="btn btn-sm" onclick="openCollabModal('${collab.Id}','${it.skillId}')"><i class="ti ti-award"></i>Ouvrir la compétence</button>
+        <button class="btn btn-sm" onclick="openParcoursSkillFormations('${it.skillId}',${Number(it.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Formations</button>
+      </div>
+      ${formationHtml}
     </div>`;
-  }).join('') + (formations.length > 3 ? `<button class="btn btn-sm" style="margin-top:6px" onclick="openParcoursSkillFormations('${step.skillId}',${Number(step.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Voir les ${formations.length} ressources</button>` : '') : `<div class="lock-note">Aucune formation ou moyen de développement n’est encore rattaché à ce jalon.</div>`;
-  return `<div class="parcours-step ${statusClass}">
+  }).join('');
+  return `<div class="parcours-step ${step.status}">
     <div class="parcours-step-num">${parcoursStepIcon(step.status)}</div>
     <div>
       <div class="parcours-step-title">
         <span>Jalon ${step.index}</span>
         <span class="formation-chip">${escapeHtml(parcoursStatusLabel(step.status))}</span>
-        <span class="ldot l${step.niveau}" style="width:18px;height:18px;font-size:10px">${step.niveau}</span>
       </div>
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${escapeHtml(sk ? sk.name : step.skillId)}</div>
-      <div class="parcours-step-desc">${escapeHtml(desc || 'Description du niveau non renseignée.')}</div>
-      <div class="formation-meta" style="margin-bottom:6px">
-        <span class="formation-chip">Niveau actuel : ${step.currentLevel || '—'}</span>
-        <button class="btn btn-sm" onclick="openCollabModal('${collab.Id}','${step.skillId}')"><i class="ti ti-award"></i>Ouvrir la compétence</button>
-        <button class="btn btn-sm" onclick="openParcoursSkillFormations('${step.skillId}',${Number(step.niveau)||1},'${parcours.id}','${collab.Id}')"><i class="ti ti-school"></i>Formations</button>
-      </div>
-      ${formationHtml}
+      ${step.description ? `<div class="parcours-step-desc" style="margin-bottom:4px;font-style:italic">${escapeHtml(step.description)}</div>` : ''}
+      ${itemsHtml}
     </div>
   </div>`;
 }
@@ -3084,7 +3142,7 @@ function openParcoursModal(id) {
       <div class="field"><label>Filtre domaine pour choisir les jalons</label><select id="p-domain" onchange="parcoursEdit._domainFilter=this.value;renderParcoursMilestonesEditor()"><option value="">Tous les domaines</option>${getSortedDomains().map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}</select></div>
       <div class="field full"><label>Public du parcours</label><div id="p-targets" class="parcours-targets"></div></div>
       <div class="field full"><label>Jalons du parcours</label>
-        <div class="projection-note"><i class="ti ti-info-circle"></i> Les jalons se débloquent dans l’ordre. Un jalon est validé dès que le niveau officiel de la compétence est validé sur la fiche collaborateur·ice.</div>
+        <div class="projection-note"><i class="ti ti-info-circle"></i> Chaque jalon peut regrouper une ou plusieurs compétences (toutes doivent atteindre leur niveau visé pour que le jalon soit validé). Les jalons peuvent être validés dans n'importe quel ordre, dès que les niveaux officiels correspondants sont validés sur la fiche collaborateur·ice. L'ordre ci-dessous sert uniquement à indiquer quel jalon est mis en avant comme « à travailler ».</div>
         <div id="p-milestones" style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;background:#fafaf8;margin-bottom:10px"></div>
         <button class="btn btn-sm" onclick="addParcoursMilestone()"><i class="ti ti-plus"></i>Ajouter un jalon vide</button>
       </div>
@@ -3152,14 +3210,25 @@ function renderParcoursMilestonesEditor() {
     wrap.innerHTML = `<div style="font-size:12px;color:#aaa;padding:4px">Aucun jalon défini.</div>`;
   } else {
     wrap.innerHTML = parcoursEdit.jalons.map((m, i) => `
-      <div class="form-link-row" style="align-items:flex-start;flex-wrap:wrap">
-        <span class="parcours-step-num" style="width:24px;height:24px;font-size:11px">${i+1}</span>
-        <select onchange="setParcoursMilestoneSkill(${i},this.value)" style="min-width:240px">${skillOptionsHtml(m.skillId)}</select>
-        <select onchange="setParcoursMilestoneLevel(${i},this.value)">${[1,2,3,4].map(n => `<option value="${n}"${Number(m.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}</select>
-        <button class="btn btn-sm" ${i===0?'disabled':''} onclick="moveParcoursMilestone(${i},-1)"><i class="ti ti-arrow-up"></i></button>
-        <button class="btn btn-sm" ${i===parcoursEdit.jalons.length-1?'disabled':''} onclick="moveParcoursMilestone(${i},1)"><i class="ti ti-arrow-down"></i></button>
-        <button class="btn btn-sm btn-danger" onclick="removeParcoursMilestone(${i})"><i class="ti ti-trash"></i></button>
-        ${strategyLevelHelpHtml(m.skillId, m.niveau)}
+      <div style="border:.5px solid #D3D1C7;border-radius:8px;padding:8px;margin-bottom:8px;background:#fff">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <span class="parcours-step-num" style="width:24px;height:24px;font-size:11px">${i+1}</span>
+          <span style="font-size:11px;color:#5F5E5A;flex:1">Jalon ${i+1}${m.items.length>1 ? ' · '+m.items.length+' compétences (toutes requises)' : ''}</span>
+          <button class="btn btn-sm" ${i===0?'disabled':''} onclick="moveParcoursMilestone(${i},-1)"><i class="ti ti-arrow-up"></i></button>
+          <button class="btn btn-sm" ${i===parcoursEdit.jalons.length-1?'disabled':''} onclick="moveParcoursMilestone(${i},1)"><i class="ti ti-arrow-down"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="removeParcoursMilestone(${i})"><i class="ti ti-trash"></i>Supprimer le jalon</button>
+        </div>
+        ${m.items.map((it,j) => `
+        <div class="form-link-row" style="align-items:flex-start;flex-wrap:wrap;margin-bottom:4px">
+          <select onchange="setMilestoneItemSkill(${i},${j},this.value)" style="min-width:220px">${skillOptionsHtml(it.skillId)}</select>
+          <select onchange="setMilestoneItemLevel(${i},${j},this.value)">${[1,2,3,4].map(n => `<option value="${n}"${Number(it.niveau)===n?' selected':''}>Niveau ${n}</option>`).join('')}</select>
+          <button class="btn btn-sm btn-danger" ${m.items.length<=1?'disabled':''} onclick="removeMilestoneItem(${i},${j})"><i class="ti ti-trash"></i></button>
+          ${strategyLevelHelpHtml(it.skillId, it.niveau)}
+        </div>`).join('')}
+        <button class="btn btn-sm" onclick="addMilestoneItem(${i})"><i class="ti ti-plus"></i>Ajouter une compétence à ce jalon</button>
+        <div class="field full" style="margin-top:6px"><label>Description du jalon (optionnel)</label>
+          <textarea style="min-height:50px" oninput="setMilestoneDescription(${i},this.value)" placeholder="Précisez ce que représente ce niveau de maîtrise…">${escapeHtml(m.description||'')}</textarea>
+        </div>
       </div>`).join('');
   }
   const domain = parcoursEdit._domainFilter || '';
@@ -3172,20 +3241,35 @@ function renderParcoursMilestonesEditor() {
     </div>`;
   }).join('') : `<div style="font-size:12px;color:#aaa;padding:6px">Aucune compétence dans ce domaine.</div>`;
 }
+function setMilestoneDescription(i, value) {
+  if (!parcoursEdit.jalons[i]) return;
+  parcoursEdit.jalons[i].description = value;
+}
 function addParcoursMilestone(skillId = '', niveau = 1) {
   const sid = skillId || getDefaultSkillForParcoursDomain(parcoursEdit._domainFilter || '');
   parcoursEdit.jalons = normalizeParcoursMilestones(parcoursEdit.jalons || []);
-  parcoursEdit.jalons.push({ skillId:sid, niveau:Math.max(1, Math.min(4, parseInt(niveau,10)||1)), ordre:parcoursEdit.jalons.length + 1 });
+  parcoursEdit.jalons.push({ items:[{ skillId:sid, niveau:Math.max(1, Math.min(4, parseInt(niveau,10)||1)) }], description:'', ordre:parcoursEdit.jalons.length + 1 });
   renderParcoursMilestonesEditor();
 }
-function setParcoursMilestoneSkill(i, skillId) {
+function addMilestoneItem(i) {
   if (!parcoursEdit.jalons[i]) return;
-  parcoursEdit.jalons[i].skillId = skillId;
+  const sid = getDefaultSkillForParcoursDomain(parcoursEdit._domainFilter || '');
+  parcoursEdit.jalons[i].items.push({ skillId: sid, niveau: 1 });
   renderParcoursMilestonesEditor();
 }
-function setParcoursMilestoneLevel(i, niveau) {
-  if (!parcoursEdit.jalons[i]) return;
-  parcoursEdit.jalons[i].niveau = Math.max(1, Math.min(4, parseInt(niveau,10)||1));
+function setMilestoneItemSkill(i, j, skillId) {
+  if (!parcoursEdit.jalons[i] || !parcoursEdit.jalons[i].items[j]) return;
+  parcoursEdit.jalons[i].items[j].skillId = skillId;
+  renderParcoursMilestonesEditor();
+}
+function setMilestoneItemLevel(i, j, niveau) {
+  if (!parcoursEdit.jalons[i] || !parcoursEdit.jalons[i].items[j]) return;
+  parcoursEdit.jalons[i].items[j].niveau = Math.max(1, Math.min(4, parseInt(niveau,10)||1));
+  renderParcoursMilestonesEditor();
+}
+function removeMilestoneItem(i, j) {
+  if (!parcoursEdit.jalons[i] || parcoursEdit.jalons[i].items.length <= 1) return;
+  parcoursEdit.jalons[i].items.splice(j,1);
   renderParcoursMilestonesEditor();
 }
 function removeParcoursMilestone(i) {
@@ -3207,13 +3291,20 @@ async function saveParcours(id) {
   if (!title) return alert('Nom du parcours requis.');
   const jalons = normalizeParcoursMilestones(parcoursEdit.jalons || []);
   if (!jalons.length) return alert('Ajoutez au moins un jalon.');
+  const invalidJalon = jalons.some(m => !m.items.length);
+  if (invalidJalon) return alert('Chaque jalon doit contenir au moins une compétence.');
   const cibles = normalizeParcoursTargets(parcoursEdit.cibles || {});
   showSave('Enregistrement du parcours...');
   try {
+    const jalonsPayload = jalons.map((m, idx) => ({
+      items: m.items.map(it => ({ skillId: it.skillId, niveau: it.niveau })),
+      description: (m.description || '').trim(),
+      ordre: idx + 1
+    }));
     const data = {
       Title: title,
       Description: document.getElementById('p-description').value.trim(),
-      Jalons: JSON.stringify(jalons.map((m, idx) => ({ skillId:m.skillId, niveau:m.niveau, ordre:idx + 1 }))),
+      Jalons: JSON.stringify(jalonsPayload),
       Cibles: JSON.stringify(cibles),
       Actif: document.getElementById('p-actif').value === '1'
     };
@@ -3377,18 +3468,30 @@ function renderCollabFunctionWeightSummary() {
   const el = document.getElementById('function-weight-summary');
   if (!el) return;
   const total = totalCollabFunctionWeight();
-  el.className = 'function-weight-summary' + (Math.round(total) === 100 ? '' : ' warn');
-  el.innerHTML = Math.round(total) === 100
-    ? 'Pondération totale : 100%.'
-    : `Pondération totale : ${Math.round(total)}%. Le calcul de progression sera normalisé sur ce total.`;
+  const ids = collabEdit.fonctionIds.filter(Boolean);
+  const belowMin = ids.filter(id => (Number(collabEdit.fonctionWeights[id]) || 0) < 20);
+  const highCount = countHighWeightFunctions(ids, collabEdit.fonctionWeights);
+  const warnings = [];
+  if (belowMin.length) warnings.push(`${belowMin.length} fonction(s) sous le minimum de 20%`);
+  if (highCount >= 3 && ids.length > 3) warnings.push(`3 fonctions ont déjà un poids ≥30% : impossible de dépasser 3 fonctions au total`);
+  el.className = 'function-weight-summary' + (warnings.length || Math.round(total) !== 100 ? ' warn' : '');
+  el.innerHTML = warnings.length
+    ? `⚠ ${warnings.join(' · ')}.`
+    : (Math.round(total) === 100
+      ? 'Pondération totale : 100%.'
+      : `Pondération totale : ${Math.round(total)}%. Le calcul de progression sera normalisé sur ce total.`);
 }
 function addCollabFunction() {
   ensureCollabFunctionState();
+  if (countHighWeightFunctions(collabEdit.fonctionIds, collabEdit.fonctionWeights) >= 3) {
+    alert('Impossible d’ajouter une 4e fonction : 3 fonctions ont déjà un poids ≥30% (maximum autorisé dans ce cas : 3 fonctions).');
+    return;
+  }
   const used = new Set(collabEdit.fonctionIds.map(String));
   const next = POSTES.find(p => !used.has(String(p.id)));
   if (!next) return alert('Toutes les fonctions sont déjà associées.');
   collabEdit.fonctionIds.push(String(next.id));
-  collabEdit.fonctionWeights[String(next.id)] = collabEdit.fonctionIds.length === 1 ? 100 : 0;
+  collabEdit.fonctionWeights[String(next.id)] = collabEdit.fonctionIds.length === 1 ? 100 : 20;
   collabEdit.PosteId = collabEdit.fonctionIds[0] || '';
   renderCollabBody();
 }
@@ -3428,7 +3531,7 @@ function collabFunctionsEditorHtml(c, canHeader) {
       <option value="">— Sélectionner —</option>
       ${POSTES.map(p => `<option value="${p.id}"${String(id)===String(p.id)?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
     </select>
-    <input type="number" min="0" max="100" step="1" value="${Number(collabEdit.fonctionWeights[id] ?? (ids.length===1?100:0)) || 0}" oninput="setCollabFunctionWeight(${i},this.value)" title="Poids de cette fonction dans le calcul de progression">
+    <input type="number" min="20" max="100" step="1" value="${Number(collabEdit.fonctionWeights[id] ?? (ids.length===1?100:20)) || 0}" oninput="setCollabFunctionWeight(${i},this.value)" title="Poids de cette fonction dans le calcul de progression (minimum 20%)">
     <button type="button" class="btn btn-sm btn-danger" onclick="removeCollabFunction(${i})" ${ids.length<=1?'disabled':''} title="Retirer cette fonction"><i class="ti ti-trash"></i></button>
   </div>`).join('');
   return `${rows}
@@ -3436,6 +3539,7 @@ function collabFunctionsEditorHtml(c, canHeader) {
       <button type="button" class="btn btn-sm" onclick="addCollabFunction()"><i class="ti ti-plus"></i>Ajouter une fonction</button>
       <button type="button" class="btn btn-sm" onclick="rebalanceCollabFunctionWeights()"><i class="ti ti-percentage"></i>Répartir à 100%</button>
     </div>
+    <div style="font-size:11px;color:#5F5E5A;margin-top:4px">Chaque fonction doit peser au moins 20%. Au-delà de 3 fonctions à 30% ou plus, aucune fonction supplémentaire ne peut être ajoutée.</div>
     <div id="function-weight-summary" class="function-weight-summary"></div>`;
 }
 
@@ -3962,6 +4066,8 @@ async function saveCollab(id) {
       ensureCollabFunctionState();
       const fonctionIds = getCollabFunctionIds(collabEdit);
       const fonctionWeights = normalizeCollabFunctionWeights(collabEdit.fonctionWeights || {}, fonctionIds);
+      const weightsValidation = validateCollabFunctionWeights(fonctionIds, fonctionWeights);
+      if (!weightsValidation.valid) { alert(weightsValidation.message); hideSave('Erreur !'); return; }
       Object.assign(collabData, {
         Title:     prenom,
         Prenom:    nom,
@@ -5798,7 +5904,10 @@ function remapFormationLinksJson(raw, skillMap) {
   return JSON.stringify(normalizeFormationSkillLinks(raw).map(x => ({ ...x, skillId: skillMap[String(x.skillId)] || String(x.skillId) })));
 }
 function remapMilestonesJson(raw, skillMap) {
-  return JSON.stringify(normalizeParcoursMilestones(raw).map(x => ({ ...x, skillId: skillMap[String(x.skillId)] || String(x.skillId) })));
+  return JSON.stringify(normalizeParcoursMilestones(raw).map(x => ({
+    ...x,
+    items: (x.items || []).map(it => ({ ...it, skillId: skillMap[String(it.skillId)] || String(it.skillId) }))
+  })));
 }
 function remapParcoursTargetsJson(raw, teamMap, collabMap) {
   const t = normalizeParcoursTargets(raw);
@@ -6631,8 +6740,185 @@ async function logout() {
 }
 
 // =====================================================================
+// ONBOARDING (création automatique de profil au 1er login)
+// =====================================================================
+let onboardingEdit = null;
+
+function openOnboarding(email, displayName) {
+  onboardingEdit = { prenom:'', Nom:'', Email: email, fonctionIds:[], fonctionWeights:{}, teamIds:[], ManagerID:'' };
+  if (displayName) {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length > 1) { onboardingEdit.prenom = parts[0]; onboardingEdit.Nom = parts.slice(1).join(' '); }
+    else onboardingEdit.prenom = displayName;
+  }
+  renderOnboardingBody();
+  document.getElementById('onboarding').style.display = 'flex';
+}
+
+function renderOnboardingBody() {
+  const ids = onboardingEdit.fonctionIds;
+  const rows = (ids.length ? ids : ['']).map((id, i) => `<div class="function-weight-row">
+    <select onchange="setOnboardingFunction(${i},this.value)">
+      <option value="">— Sélectionner —</option>
+      ${POSTES.map(p => `<option value="${p.id}"${String(id)===String(p.id)?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+    </select>
+    <input type="number" min="20" max="100" step="1" value="${Number(onboardingEdit.fonctionWeights[id] ?? (ids.length===1?100:20)) || 0}" oninput="setOnboardingFunctionWeight(${i},this.value)" title="Poids de cette fonction (minimum 20%)">
+    <button type="button" class="btn btn-sm btn-danger" onclick="removeOnboardingFunction(${i})" ${ids.length<=1?'disabled':''}><i class="ti ti-trash"></i></button>
+  </div>`).join('');
+
+  const tchecks = db.equipes.map(t => {
+    const ck = (onboardingEdit.teamIds || []).includes(String(t.id));
+    return `<div class="tcheck${ck?' checked':''}" onclick="toggleOnboardingTeam('${t.id}')" style="cursor:pointer;user-select:none">
+      <span style="display:inline-block;width:14px;height:14px;border:.5px solid #D3D1C7;border-radius:3px;background:${ck?'#534AB7':'#fff'};vertical-align:middle;margin-right:5px"></span>
+      ${escapeHtml(t.name)}
+    </div>`;
+  }).join('');
+
+  document.getElementById('onboarding-body').innerHTML = `
+    <div class="projection-note"><i class="ti ti-info-circle"></i> Aucune fiche n'est associée à votre adresse (${escapeHtml(onboardingEdit.Email||'')}). Complétez ces informations pour créer votre profil ; le prénom, le nom, la fonction, l'équipe et le manager ne seront plus modifiables par vous-même ensuite.</div>
+    <div class="fg">
+      <div class="field"><label>Prénom</label><input type="text" id="ob-prenom" value="${escapeHtml(onboardingEdit.prenom||'')}" oninput="onboardingEdit.prenom=this.value"></div>
+      <div class="field"><label>Nom</label><input type="text" id="ob-nom" value="${escapeHtml(onboardingEdit.Nom||'')}" oninput="onboardingEdit.Nom=this.value"></div>
+      <div class="field full"><label>Email</label><input type="text" value="${escapeHtml(onboardingEdit.Email||'')}" disabled></div>
+      <div class="field full"><label>Fonction(s)</label>
+        ${rows}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button type="button" class="btn btn-sm" onclick="addOnboardingFunction()"><i class="ti ti-plus"></i>Ajouter une fonction</button>
+          <button type="button" class="btn btn-sm" onclick="rebalanceOnboardingWeights()"><i class="ti ti-percentage"></i>Répartir à 100%</button>
+        </div>
+        <div style="font-size:11px;color:#5F5E5A;margin-top:4px">Chaque fonction doit peser au moins 20%. Au-delà de 3 fonctions à 30% ou plus, aucune fonction supplémentaire ne peut être ajoutée.</div>
+        <div id="onboarding-weight-summary" class="function-weight-summary"></div>
+      </div>
+      <div class="field full"><label>Équipe(s)</label><div class="team-checks">${tchecks}</div></div>
+      <div class="field full"><label>Manager</label>
+        <select id="ob-manager" onchange="onboardingEdit.ManagerID=this.value">
+          <option value="">— Aucun —</option>
+          ${db.collaborateurs.map(x => `<option value="${x.Id}"${String(onboardingEdit.ManagerID)===String(x.Id)?' selected':''}>${escapeHtml((x.prenom||'') + ' ' + (x.Nom||''))}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  renderOnboardingWeightSummary();
+}
+
+function renderOnboardingWeightSummary() {
+  const el = document.getElementById('onboarding-weight-summary');
+  if (!el) return;
+  const ids = onboardingEdit.fonctionIds.filter(Boolean);
+  const total = ids.reduce((s,id) => s + (Number(onboardingEdit.fonctionWeights[id])||0), 0);
+  const belowMin = ids.filter(id => (Number(onboardingEdit.fonctionWeights[id])||0) < 20);
+  const highCount = countHighWeightFunctions(ids, onboardingEdit.fonctionWeights);
+  const warnings = [];
+  if (belowMin.length) warnings.push(`${belowMin.length} fonction(s) sous le minimum de 20%`);
+  if (highCount >= 3 && ids.length > 3) warnings.push(`3 fonctions ont déjà un poids ≥30% : impossible de dépasser 3 fonctions au total`);
+  el.className = 'function-weight-summary' + (warnings.length || Math.round(total) !== 100 ? ' warn' : '');
+  el.innerHTML = warnings.length ? `⚠ ${warnings.join(' · ')}.` : `Pondération totale : ${Math.round(total)}%.`;
+}
+
+function setOnboardingFunction(index, posteId) {
+  const clean = String(posteId || '');
+  if (clean && onboardingEdit.fonctionIds.some((id,i) => i !== index && String(id) === clean)) {
+    alert('Cette fonction est déjà sélectionnée.');
+    renderOnboardingBody();
+    return;
+  }
+  onboardingEdit.fonctionIds[index] = clean;
+  onboardingEdit.fonctionIds = onboardingEdit.fonctionIds.filter(Boolean);
+  if (!onboardingEdit.fonctionWeights[clean]) onboardingEdit.fonctionWeights[clean] = onboardingEdit.fonctionIds.length === 1 ? 100 : 20;
+  renderOnboardingBody();
+}
+function setOnboardingFunctionWeight(index, value) {
+  const id = onboardingEdit.fonctionIds[index];
+  if (!id) return;
+  onboardingEdit.fonctionWeights[id] = Math.max(0, Math.min(100, parseFloat(value) || 0));
+  renderOnboardingWeightSummary();
+}
+function addOnboardingFunction() {
+  if (countHighWeightFunctions(onboardingEdit.fonctionIds, onboardingEdit.fonctionWeights) >= 3) {
+    alert('Impossible d’ajouter une 4e fonction : 3 fonctions ont déjà un poids ≥30% (maximum autorisé dans ce cas : 3 fonctions).');
+    return;
+  }
+  const used = new Set(onboardingEdit.fonctionIds.map(String));
+  const next = POSTES.find(p => !used.has(String(p.id)));
+  if (!next) return alert('Toutes les fonctions sont déjà associées.');
+  onboardingEdit.fonctionIds.push(String(next.id));
+  onboardingEdit.fonctionWeights[String(next.id)] = onboardingEdit.fonctionIds.length === 1 ? 100 : 20;
+  renderOnboardingBody();
+}
+function removeOnboardingFunction(index) {
+  const id = onboardingEdit.fonctionIds[index];
+  onboardingEdit.fonctionIds.splice(index,1);
+  if (id) delete onboardingEdit.fonctionWeights[id];
+  renderOnboardingBody();
+}
+function rebalanceOnboardingWeights() {
+  const ids = onboardingEdit.fonctionIds;
+  if (!ids.length) return;
+  const base = Math.floor(100 / ids.length);
+  let remaining = 100;
+  ids.forEach((id,i) => { const val = i === ids.length-1 ? remaining : base; onboardingEdit.fonctionWeights[id] = val; remaining -= val; });
+  renderOnboardingBody();
+}
+function toggleOnboardingTeam(id) {
+  const sid = String(id);
+  const idx = (onboardingEdit.teamIds || []).indexOf(sid);
+  if (idx > -1) onboardingEdit.teamIds.splice(idx,1);
+  else { if (!onboardingEdit.teamIds) onboardingEdit.teamIds = []; onboardingEdit.teamIds.push(sid); }
+  renderOnboardingBody();
+}
+
+async function submitOnboarding() {
+  const prenom = document.getElementById('ob-prenom').value.trim();
+  const nom = document.getElementById('ob-nom').value.trim();
+  if (!prenom || !nom) { alert('Veuillez renseigner votre prénom et votre nom.'); return; }
+  const fonctionIds = onboardingEdit.fonctionIds.filter(Boolean);
+  const fonctionWeights = {};
+  fonctionIds.forEach(id => fonctionWeights[id] = Number(onboardingEdit.fonctionWeights[id]) || 0);
+  const validation = validateCollabFunctionWeights(fonctionIds, fonctionWeights);
+  if (!validation.valid) { alert(validation.message); return; }
+  const managerId = document.getElementById('ob-manager').value || '';
+  const btn = document.getElementById('onboarding-submit-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-refresh"></i>Création…'; }
+  try {
+    const res = await spPost(CONFIG.lists.collaborateurs, {
+      Title: prenom,
+      Prenom: nom,
+      Email: onboardingEdit.Email,
+      PosteId: fonctionIds[0] || '',
+      PosteIds: JSON.stringify(fonctionIds),
+      FonctionsPonderation: JSON.stringify(fonctionWeights),
+      TeamIds: (onboardingEdit.teamIds || []).join(','),
+      ManagerID: managerId
+    });
+    await loadData();
+    const newCollab = db.collaborateurs.find(c => String(c.Id) === String(res.Id));
+    enterApp(onboardingEdit.Email, `${prenom} ${nom}`, newCollab ? String(newCollab.Id) : String(res.Id));
+  } catch(e) {
+    alert('Erreur lors de la création du profil : ' + e.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i>Créer mon profil'; }
+  }
+}
+
+// =====================================================================
 // INIT
 // =====================================================================
+function enterApp(email, name, collabId) {
+  realUser = { email, name, role: getUserRole(email), collabId: collabId || '', impersonated:false };
+  currentUser = { ...realUser };
+
+  const savedImpersonatedId = sessionStorage.getItem('evea_impersonated_collab_id');
+  if (savedImpersonatedId && isRealAdmin()) {
+    const simulated = db.collaborateurs.find(c => String(c.Id) === String(savedImpersonatedId));
+    if (simulated) currentUser = makeUserFromCollab(simulated, true);
+    else sessionStorage.removeItem('evea_impersonated_collab_id');
+  }
+
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  buildSidebar();
+  showView(canAccessView('matrix') ? 'matrix' : getDefaultViewForCurrentUser());
+}
+
 async function init() {
   document.getElementById('loading').style.display = 'flex';
   try {
@@ -6655,23 +6941,18 @@ const meResp     = await fetch('https://graph.microsoft.com/v1.0/me', {
     // Définition du rôle
     const email = me.mail || me.userPrincipalName || '';
     const realCollab = db.collaborateurs.find(c => (c.Email||'').toLowerCase() === email.toLowerCase());
-    realUser = { email, name: me.displayName || email, role: getUserRole(email), collabId: realCollab ? String(realCollab.Id) : '', impersonated:false };
-    currentUser = { ...realUser };
 
-    const savedImpersonatedId = sessionStorage.getItem('evea_impersonated_collab_id');
-    if (savedImpersonatedId && isRealAdmin()) {
-      const simulated = db.collaborateurs.find(c => String(c.Id) === String(savedImpersonatedId));
-      if (simulated) currentUser = makeUserFromCollab(simulated, true);
-      else sessionStorage.removeItem('evea_impersonated_collab_id');
+    if (!realCollab) {
+      document.getElementById('loading').style.display = 'none';
+      openOnboarding(email, me.displayName || '');
+      return;
     }
 
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    buildSidebar();
-    showView(canAccessView('matrix') ? 'matrix' : getDefaultViewForCurrentUser());
+    enterApp(email, me.displayName || email, String(realCollab.Id));
   } catch (e) {
     document.getElementById('loading-msg').textContent = 'Erreur : ' + e.message;
     console.error(e);
+
   }
 }
 
