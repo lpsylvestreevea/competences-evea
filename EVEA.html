@@ -102,7 +102,12 @@ table.adm tr:hover td{background:#fafaf8}
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
 .field label{font-size:12px;color:#5F5E5A;display:block;margin-bottom:3px;font-weight:500}
 .field input,.field select,.field textarea{width:100%;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1a18;background:#fff}
-.field .rich-editor{width:100%;min-height:140px;padding:9px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1a18;background:#fff;line-height:1.45;overflow:auto}
+.field .rich-editor{width:100%;min-height:140px;padding:9px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1a18;background:#fff;line-height:1.45;overflow:auto;white-space:normal}
+.field .rich-editor ul,.field .rich-editor ol{margin-left:18px;margin-top:4px;margin-bottom:6px;padding-left:18px}
+.field .rich-editor p{margin:0 0 6px}
+.field .rich-editor p:last-child{margin-bottom:0}
+.field .rich-editor b,.field .rich-editor strong{font-weight:700}
+.field .rich-editor:empty:before{content:attr(data-placeholder);color:#aaa}
 .field .rich-editor:focus{border-color:#534AB7}
 .rich-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
 .rich-toolbar .btn{padding:4px 8px;font-size:12px}
@@ -356,7 +361,9 @@ const CONFIG = {
     roles:          'Roles',
     formations:     'Formations',
     parcours:       'Parcours',
-    axesStrategiques:'AxesStrategiques'
+    axesStrategiques:'AxesStrategiques',
+    competencesEquipe: 'CompetencesEquipe',
+    suggestions:    'Suggestions'
   }
 };
 // =====================================================================
@@ -369,6 +376,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: true,
     simulation_utilisateur: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
+    attendus_personnalisation: true, competences_equipe_administration: true,
     toutes_consultation: true, toutes_modification: true,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true, parcours_consultation: true, parcours_administration: true,
     matrice_individuelle: true, matrice_equipe: true, matrice_complete: true, administration: true,
@@ -378,6 +386,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
+    attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: true, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: true,
     matrice_individuelle: true, matrice_equipe: true, matrice_complete: true, administration: false,
@@ -387,6 +396,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
+    attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
     matrice_individuelle: true, matrice_equipe: true, matrice_complete: false, administration: false,
@@ -396,6 +406,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
+    attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
     matrice_individuelle: false, matrice_equipe: false, matrice_complete: false, administration: false,
@@ -411,6 +422,8 @@ const DROITS_LABELS = {
   equipe_consultation:       'Fiches équipe : consultation',
   equipe_validation:         'Fiches équipe : validation compétences',
   equipe_modification:       'Fiches équipe : modification',
+  attendus_personnalisation: 'Fiches équipe : personnalisation des attendus par compétence',
+  competences_equipe_administration: 'Matrice équipe : gestion des descriptions et nouvelles compétences',
   toutes_consultation:       'Toutes les fiches : consultation',
   toutes_modification:       'Toutes les fiches : modification',
   recherche:                 'Recherche compétences',
@@ -496,6 +509,8 @@ async function spGetOptional(listName, filter = '', select = '') {
     if (listName === CONFIG.lists.formations) formationsListAvailable = false;
     if (listName === CONFIG.lists.parcours) parcoursListAvailable = false;
     if (listName === CONFIG.lists.axesStrategiques) strategyListAvailable = false;
+    if (listName === CONFIG.lists.competencesEquipe) competencesEquipeListAvailable = false;
+    if (listName === CONFIG.lists.suggestions) suggestionsListAvailable = false;
     console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
     return [];
   }
@@ -671,10 +686,12 @@ let formationTypeFilter = '', formationSkillFilter = '';
 let parcoursStatusFilter = 'active', parcoursDomainFilter = '', parcoursScopeFilter = 'mine';
 let strategyTeamFilter = '', strategyStatusFilter = 'active';
 let collabEdit = {}, editCtx = {}, formationEdit = {}, parcoursEdit = {}, strategyEdit = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], parcours:[], axesStrategiques:[] };
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], parcours:[], axesStrategiques:[], competencesEquipe:[], suggestions:[] };
 let formationsListAvailable = true;
 let parcoursListAvailable = true;
 let strategyListAvailable = true;
+let competencesEquipeListAvailable = true;
+let suggestionsListAvailable = true;
 let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
@@ -690,7 +707,17 @@ window.addEventListener('beforeunload', e => {
 const fmtDate = ts => new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const posteById  = id => POSTES.find(p => p.id === id);
 const teamById   = id => db.equipes.find(t => String(t.Id) === String(id));
-const skillById  = id => SKILLS.find(s => s.id === id);
+const skillById  = id => SKILLS.find(s => s.id === id) || (typeof id === 'string' && id.indexOf('PROP_') === 0 ? getProposedSkillById(id) : undefined);
+function getProposedSkillById(propId) {
+  const versionId = String(propId).slice('PROP_'.length);
+  const v = (db.competencesEquipe || []).find(x => String(x.id) === versionId && x.estNouvelle);
+  if (!v) return undefined;
+  return {
+    id: propId, did: v.domainId, name: v.title || '(compétence proposée)',
+    levels: { 1:(v.niveaux&&v.niveaux[1])||'', 2:(v.niveaux&&v.niveaux[2])||'', 3:(v.niveaux&&v.niveaux[3])||'', 4:(v.niveaux&&v.niveaux[4])||'' },
+    _proposed: true, _versionId: v.id, _teamId: v.teamId
+  };
+}
 const skillByName = n  => SKILLS.find(s => s.name.toLowerCase().trim() === n.toLowerCase().trim());
 function domTag(d) { return `<span class="tag" style="background:${d.bg};color:${d.c}">${d.name}</span>`; }
 
@@ -827,10 +854,26 @@ function buildVirtualPosteForCollab(c, overridePosteId = '') {
   const ids = overridePosteId ? [String(overridePosteId)] : getCollabFunctionIds(c);
   return buildVirtualPosteForFunctionIds(ids);
 }
+function getCollabTargetOverrides(c) {
+  return (c && c.attendusPersonnalises) || {};
+}
+// Applique une éventuelle personnalisation manager (non attendu / niveau personnalisé) sur un attendu brut
+function getEffectiveTarget(c, skillId, rawTarget) {
+  const ov = getCollabTargetOverrides(c)[skillId];
+  if (!ov) return { target: rawTarget, overridden: false, override: null };
+  if (ov.mode === 'excluded') return { target: null, overridden: true, override: ov };
+  if (ov.mode === 'custom') return { target: Number(ov.niveau) || null, overridden: true, override: ov };
+  return { target: rawTarget, overridden: false, override: null };
+}
 function targetInfoForCollabSkill(c, skillId, overridePosteId = '') {
   const virtualPoste = buildVirtualPosteForCollab(c, overridePosteId);
+  const rawTarget = virtualPoste.targets[skillId] !== undefined ? virtualPoste.targets[skillId] : null;
+  const eff = getEffectiveTarget(c, skillId, rawTarget);
   return {
-    target: virtualPoste.targets[skillId] !== undefined ? virtualPoste.targets[skillId] : null,
+    target: eff.target,
+    rawTarget,
+    overridden: eff.overridden,
+    override: eff.override,
     posteId: virtualPoste._sourceBySkill[skillId] || overridePosteId || getPrimaryPosteId(c),
     all: virtualPoste._allBySkill[skillId] || []
   };
@@ -841,7 +884,10 @@ function getCollabMastery(c) {
   const comps = getCollabComps(c.Id);
   let weighted = 0, weightSum = 0;
   funcs.forEach(f => {
-    const targets = Object.entries(f.poste.targets || {}).filter(([,v]) => v != null);
+    const targets = Object.entries(f.poste.targets || {})
+      .filter(([,v]) => v != null)
+      .map(([sid, lvl]) => [sid, getEffectiveTarget(c, sid, Number(lvl)).target])
+      .filter(([,lvl]) => lvl != null);
     if (!targets.length) return;
     const ok = targets.filter(([sid,lvl]) => (comps[sid]||0) >= lvl).length;
     const pct = ok / targets.length * 100;
@@ -852,6 +898,237 @@ function getCollabMastery(c) {
   if (!weightSum) return null;
   return Math.round(weighted / weightSum);
 }
+
+// =====================================================================
+// COMPÉTENCES VERSIONNÉES PAR ÉQUIPE (descriptions perso. + nouvelles compétences) — feature 4/5
+// =====================================================================
+function canManageTeamSkillVersionsForTeam(teamId) {
+  if (!teamId) return false;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  if (!hasDroit('competences_equipe_administration')) return false;
+  return getManagedTeamIdsForCurrentUser().includes(String(teamId));
+}
+function canManageAnyTeamSkillVersions() {
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  return hasDroit('competences_equipe_administration') && getManagedTeamIdsForCurrentUser().length > 0;
+}
+function getActiveVersionForTeamSkill(teamId, skillId) {
+  const team = db.equipes.find(t => String(t.id) === String(teamId));
+  const activeId = team && team.competencesActives ? team.competencesActives[skillId] : null;
+  if (!activeId) return null;
+  return (db.competencesEquipe || []).find(v => String(v.id) === String(activeId)) || null;
+}
+function getVersionsForSkill(skillId) {
+  const managed = getManagedTeamIdsForCurrentUser();
+  return (db.competencesEquipe || []).filter(v => !v.estNouvelle && String(v.skillId) === String(skillId) &&
+    (v.partagee || hasStrictAdminAccess() || hasDroit('toutes_modification') || managed.includes(String(v.teamId))));
+}
+// Renvoie la liste des compétences (officielles + proposées) telles qu'affichées pour UNE équipe donnée :
+// descriptions personnalisées si une version est active pour cette équipe, + compétences proposées par cette équipe.
+function getEffectiveSkillsForTeam(teamId) {
+  if (!teamId) return SKILLS;
+  const officials = SKILLS.map(sk => {
+    const v = getActiveVersionForTeamSkill(teamId, sk.id);
+    if (!v) return sk;
+    const niveaux = v.niveaux || {};
+    return {
+      ...sk,
+      levels: { 1:niveaux[1]||sk.levels[1], 2:niveaux[2]||sk.levels[2], 3:niveaux[3]||sk.levels[3], 4:niveaux[4]||sk.levels[4] },
+      _teamVersion: v
+    };
+  });
+  const proposed = (db.competencesEquipe || [])
+    .filter(v => v.estNouvelle && v.statutValidation === 'nouvelle' && String(v.teamId) === String(teamId))
+    .map(v => getProposedSkillById('PROP_' + v.id));
+  return [...officials, ...proposed];
+}
+// Vue multi-équipes (ex: "Mes équipes", matrice complète) : pas de résolution d'une description en cas de
+// conflit entre équipes (on garde la version officielle), mais les compétences proposées par chacune des
+// équipes du périmètre restent visibles (identifiants distincts, donc pas de conflit possible).
+function getEffectiveSkillsForTeams(teamIds) {
+  if (!teamIds || !teamIds.length) return SKILLS;
+  if (teamIds.length === 1) return getEffectiveSkillsForTeam(teamIds[0]);
+  const proposedAll = [];
+  teamIds.forEach(tid => {
+    (db.competencesEquipe || [])
+      .filter(v => v.estNouvelle && v.statutValidation === 'nouvelle' && String(v.teamId) === String(tid))
+      .forEach(v => { if (!proposedAll.some(p => p._versionId === v.id)) proposedAll.push(getProposedSkillById('PROP_' + v.id)); });
+  });
+  return [...SKILLS, ...proposedAll];
+}
+function getMatrixScopeTeamIds() {
+  if (matrixTeamFilter === '__my_teams__') return getManagedTeamIdsForCurrentUser();
+  if (matrixTeamFilter) return [String(matrixTeamFilter)];
+  return [];
+}
+
+// =====================================================================
+// ÉDITEUR DE VERSION DE COMPÉTENCE PAR ÉQUIPE — feature 4/5
+// =====================================================================
+function openTeamSkillVersionModal(skillId, defaultTeamId) {
+  const isAdmin = hasStrictAdminAccess() || hasDroit('toutes_modification');
+  const teamsForSelect = isAdmin ? db.equipes.map(t => String(t.id)) : getManagedTeamIdsForCurrentUser();
+  if (!teamsForSelect.length) { alert('Vous ne gérez aucune équipe.'); return; }
+  const teamId = teamsForSelect.includes(String(defaultTeamId)) ? String(defaultTeamId) : teamsForSelect[0];
+  const isNew = !skillId;
+  const sk = isNew ? null : skillById(skillId);
+  const activeVersion = isNew ? null : getActiveVersionForTeamSkill(teamId, skillId);
+  const niveauxSource = activeVersion ? (activeVersion.niveaux || {}) : {};
+  const versions = isNew ? [] : getVersionsForSkill(skillId);
+
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-notes"></i>';
+  document.getElementById('m-title').textContent = isNew ? 'Nouvelle compétence (proposée)' : `Description pour une équipe — ${sk ? sk.name : skillId}`;
+  document.getElementById('m-sub').textContent = isNew ? 'Visible et suivie immédiatement dans la matrice de l’équipe choisie' : 'Visible automatiquement par l’équipe choisie ; partageable avec les autres managers et l’administrateur';
+  document.getElementById('m-body').innerHTML = `
+    ${isNew ? `
+      <div class="field full"><label>Nom de la compétence</label><input type="text" id="tsv-name" placeholder="Ex : Rédaction de contenus SEO"></div>
+      <div class="field full"><label>Domaine</label><select id="tsv-domain">${getSortedDomains().map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}</select></div>
+    ` : ''}
+    <div class="field full"><label>Équipe concernée</label>
+      <select id="tsv-team" onchange="openTeamSkillVersionModal('${skillId || ''}', this.value)">
+        ${teamsForSelect.map(tid => { const t = db.equipes.find(x => String(x.id) === String(tid)); return `<option value="${tid}"${String(tid) === String(teamId) ? ' selected' : ''}>${escapeHtml(t ? t.name : tid)}</option>`; }).join('')}
+      </select>
+    </div>
+    ${[1,2,3,4].map(n => `<div class="field full"><label>Niveau ${n}</label><textarea id="tsv-level-${n}" placeholder="${escapeHtml((sk && sk.levels && sk.levels[n]) || '')}" style="min-height:44px">${escapeHtml((niveauxSource && niveauxSource[n]) || '')}</textarea></div>`).join('')}
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="tsv-shared" ${activeVersion && activeVersion.partagee ? 'checked' : ''}>
+      Partager cette version avec les autres managers et l'administrateur
+    </label>
+    ${!isNew && versions.length ? `
+      <div style="border-top:.5px solid #D3D1C7;padding-top:10px;margin-top:4px">
+        <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px">Versions disponibles pour cette compétence</div>
+        <div class="form-link-row" style="margin-bottom:4px">
+          <span style="flex:1;font-size:12px">Version officielle</span>
+          <button class="btn btn-sm" onclick="useTeamSkillVersion('${teamId}','${skillId}','')">Utiliser pour cette équipe</button>
+        </div>
+        ${versions.map(v => `<div class="form-link-row" style="margin-bottom:4px">
+          <span style="flex:1;font-size:12px">${escapeHtml(v.auteurNom || 'Manager')} (${escapeHtml((db.equipes.find(t => String(t.id) === String(v.teamId)) || {}).name || '')})${v.dateCreation ? ' — ' + fmtDate(v.dateCreation) : ''}</span>
+          <button class="btn btn-sm" onclick="useTeamSkillVersion('${teamId}','${skillId}','${v.id}')">Utiliser pour cette équipe</button>
+        </div>`).join('')}
+      </div>` : ''}
+  `;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveTeamSkillVersion('${skillId || ''}',document.getElementById('tsv-team').value)"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+async function saveTeamSkillVersion(skillId, teamId) {
+  if (!canManageTeamSkillVersionsForTeam(teamId)) { alert('Vous ne gérez pas cette équipe.'); return; }
+  const isNew = !skillId;
+  const niveaux = {};
+  [1,2,3,4].forEach(n => { const v = document.getElementById('tsv-level-' + n).value.trim(); if (v) niveaux[n] = v; });
+  const partagee = document.getElementById('tsv-shared').checked;
+  const me = getCurrentCollab();
+  const auteurEmail = currentUser ? currentUser.email : '';
+  const auteurNom = me ? `${me.prenom || ''} ${me.Nom || ''}`.trim() : (currentUser ? currentUser.name : '');
+  let name = '', domainId = '';
+  if (isNew) {
+    name = document.getElementById('tsv-name').value.trim();
+    domainId = document.getElementById('tsv-domain').value;
+    if (!name) { alert('Merci de renseigner le nom de la compétence.'); return; }
+    if (!Object.keys(niveaux).length) { alert('Merci de renseigner au moins un niveau pour cette nouvelle compétence.'); return; }
+  }
+  showSave('Enregistrement...');
+  try {
+    const existingOwn = !isNew ? (() => {
+      const v = getActiveVersionForTeamSkill(teamId, skillId);
+      return (v && v.auteurEmail === auteurEmail && String(v.teamId) === String(teamId)) ? v : null;
+    })() : null;
+    const data = {
+      Title: isNew ? name : ((skillById(skillId) || {}).name || ''),
+      SkillId: isNew ? '' : skillId,
+      DomainId: isNew ? domainId : '',
+      TeamId: teamId,
+      Niveaux: JSON.stringify(niveaux),
+      EstNouvelle: isNew,
+      Partagee: partagee,
+      StatutValidation: 'nouvelle',
+      AuteurEmail: auteurEmail,
+      AuteurNom: auteurNom,
+      DateCreation: existingOwn ? (existingOwn.dateCreation || new Date().toISOString()) : new Date().toISOString()
+    };
+    let newVersionId;
+    if (existingOwn) {
+      await spPatch(CONFIG.lists.competencesEquipe, existingOwn.id, data);
+      newVersionId = existingOwn.id;
+    } else {
+      const res = await spPost(CONFIG.lists.competencesEquipe, data);
+      newVersionId = String(res.Id);
+    }
+    if (!isNew) {
+      const team = db.equipes.find(t => String(t.id) === String(teamId));
+      const actives = { ...(team ? team.competencesActives : {}) };
+      actives[skillId] = newVersionId;
+      await spPatch(CONFIG.lists.equipes, teamId, { CompetencesActives: JSON.stringify(actives) });
+    }
+    await loadData();
+    hideSave('Enregistré ✓');
+    closeModal();
+    if (currentView === 'matrix') renderMatrix();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur : ' + e.message);
+  }
+}
+async function useTeamSkillVersion(teamId, skillId, versionId) {
+  if (!canManageTeamSkillVersionsForTeam(teamId)) return;
+  showSave('Mise à jour...');
+  try {
+    const team = db.equipes.find(t => String(t.id) === String(teamId));
+    const actives = { ...(team ? team.competencesActives : {}) };
+    if (versionId) actives[skillId] = String(versionId); else delete actives[skillId];
+    await spPatch(CONFIG.lists.equipes, teamId, { CompetencesActives: JSON.stringify(actives) });
+    await loadData();
+    hideSave('Mis à jour ✓');
+    closeModal();
+    if (currentView === 'matrix') renderMatrix();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur : ' + e.message);
+  }
+}
+function getPendingSkillSuggestions() {
+  return (db.competencesEquipe || []).filter(v => v.estNouvelle && v.statutValidation === 'nouvelle');
+}
+async function validateSkillSuggestion(versionId) {
+  if (!ensureStrictAdminAccess()) return;
+  const v = (db.competencesEquipe || []).find(x => String(x.id) === String(versionId));
+  if (!v) return;
+  if (!confirm(`Intégrer "${v.title}" au référentiel officiel des compétences ?\n\nElle deviendra visible et utilisable par toutes les équipes.`)) return;
+  showSave('Intégration...');
+  try {
+    const domainId = v.domainId || ((getSortedDomains()[0] || {}).id || '');
+    const res = await spPost(CONFIG.lists.competencesRef, { Title: v.title, DomainId: domainId, Niveaux: JSON.stringify(v.niveaux || {}) });
+    const newSkillId = String(res.Id);
+    const oldPropId = 'PROP_' + v.id;
+    const compsToUpdate = db.competences.filter(c => (c.SkillId || c.Title) === oldPropId);
+    for (const c of compsToUpdate) await spPatch(CONFIG.lists.competences, c.Id, { Title: newSkillId });
+    const comsToUpdate = db.commentaires.filter(c => c.SkillId === oldPropId);
+    for (const c of comsToUpdate) await spPatch(CONFIG.lists.commentaires, c.Id, { SkillId: newSkillId });
+    await spPatch(CONFIG.lists.competencesEquipe, v.id, { StatutValidation: 'validee' });
+    await loadData();
+    hideSave('Compétence intégrée ✓');
+    renderAdminSkills();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l’intégration : ' + e.message);
+  }
+}
+async function rejectSkillSuggestion(versionId) {
+  if (!ensureStrictAdminAccess()) return;
+  if (!confirm('Retirer cette suggestion de la liste ?\n\nLa compétence restera utilisable localement par l’équipe qui l’a créée, mais ne sera pas intégrée au référentiel officiel.')) return;
+  showSave('Mise à jour...');
+  try {
+    await spPatch(CONFIG.lists.competencesEquipe, versionId, { StatutValidation: 'rejetee' });
+    await loadData();
+    hideSave('Enregistré ✓');
+    renderAdminSkills();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur : ' + e.message);
+  }
+}
+
 function sortCollabsForCards(collabs) {
   const list = collabs.slice();
   list.sort((a,b) => {
@@ -989,6 +1266,7 @@ function canAccessView(v) {
   if (v === 'formations') return hasDroit('formations_consultation');
   if (v === 'parcours') return hasDroit('parcours_consultation');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
+  if (v === 'suggestions') return true;
   if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
@@ -1006,6 +1284,7 @@ function canUseAddButton(v) {
   if (v === 'formations') return canManageFormations();
   if (v === 'parcours') return canManageParcours();
   if (v === 'strategy') return canManageStrategy();
+  if (v === 'suggestions') return true;
   if (['matrix','collabs','admin-collabs','admin-teams','admin-postes'].includes(v)) return hasStrictAdminAccess();
   return false;
 }
@@ -1047,6 +1326,11 @@ function canValidateCompetencesForCollab(collabId) {
   if (!collabId) return false;
   if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
   return hasDroit('equipe_validation') && isManagerOfCollab(collabId);
+}
+function canEditExpectedOverrideForCollab(collabId) {
+  if (!collabId) return false;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  return hasDroit('attendus_personnalisation') && isManagerOfCollab(collabId);
 }
 function canEditManagerCommentForCollab(collabId) {
   if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
@@ -1146,8 +1430,11 @@ function looksLikeHtml(value) {
 function sanitizeRichText(html) {
   const wrap = document.createElement('div');
   wrap.innerHTML = String(html || '');
-  const allowed = new Set(['b','strong','i','em','u','br','p','div','ul','ol','li','span']);
+  const allowed = new Set(['b','strong','i','em','u','br','p','div','ul','ol','li']);
   wrap.querySelectorAll('script,style,iframe,object,embed').forEach(el => el.remove());
+  // Les span/font issus d'un collage (Word, Outlook, Excel…) n'apportent rien une fois les attributs
+  // supprimés : on les déplie pour éviter d'empiler des balises vides et casser la mise en forme.
+  wrap.querySelectorAll('span,font').forEach(el => el.replaceWith(...el.childNodes));
   wrap.querySelectorAll('*').forEach(el => {
     const tag = el.tagName.toLowerCase();
     if (!allowed.has(tag)) {
@@ -1155,6 +1442,16 @@ function sanitizeRichText(html) {
       return;
     }
     [...el.attributes].forEach(attr => el.removeAttribute(attr.name));
+  });
+  // Normalise les espaces insécables et espaces multiples issus d'un collage externe
+  const walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+  textNodes.forEach(n => { n.nodeValue = n.nodeValue.replace(/[\u00A0\s]+/g, ' '); });
+  // Supprime les paragraphes/éléments de liste vides laissés par un collage
+  wrap.querySelectorAll('p,li').forEach(el => {
+    if (!el.textContent.trim() && !el.querySelector('br,img')) el.remove();
   });
   return wrap.innerHTML.trim();
 }
@@ -1166,6 +1463,33 @@ function richTextHtml(value) {
 function execRichTextCommand(cmd) {
   document.execCommand(cmd, false, null);
   document.getElementById('f-programme')?.focus();
+}
+// Colle le presse-papier comme texte propre : les lignes commençant par -, •, · ou * deviennent des
+// puces réelles (<ul><li>), les espaces multiples/insécables importés sont normalisés, et aucune mise
+// en forme parasite (styles Word/Outlook/Excel) n'est conservée. Garantit que ce qui est collé
+// correspond exactement à ce qui sera affiché ensuite.
+function handleRichTextPaste(e) {
+  e.preventDefault();
+  const dt = e.clipboardData || window.clipboardData;
+  const text = dt ? dt.getData('text/plain') : '';
+  if (!text) return;
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let html = '';
+  let inList = false;
+  lines.forEach(rawLine => {
+    const line = rawLine.replace(/[\u00A0\s]+/g, ' ').trim();
+    if (!line) { if (inList) { html += '</ul>'; inList = false; } return; }
+    const bulletMatch = /^[-•·*]\s+(.*)$/.exec(line);
+    if (bulletMatch) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${escapeHtml(bulletMatch[1])}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${escapeHtml(line)}</p>`;
+    }
+  });
+  if (inList) html += '</ul>';
+  document.execCommand('insertHTML', false, html);
 }
 function getRichTextValue(id) {
   return sanitizeRichText(document.getElementById(id)?.innerHTML || '');
@@ -1623,7 +1947,9 @@ async function loadData() {
   formationsListAvailable = true;
   parcoursListAvailable = true;
   strategyListAvailable = true;
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw] = await Promise.all([
+  competencesEquipeListAvailable = true;
+  suggestionsListAvailable = true;
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw, competencesEquipeRaw, suggestionsRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -1635,7 +1961,9 @@ async function loadData() {
   spGet(CONFIG.lists.competencesRef),
   spGetOptional(CONFIG.lists.formations),
   spGetOptional(CONFIG.lists.parcours),
-  spGetOptional(CONFIG.lists.axesStrategiques)
+  spGetOptional(CONFIG.lists.axesStrategiques),
+  spGetOptional(CONFIG.lists.competencesEquipe),
+  spGetOptional(CONFIG.lists.suggestions)
 ]);
 
   // Rôles
@@ -1665,7 +1993,8 @@ if (postesRaw.length) {
       ...c,
       prenom:  c.Title || '',
       Nom:     c.Prenom || '',
-      teamIds: c.TeamIds ? c.TeamIds.split(',').filter(Boolean) : []
+      teamIds: c.TeamIds ? c.TeamIds.split(',').filter(Boolean) : [],
+      attendusPersonnalises: c.AttendusPersonnalises ? safeJsonParse(c.AttendusPersonnalises, {}) : {}
     };
     const fonctionIds = getCollabFunctionIds(mapped);
     mapped.fonctionIds = fonctionIds;
@@ -1680,8 +2009,34 @@ if (postesRaw.length) {
   ...e,
   id: String(e.Id),
   name: e.Title || e.Nom || '',
-  managerIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : []
+  managerIds: e.ManagersIds ? e.ManagersIds.split(',').filter(Boolean) : [],
+  competencesActives: e.CompetencesActives ? safeJsonParse(e.CompetencesActives, {}) : {}
 }));
+  db.competencesEquipe = (competencesEquipeRaw || []).map(v => ({
+    id: String(v.Id),
+    skillId: v.SkillId || '',
+    domainId: v.DomainId || '',
+    teamId: String(v.TeamId || ''),
+    title: v.Title || '',
+    niveaux: v.Niveaux ? safeJsonParse(v.Niveaux, {}) : {},
+    estNouvelle: !!v.EstNouvelle,
+    partagee: !!v.Partagee,
+    statutValidation: v.StatutValidation || 'nouvelle',
+    auteurEmail: v.AuteurEmail || '',
+    auteurNom: v.AuteurNom || '',
+    dateCreation: v.DateCreation || ''
+  }));
+  db.suggestions = (suggestionsRaw || []).map(s => ({
+    id: String(s.Id),
+    title: s.Title || '',
+    description: s.Description || '',
+    type: s.TypeSuggestion || 'suggestion',
+    statut: s.Statut || 'nouveau',
+    auteurEmail: s.AuteurEmail || '',
+    auteurNom: s.AuteurNom || '',
+    dateCreation: s.DateCreation || '',
+    commentaires: s.Commentaires ? safeJsonParse(s.Commentaires, []) : []
+  }));
 
 // Remplace le tableau DOMAINS statique si des données existent en base
 if (domainesRaw.length) {
@@ -2018,6 +2373,7 @@ function buildSidebar() {
   if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
     nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateur·ices</div>`;
   }
+  nav += `<div class="nav-item" onclick="showView('suggestions')" id="nav-suggestions"><i class="ti ti-message-report"></i>Bugs &amp; suggestions</div>`;
 
   if (hasStrictAdminAccess()) {
     nav += `<div class="nav-section">Administration</div>
@@ -2042,12 +2398,13 @@ function showView(v) {
     'admin-collabs':'Gestion des collaborateur·ices', 'admin-teams':'Équipes',
     'admin-postes':'Fonctions', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
-    'admin-roles': 'Administration des rôles'
+    'admin-roles': 'Administration des rôles',
+    suggestions: 'Bugs & suggestions'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
   const addLabels = {
     matrix:'Collaborateur·ice', collabs:'Collaborateur·ice', strategy:'Axe stratégique', formations:'Formation', parcours:'Parcours',
-    'admin-collabs':'Collaborateur·ice', 'admin-teams':'Équipe', 'admin-postes':'Fonction'
+    'admin-collabs':'Collaborateur·ice', 'admin-teams':'Équipe', 'admin-postes':'Fonction', suggestions:'Bug / suggestion'
   };
   document.getElementById('btn-add-label').textContent = addLabels[v] || 'Ajouter';
   document.getElementById('btn-add').style.display    = canUseAddButton(v) ? 'inline-flex' : 'none';
@@ -2065,6 +2422,7 @@ else if (v === 'admin-postes')  renderAdminPostes();
 else if (v === 'admin-skills')  renderAdminSkills();
 else if (v === 'admin-roles')   renderAdminRoles();
 else if (v === 'import')        renderImport();
+else if (v === 'suggestions')   renderSuggestions();
 }
 
 function handleAddBtn() {
@@ -2078,6 +2436,7 @@ function handleAddBtn() {
     formations:     () => openFormationModal(null),
     parcours:       () => openParcoursModal(null),
     strategy:       () => openStrategyModal(null),
+    suggestions:    () => openSuggestionModal(),
     'admin-collabs':() => openCollabModal(null),
     'admin-teams':  () => openTeamModal(null),
     'admin-postes': () => openPosteModal(null)
@@ -2181,7 +2540,10 @@ function applyFilters() {
 function renderMatrix() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
   const rareMap = getRareSkills();
-  const skills = SKILLS.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
+  const scopeTeamIds = getMatrixScopeTeamIds();
+  const effectiveSkills = getEffectiveSkillsForTeams(scopeTeamIds);
+  const skills = effectiveSkills.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
+  const singleScopeTeamId = scopeTeamIds.length === 1 ? scopeTeamIds[0] : '';
   let collabs = applyMatrixTeamFilter(getMatrixBaseCollabs());
   if (matrixPosteFilter) collabs = collabs.filter(c => collabHasFunction(c, matrixPosteFilter));
   collabs = sortCollabsForMatrix(collabs);
@@ -2214,6 +2576,7 @@ function renderMatrix() {
       Masquer les compétences sans niveau
     </label>
     <span class="stat-pill">${collabs.length} personne(s)</span>
+    ${canManageAnyTeamSkillVersions() ? `<button class="btn btn-sm" onclick="openTeamSkillVersionModal(null,'${singleScopeTeamId}')"><i class="ti ti-plus"></i>Ajouter une compétence</button>` : ''}
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
     <th>Compétence</th>
@@ -2233,7 +2596,7 @@ function renderMatrix() {
     list.forEach(sk => {
       renderedRows++;
       const isRare = !!rareMap[sk.id];
-      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${skillTT(sk)}</span></td>`;
+      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${sk._proposed?' <span class="tag" style="background:#EEEDFE;color:#534AB7">proposée</span>':''}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${canManageAnyTeamSkillVersions() ? `<button type="button" class="btn btn-sm" style="padding:1px 5px;margin-left:2px" onclick="openTeamSkillVersionModal('${sk.id}','${singleScopeTeamId}')" title="Gérer la description pour mon équipe"><i class="ti ti-edit" style="font-size:11px"></i></button>` : ''}${skillTT(sk)}</span></td>`;
       collabs.forEach(c => {
         const comps  = getCollabComps(c.Id);
         const lvl    = comps[sk.id] || 0;
@@ -2810,7 +3173,7 @@ function openFormationModal(id) {
           <button type="button" class="btn btn-sm" onclick="execRichTextCommand('insertUnorderedList')"><i class="ti ti-list"></i>Puces</button>
           <button type="button" class="btn btn-sm" onclick="execRichTextCommand('insertOrderedList')"><i class="ti ti-list-numbers"></i>Numéros</button>
         </div>
-        <div id="f-programme" class="rich-editor" contenteditable="true" data-placeholder="Programme détaillé…">${richTextHtml(formationEdit.programme||'')}</div>
+        <div id="f-programme" class="rich-editor" contenteditable="true" data-placeholder="Programme détaillé…" onpaste="handleRichTextPaste(event)">${richTextHtml(formationEdit.programme||'')}</div>
         <div class="lock-note">La mise en forme est enregistrée dans le champ Programme.</div>
       </div>
       <div class="field full"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="f-actif" ${formationEdit.actif !== false ? 'checked' : ''} style="width:15px;height:15px">Fiche active</label></div>
@@ -3545,8 +3908,11 @@ function collabFunctionsEditorHtml(c, canHeader) {
 
 function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   const lvl    = c._comps[sk.id] || 0;
-  const target = poste.targets[sk.id];
+  const rawTarget = poste.targets[sk.id];
+  const targetEff = getEffectiveTarget(c, sk.id, rawTarget);
+  const target = targetEff.target;
   const targetSources = (poste._allBySkill && poste._allBySkill[sk.id]) || [];
+  const canEditOverride = canEditExpectedOverrideForCollab(c.Id);
   const isFocus = sk.id === focusSkill;
   const cm     = c._comments[sk.id] || {};
   const pending = cm.pending || null;
@@ -3584,6 +3950,8 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
       <span class="crow-name twrap">${escapeHtml(sk.name)}
         ${isExtra ? '<span style="font-size:10px;color:#aaa;margin-left:4px">(hors fonction)</span>' : ''}
         ${target!=null?` <span class="tt-tag" title="${escapeHtml(targetSources.map(t => t.posteName + ' : niveau ' + t.niveau).join('\n'))}">cible:${target}</span>`:''}
+        ${targetEff.overridden ? ` <span class="tt-tag" style="border:.5px solid #856404;color:#856404;background:#FFF3CD" title="${escapeHtml((targetEff.override.mode==='excluded'?'Non attendu pour cette personne':'Niveau personnalisé : '+targetEff.override.niveau) + (targetEff.override.auteurNom?' — modifié par '+targetEff.override.auteurNom:'') + (targetEff.override.date?' le '+fmtDate(targetEff.override.date):'') + (targetEff.override.comment?String.fromCharCode(10,10)+targetEff.override.comment:''))}"><i class="ti ti-user-edit"></i> ${targetEff.override.mode==='excluded'?'non attendu':'perso.'}</span>` : ''}
+        ${canEditOverride ? `<button type="button" class="btn btn-sm" style="padding:1px 5px;margin-left:2px" onclick="editExpectedOverride('${sk.id}')" title="Personnaliser l'attendu pour cette personne"><i class="ti ti-adjustments" style="font-size:11px"></i></button>` : ''}
         ${strategyTagsHtml(sk.id)}
         ${pending ? ` <span class="tt-tag" style="border:.5px dashed #A32D2D;color:#7A3A28;background:#fffaf5">en attente:${pendingLevelLabel(pending)}</span>` : ''}
         ${skillTT(sk,'tup',posteIdForDesc)}
@@ -3633,7 +4001,7 @@ function renderCollabBody(focusSkill) {
   const headerDisabled = canHeader ? '' : ' disabled';
   const headerNote = canHeader ? '' : '<div class="lock-note"><i class="ti ti-lock"></i> Entête modifiable uniquement par les rôles autorisés.</div>';
   const grouped = {};
-  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  getEffectiveSkillsForTeams(c.teamIds || []).forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasTeams = (c.teamIds||[]).length > 0;
   const showAllTeams = collabEdit._showAllTeams || !hasTeams;
   const tchecks = db.equipes.map(t => {
@@ -3834,7 +4202,7 @@ function setLvl(sid, lvl) {
   }
   const displayPosteId = collabEdit._projectionPosteId || '';
   const poste  = displayPosteId ? buildVirtualPosteForFunctionIds([displayPosteId]) : buildVirtualPosteForCollab(collabEdit);
-  const target = poste.targets[sid];
+  const target = getEffectiveTarget(collabEdit, sid, poste.targets[sid]).target;
   const pending = collabEdit._comments[sid]?.pending || null;
   const pendingLevel = pending ? Number(pending.niveau || 0) : null;
   document.querySelectorAll(`[onclick^="setLvl('${sid}'"]`).forEach((btn, i) => {
@@ -3893,6 +4261,98 @@ function openTextPrompt({ title, subtitle = '', label = 'Commentaire', placehold
       close(value);
     });
   });
+}
+
+// =====================================================================
+// ATTENDUS PERSONNALISES PAR COLLABORATEUR (manager) — feature 3
+// =====================================================================
+function openExpectedOverrideModal(skillId) {
+  return new Promise(resolve => {
+    const c = collabEdit;
+    const sk = skillById(skillId);
+    const existing = getCollabTargetOverrides(c)[skillId] || null;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.zIndex = '250';
+    overlay.innerHTML = `<div class="prompt-card" onclick="event.stopPropagation()">
+      <div class="mhead">
+        <div class="mavat"><i class="ti ti-adjustments" style="font-size:20px"></i></div>
+        <div class="mtitle"><h2>Personnaliser l'attendu</h2><p>${escapeHtml(sk ? sk.name : skillId)}</p></div>
+      </div>
+      <div class="mbody">
+        <div class="field full"><label>Attendu pour cette personne</label>
+          <select id="ov-mode">
+            <option value="normal"${!existing ? ' selected' : ''}>Attendu normal (selon la/les fonction(s))</option>
+            <option value="excluded"${existing && existing.mode === 'excluded' ? ' selected' : ''}>Non attendu pour cette personne</option>
+            <option value="custom"${existing && existing.mode === 'custom' ? ' selected' : ''}>Niveau personnalisé</option>
+          </select>
+        </div>
+        <div class="field full" id="ov-level-field" style="display:${existing && existing.mode === 'custom' ? '' : 'none'}">
+          <label>Niveau personnalisé</label>
+          <select id="ov-level">${[1,2,3,4].map(n => `<option value="${n}"${existing && Number(existing.niveau) === n ? ' selected' : ''}>Niveau ${n}</option>`).join('')}</select>
+        </div>
+        <div class="field full"><label>Commentaire</label>
+          <textarea id="ov-comment" placeholder="Expliquez ce qui motive cette personnalisation…">${escapeHtml(existing ? existing.comment || '' : '')}</textarea>
+        </div>
+        ${existing ? `<div class="lock-note">Dernière modification : ${escapeHtml(existing.auteurNom || '')}${existing.date ? ' le ' + fmtDate(existing.date) : ''}</div>` : ''}
+      </div>
+      <div class="mfooter">
+        ${existing ? `<button class="btn btn-danger" id="ov-clear" style="margin-right:auto"><i class="ti ti-arrow-back-up"></i>Revenir à l'attendu normal</button>` : ''}
+        <button class="btn" id="ov-cancel">Annuler</button>
+        <button class="btn btn-primary" id="ov-ok"><i class="ti ti-check"></i>Enregistrer</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const modeSel = overlay.querySelector('#ov-mode');
+    const levelField = overlay.querySelector('#ov-level-field');
+    modeSel.addEventListener('change', () => { levelField.style.display = modeSel.value === 'custom' ? '' : 'none'; });
+    const close = value => { document.body.removeChild(overlay); resolve(value); };
+    overlay.querySelector('#ov-cancel').addEventListener('click', e => { e.stopPropagation(); close(undefined); });
+    const clearBtn = overlay.querySelector('#ov-clear');
+    if (clearBtn) clearBtn.addEventListener('click', e => { e.stopPropagation(); close(null); });
+    overlay.querySelector('#ov-ok').addEventListener('click', e => {
+      e.stopPropagation();
+      const mode = modeSel.value;
+      const comment = overlay.querySelector('#ov-comment').value.trim();
+      if (mode === 'normal') { close(null); return; }
+      if (!comment) { alert('Merci d’indiquer un commentaire expliquant cette personnalisation.'); return; }
+      if (mode === 'excluded') { close({ mode:'excluded', comment }); return; }
+      const niveau = parseInt(overlay.querySelector('#ov-level').value, 10) || 1;
+      close({ mode:'custom', niveau, comment });
+    });
+  });
+}
+async function persistExpectedOverride(collabSpId, skillId, overrideValue) {
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabSpId));
+  const current = { ...(c ? c.attendusPersonnalises : {}) };
+  if (overrideValue === null) delete current[skillId];
+  else current[skillId] = overrideValue;
+  await spPatch(CONFIG.lists.collaborateurs, collabSpId, { AttendusPersonnalises: JSON.stringify(current) });
+}
+async function editExpectedOverride(skillId) {
+  if (!canEditExpectedOverrideForCollab(collabEdit.Id)) return;
+  const result = await openExpectedOverrideModal(skillId);
+  if (result === undefined) return;
+  const me = getCurrentCollab();
+  const overrideValue = result === null ? null : {
+    ...result,
+    auteurEmail: currentUser ? currentUser.email : '',
+    auteurNom: me ? `${me.prenom||''} ${me.Nom||''}`.trim() : (currentUser ? currentUser.name : ''),
+    date: new Date().toISOString()
+  };
+  showSave(result === null ? 'Réinitialisation...' : 'Enregistrement...');
+  try {
+    await persistExpectedOverride(collabEdit.Id, skillId, overrideValue);
+    if (!collabEdit.attendusPersonnalises) collabEdit.attendusPersonnalises = {};
+    if (overrideValue === null) delete collabEdit.attendusPersonnalises[skillId];
+    else collabEdit.attendusPersonnalises[skillId] = overrideValue;
+    await loadData();
+    hideSave('Enregistré ✓');
+    renderCollabBody(skillId);
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de l\'enregistrement : ' + e.message);
+  }
 }
 
 async function requestLevelSuggestion(sid, lvl) {
@@ -4581,7 +5041,7 @@ function openPosteModal(id) {
   document.getElementById('m-title').textContent = id ? 'Modifier la fonction' : 'Nouvelle fonction';
   document.getElementById('m-sub').textContent = '';
   let skillRows = getSortedDomains().map(dom => {
-    const domSkills = SKILLS.filter(s => s.did === dom.id);
+    const domSkills = SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name));
     const rows = domSkills.map(sk => {
       const cur = targets[sk.id] !== undefined ? targets[sk.id] : '';
       const custom = customLevels[sk.id] || {};
@@ -4591,7 +5051,7 @@ function openPosteModal(id) {
           <label style="font-size:10px;color:#5F5E5A;display:block;margin-bottom:2px;font-weight:600">Niveau ${n}</label>
           <textarea class="cm-input" id="ld-${sk.id}-${n}" placeholder="${escapeHtml((sk.levels&&sk.levels[n])||'')}" style="min-height:40px">${escapeHtml(custom[n]||'')}</textarea>
         </div>`).join('');
-      return `<tr>
+      return `<tr class="poste-skill-main-row" data-skill-row="${sk.id}" data-domain="${dom.id}" data-skill-name="${escapeHtml(normalizeText(sk.name))}">
         <td style="font-size:12px;padding:5px 8px">${sk.name}</td>
         <td style="padding:5px 8px">
           <select class="tsel" id="pt-${sk.id}" onchange="updatePosteTargetDesc('${sk.id}','${id||''}')">
@@ -4606,7 +5066,7 @@ function openPosteModal(id) {
           </button>
         </td>
       </tr>
-      <tr id="ldrow-${sk.id}" style="display:none">
+      <tr id="ldrow-${sk.id}" data-skill-row="${sk.id}" data-domain="${dom.id}" data-skill-name="${escapeHtml(normalizeText(sk.name))}" style="display:none">
         <td colspan="3" style="padding:10px 14px;background:#fafaf8;border-top:.5px dashed #D3D1C7">
           <div style="font-size:11px;font-weight:600;color:#5F5E5A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">
             ${escapeHtml(sk.name)} — descriptions personnalisées pour cette fonction
@@ -4616,18 +5076,38 @@ function openPosteModal(id) {
         </td>
       </tr>`;
     }).join('');
-    return `<tr><td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
+    return `<tr data-domain-row="${dom.id}"><td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
   }).join('');
   document.getElementById('m-body').innerHTML = `
     <div class="field" style="margin-bottom:14px"><label>Nom de la fonction</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
     <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour cette fonction.</div>
-    <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px">
+    <div class="field" style="margin-bottom:8px"><input type="text" id="poste-skill-search" placeholder="Rechercher une compétence par son nom…" oninput="filterPosteSkillRows(this.value)"></div>
+    <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px" id="poste-skill-table">
       <table style="width:100%;border-collapse:collapse">${skillRows}</table>
     </div>`;
   document.getElementById('m-footer').innerHTML = `
     <button class="btn" onclick="closeModal()">Annuler</button>
     <button class="btn btn-primary" onclick="savePoste('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
   document.getElementById('modal').style.display = 'flex';
+}
+function filterPosteSkillRows(query) {
+  const q = normalizeText(query || '');
+  const domainMatches = {};
+  document.querySelectorAll('#poste-skill-table [data-skill-row]').forEach(row => {
+    const name = row.getAttribute('data-skill-name') || '';
+    const isMainRow = row.classList.contains('poste-skill-main-row');
+    const match = !q || name.indexOf(q) > -1;
+    if (isMainRow) {
+      row.style.display = match ? '' : 'none';
+      const domId = row.getAttribute('data-domain');
+      domainMatches[domId] = domainMatches[domId] || match;
+    } else if (!match) {
+      row.style.display = 'none';
+    }
+  });
+  document.querySelectorAll('#poste-skill-table [data-domain-row]').forEach(hdr => {
+    hdr.style.display = domainMatches[hdr.getAttribute('data-domain-row')] ? '' : 'none';
+  });
 }
 
 function updatePosteTargetDesc(sid, posteId = '') {
@@ -4888,6 +5368,31 @@ function renderAdminSkills() {
   ${hasOrphanSkills ? `<div style="padding:10px 16px;background:#FCEBEB;font-size:12px;color:#A32D2D;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>${SKILLS.filter(s=>!DOMAINS.some(d=>d.id===s.did)).length} compétence(s) sans domaine valide</b> — les domaines ont été réinitialisés (ex : suite à la création d'un nouveau domaine alors que les domaines d'origine n'étaient pas encore enregistrés dans SharePoint). Cliquez sur <b>Réparer les domaines</b> pour reconstruire les domaines manquants et réassigner ces compétences.
   </div>` : ''}`;
+  const pendingSuggestions = getPendingSkillSuggestions();
+  if (pendingSuggestions.length) {
+    h += `<div class="admin-card" style="margin-top:14px">
+      <div class="admin-hdr"><h3><i class="ti ti-bulb"></i> Suggestions de compétences en attente (${pendingSuggestions.length})</h3></div>
+      <div style="padding:10px 16px">
+        ${pendingSuggestions.map(v => {
+          const dom = DOMAINS.find(d => d.id === v.domainId);
+          const team = db.equipes.find(t => String(t.id) === String(v.teamId));
+          const niveauxHtml = [1,2,3,4].map(n => (v.niveaux && v.niveaux[n]) ? `<div style="font-size:11px;margin-bottom:2px"><b>Niveau ${n}</b> — ${escapeHtml(v.niveaux[n])}</div>` : '').join('');
+          return `<div style="border:.5px solid #D3D1C7;border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fafaf8">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+              <b style="font-size:13px">${escapeHtml(v.title)}</b>
+              ${dom ? domTag(dom) : ''}
+              <span style="font-size:11px;color:#5F5E5A">proposée par ${escapeHtml(v.auteurNom||'—')} pour l'équipe ${escapeHtml(team?team.name:'—')}${v.dateCreation?' le '+fmtDate(v.dateCreation):''}</span>
+            </div>
+            ${niveauxHtml}
+            <div style="margin-top:6px;display:flex;gap:6px">
+              <button class="btn btn-sm btn-primary" onclick="validateSkillSuggestion('${v.id}')"><i class="ti ti-check"></i>Intégrer au référentiel</button>
+              <button class="btn btn-sm btn-danger" onclick="rejectSkillSuggestion('${v.id}')"><i class="ti ti-x"></i>Rejeter</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
   getSortedDomains().forEach(dom => {
     const list = grouped[dom.id] || [];
     h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
@@ -5857,19 +6362,21 @@ ${plan.staticOnly.length} compétence(s) statique(s) corrigée(s) dans le fichie
 function backupRows() {
   return {
     Collaborateurs: db.collaborateurs.map(c => ({
-      Id:c.Id, Title:c.prenom||'', Prenom:c.Nom||'', Email:c.Email||'', PosteId:c.PosteId||'', PosteIds:JSON.stringify(getCollabFunctionIds(c)), FonctionsPonderation:JSON.stringify(getCollabFunctionWeights(c)), TeamIds:(c.teamIds||[]).join(','), ManagerID:c.ManagerID||c.ManagerId||''
+      Id:c.Id, Title:c.prenom||'', Prenom:c.Nom||'', Email:c.Email||'', PosteId:c.PosteId||'', PosteIds:JSON.stringify(getCollabFunctionIds(c)), FonctionsPonderation:JSON.stringify(getCollabFunctionWeights(c)), TeamIds:(c.teamIds||[]).join(','), ManagerID:c.ManagerID||c.ManagerId||'', AttendusPersonnalises:JSON.stringify(c.attendusPersonnalises||{})
     })),
     Competences: db.competences.map(c => ({ Id:c.Id, Title:(c.SkillId||c.Title)||'', SkillId:(c.SkillId||c.Title)||'', CollabId:c.CollabId||'', Niveau:c.Niveau||'' })),
     Commentaires: db.commentaires.map(c => ({ Id:c.Id, Title:c.Title||'', SkillId:c.SkillId||'', TypeAuteur:c.TypeAuteur||'', Contenu:c.Contenu||'', DateSaisie:c.DateSaisie||'' })),
     Historique: db.historique.map(h => ({ Id:h.Id, Title:h.Title||'', Role:h.Role||'', Description:h.Description||'', DateAction:h.DateAction||'' })),
-    Equipes: db.equipes.map(t => ({ Id:t.Id||t.id, Title:t.name||t.Title||'', ManagersIds:(t.managerIds||[]).join(',') })),
+    Equipes: db.equipes.map(t => ({ Id:t.Id||t.id, Title:t.name||t.Title||'', ManagersIds:(t.managerIds||[]).join(','), CompetencesActives:JSON.stringify(t.competencesActives||{}) })),
     Postes: POSTES.map(p => ({ Id:p.id, Title:p.name||'', Targets:JSON.stringify(p.targets||{}), NiveauxPersos:JSON.stringify(p.customLevels||{}) })),
     Domaines: DOMAINS.map(d => ({ Id:d.id, Title:d.name||'', Couleur:d.c||'', Fond:d.bg||'' })),
     Roles: db.roles.map(r => ({ Id:r.spId||r.Id, Title:r.name||'', Emails:(r.emails||[]).join(','), Droits:JSON.stringify(r.droits||{}) })),
     CompetencesRef: SKILLS.map(sk => ({ Id:sk.id, Title:sk.name||'', DomainId:sk.did||'', Niveaux:JSON.stringify(sk.levels||{}) })),
     Formations: db.formations.map(f => ({ Id:f.id, Title:f.title||'', Prestataire:f.prestataire||'', TypeFormation:f.type||'', Format:f.format||'', Duree:f.duree||'', Tarif:f.tarif||'', LienInscription:f.lien||'', CompetencesNiveaux:JSON.stringify(normalizeFormationSkillLinks(f.skills||[])), Objectifs:f.objectifs||'', Programme:f.programme||'', Actif:f.actif!==false })),
     Parcours: db.parcours.map(p => ({ Id:p.id, Title:p.title||'', Description:p.description||'', Jalons:JSON.stringify(normalizeParcoursMilestones(p.jalons||[])), Cibles:JSON.stringify(normalizeParcoursTargets(p.cibles||{})), Actif:p.actif!==false })),
-    AxesStrategiques: db.axesStrategiques.map(a => ({ Id:a.id, Title:a.title||'', Description:a.description||'', Couleur:a.couleur||'', CompetencesNiveaux:JSON.stringify(normalizeStrategyLinks(a.skills||[])), Objectifs:JSON.stringify(a.objectifs||{}), ObjectifsEquipes:JSON.stringify(a.objectifsEquipes||{}), Actif:a.actif!==false }))
+    AxesStrategiques: db.axesStrategiques.map(a => ({ Id:a.id, Title:a.title||'', Description:a.description||'', Couleur:a.couleur||'', CompetencesNiveaux:JSON.stringify(normalizeStrategyLinks(a.skills||[])), Objectifs:JSON.stringify(a.objectifs||{}), ObjectifsEquipes:JSON.stringify(a.objectifsEquipes||{}), Actif:a.actif!==false })),
+    CompetencesEquipe: db.competencesEquipe.map(v => ({ Id:v.id, Title:v.title||'', SkillId:v.skillId||'', DomainId:v.domainId||'', TeamId:v.teamId||'', Niveaux:JSON.stringify(v.niveaux||{}), EstNouvelle:v.estNouvelle, Partagee:v.partagee, StatutValidation:v.statutValidation||'nouvelle', AuteurEmail:v.auteurEmail||'', AuteurNom:v.auteurNom||'', DateCreation:v.dateCreation||'' })),
+    Suggestions: db.suggestions.map(s => ({ Id:s.id, Title:s.title||'', Description:s.description||'', TypeSuggestion:s.type||'suggestion', Statut:s.statut||'nouveau', AuteurEmail:s.auteurEmail||'', AuteurNom:s.auteurNom||'', DateCreation:s.dateCreation||'', Commentaires:JSON.stringify(s.commentaires||[]) }))
   };
 }
 function exportFullBackup() {
@@ -5963,8 +6470,8 @@ async function importFullBackup(event) {
     showSave('Lecture de la sauvegarde...');
     try {
       const wb = XLSX.read(ev.target.result, { type:'array' });
-      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
-      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {};
+      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','CompetencesEquipe','Suggestions','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
+      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {}, competencesEquipeMap = {};
       await loadData();
 
       for (const r of rows.Domaines) {
@@ -5992,7 +6499,7 @@ async function importFullBackup(event) {
         const oldId = String(r.Id || '');
         const fonctionIds = remapArrayIds(r.PosteIds || r.PosteId || '', posteMap);
         const weights = remapObjectKeys(r.FonctionsPonderation || '{}', posteMap);
-        const data = { Title:String(r.Title||''), Prenom:String(r.Prenom||''), Email:String(r.Email||''), PosteId:posteMap[String(r.PosteId||'')] || String(r.PosteId||''), PosteIds:JSON.stringify(fonctionIds), FonctionsPonderation:JSON.stringify(weights), TeamIds:'', ManagerID:'' };
+        const data = { Title:String(r.Title||''), Prenom:String(r.Prenom||''), Email:String(r.Email||''), PosteId:posteMap[String(r.PosteId||'')] || String(r.PosteId||''), PosteIds:JSON.stringify(fonctionIds), FonctionsPonderation:JSON.stringify(weights), TeamIds:'', ManagerID:'', AttendusPersonnalises:JSON.stringify(remapObjectKeys(r.AttendusPersonnalises || '{}', skillMap)) };
         const newId = await upsertFromBackup(CONFIG.lists.collaborateurs, oldId, () => dbGetRawByEmailOrName(r.Email, r.Title, r.Prenom), data);
         if (oldId) collabMap[oldId] = newId;
       }
@@ -6002,6 +6509,33 @@ async function importFullBackup(event) {
         const data = { Title:String(r.Title||''), ManagersIds:'' };
         const newId = await upsertFromBackup(CONFIG.lists.equipes, oldId, () => dbGetRawByName('equipes', r.Title), data);
         if (oldId) teamMap[oldId] = newId;
+      }
+      await loadData();
+      for (const r of (rows.CompetencesEquipe || [])) {
+        const oldId = String(r.Id || '');
+        const data = {
+          Title:String(r.Title||''),
+          SkillId: skillMap[String(r.SkillId||'')] || String(r.SkillId||''),
+          DomainId: domainMap[String(r.DomainId||'')] || String(r.DomainId||''),
+          TeamId: teamMap[String(r.TeamId||'')] || String(r.TeamId||''),
+          Niveaux: String(r.Niveaux||'{}'),
+          EstNouvelle: r.EstNouvelle === '' ? false : !!r.EstNouvelle,
+          Partagee: r.Partagee === '' ? false : !!r.Partagee,
+          StatutValidation: String(r.StatutValidation||'nouvelle'),
+          AuteurEmail: String(r.AuteurEmail||''),
+          AuteurNom: String(r.AuteurNom||''),
+          DateCreation: String(r.DateCreation||new Date().toISOString())
+        };
+        const newId = await upsertFromBackup(CONFIG.lists.competencesEquipe, oldId, null, data);
+        if (oldId) competencesEquipeMap[oldId] = newId;
+      }
+      for (const r of (rows.Suggestions || [])) {
+        const data = {
+          Title:String(r.Title||''), Description:String(r.Description||''), TypeSuggestion:String(r.TypeSuggestion||'suggestion'),
+          Statut:String(r.Statut||'nouveau'), AuteurEmail:String(r.AuteurEmail||''), AuteurNom:String(r.AuteurNom||''),
+          DateCreation:String(r.DateCreation||new Date().toISOString()), Commentaires:String(r.Commentaires||'[]')
+        };
+        await upsertFromBackup(CONFIG.lists.suggestions, r.Id, null, data);
       }
       await loadData();
       for (const r of rows.Collaborateurs) {
@@ -6015,7 +6549,9 @@ async function importFullBackup(event) {
         const newId = teamMap[String(r.Id||'')];
         if (!newId) continue;
         const managers = String(r.ManagersIds||'').split(',').map(x => x.trim()).filter(Boolean).map(id => collabMap[id] || id).join(',');
-        await spPatch(CONFIG.lists.equipes, newId, { ManagersIds:managers });
+        const competencesActives = remapObjectKeys(r.CompetencesActives || '{}', skillMap);
+        Object.keys(competencesActives).forEach(sid => { competencesActives[sid] = competencesEquipeMap[String(competencesActives[sid])] || competencesActives[sid]; });
+        await spPatch(CONFIG.lists.equipes, newId, { ManagersIds:managers, CompetencesActives:JSON.stringify(competencesActives) });
       }
       await loadData();
       for (const r of rows.Roles) {
@@ -6093,6 +6629,126 @@ function dbGetRawByEmailOrName(email, prenom, nom) {
   const n = String(nom||'').toLowerCase().trim();
   const c = db.collaborateurs.find(x => (e && String(x.Email||'').toLowerCase().trim() === e) || (String(x.prenom||'').toLowerCase().trim() === p && String(x.Nom||'').toLowerCase().trim() === n));
   return c ? { Id:c.Id } : null;
+}
+
+// =====================================================================
+// BUGS & SUGGESTIONS — feature 7
+// =====================================================================
+let suggestionsStatusFilter = '';
+const SUGGESTION_STATUS_LABELS = { nouveau:'Nouveau', en_cours:'En cours', traite:'Traité', abandonne:'Abandonné' };
+const SUGGESTION_STATUS_COLORS = { nouveau:'#534AB7', en_cours:'#856404', traite:'#085041', abandonne:'#7A3A28' };
+function renderSuggestions() {
+  if (!suggestionsListAvailable) {
+    document.getElementById('content').innerHTML = `<div style="padding:24px;text-align:center;color:#aaa">La liste SharePoint "Suggestions" n'est pas encore disponible. Contactez un·e administrateur·ice.</div>`;
+    return;
+  }
+  let list = db.suggestions.slice().sort((a,b) => new Date(b.dateCreation||0) - new Date(a.dateCreation||0));
+  if (suggestionsStatusFilter) list = list.filter(s => s.statut === suggestionsStatusFilter);
+  const canAdmin = hasStrictAdminAccess();
+  let h = `<div class="filters">
+    <select onchange="suggestionsStatusFilter=this.value;renderSuggestions()">
+      <option value="">Tous les statuts</option>
+      ${Object.entries(SUGGESTION_STATUS_LABELS).map(([k,l]) => `<option value="${k}"${suggestionsStatusFilter===k?' selected':''}>${l}</option>`).join('')}
+    </select>
+    <span class="stat-pill">${list.length} élément(s)</span>
+  </div>
+  <div style="max-width:760px">
+  ${list.length ? list.map(s => `<div class="admin-card" style="margin-bottom:12px">
+      <div style="padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <span class="tag" style="background:${s.type==='bug'?'#FCEBEB':'#EEEDFE'};color:${s.type==='bug'?'#A32D2D':'#534AB7'}">${s.type==='bug'?'Bug':'Suggestion'}</span>
+          <span class="tag" style="background:#f5f5f0;color:${SUGGESTION_STATUS_COLORS[s.statut]||'#5F5E5A'}">${escapeHtml(SUGGESTION_STATUS_LABELS[s.statut]||s.statut)}</span>
+          <b style="font-size:14px">${escapeHtml(s.title)}</b>
+        </div>
+        <div style="font-size:11px;color:#5F5E5A;margin-bottom:8px">${escapeHtml(s.auteurNom||'—')}${s.dateCreation?' · '+fmtDate(s.dateCreation):''}</div>
+        <div style="font-size:13px;white-space:pre-wrap;margin-bottom:10px">${escapeHtml(s.description)}</div>
+        ${canAdmin ? `<div class="field" style="max-width:220px;margin-bottom:10px"><select onchange="setSuggestionStatus('${s.id}',this.value)">
+          ${Object.entries(SUGGESTION_STATUS_LABELS).map(([k,l]) => `<option value="${k}"${s.statut===k?' selected':''}>${l}</option>`).join('')}
+        </select></div>` : ''}
+        <div style="border-top:.5px solid #D3D1C7;padding-top:8px">
+          ${(s.commentaires||[]).map(c => `<div style="font-size:12px;margin-bottom:6px"><b>${escapeHtml(c.auteurNom||'—')}</b> <span style="color:#aaa">${c.date?fmtDate(c.date):''}</span><br>${escapeHtml(c.texte||'')}</div>`).join('') || '<div style="font-size:12px;color:#aaa;margin-bottom:6px">Aucun commentaire.</div>'}
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <input type="text" id="sc-${s.id}" placeholder="Ajouter un commentaire…" style="flex:1;padding:6px 9px;border:.5px solid #D3D1C7;border-radius:8px;font-size:12px">
+            <button class="btn btn-sm" onclick="addSuggestionComment('${s.id}')"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('') : `<div style="padding:24px;text-align:center;color:#aaa">Aucune suggestion pour l'instant. Cliquez sur "Bug / suggestion" en haut à droite pour en signaler une.</div>`}
+  </div>`;
+  document.getElementById('content').innerHTML = h;
+}
+function openSuggestionModal() {
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-message-report"></i>';
+  document.getElementById('m-title').textContent = 'Signaler un bug ou une suggestion';
+  document.getElementById('m-sub').textContent = 'Visible par toutes les personnes utilisatrices';
+  document.getElementById('m-body').innerHTML = `
+    <div class="field full"><label>Type</label>
+      <select id="sug-type"><option value="suggestion">Suggestion d'amélioration</option><option value="bug">Bug</option></select>
+    </div>
+    <div class="field full"><label>Titre</label><input type="text" id="sug-title" placeholder="Résumez en quelques mots"></div>
+    <div class="field full"><label>Description</label><textarea id="sug-description" placeholder="Décrivez le bug ou la suggestion en détail…" style="min-height:100px"></textarea></div>
+  `;
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveSuggestion()"><i class="ti ti-check"></i>Envoyer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+async function saveSuggestion() {
+  const title = document.getElementById('sug-title').value.trim();
+  const description = document.getElementById('sug-description').value.trim();
+  const type = document.getElementById('sug-type').value;
+  if (!title || !description) { alert('Merci de renseigner un titre et une description.'); return; }
+  const me = getCurrentCollab();
+  showSave('Envoi...');
+  try {
+    await spPost(CONFIG.lists.suggestions, {
+      Title: title, Description: description, TypeSuggestion: type, Statut: 'nouveau',
+      AuteurEmail: currentUser ? currentUser.email : '',
+      AuteurNom: me ? `${me.prenom||''} ${me.Nom||''}`.trim() : (currentUser ? currentUser.name : ''),
+      DateCreation: new Date().toISOString(), Commentaires: '[]'
+    });
+    await loadData();
+    hideSave('Envoyé ✓');
+    closeModal();
+    if (currentView === 'suggestions') renderSuggestions();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur : ' + e.message);
+  }
+}
+async function addSuggestionComment(id) {
+  const input = document.getElementById('sc-' + id);
+  if (!input) return;
+  const texte = input.value.trim();
+  if (!texte) return;
+  const s = db.suggestions.find(x => String(x.id) === String(id));
+  if (!s) return;
+  const me = getCurrentCollab();
+  const comment = {
+    auteurEmail: currentUser ? currentUser.email : '',
+    auteurNom: me ? `${me.prenom||''} ${me.Nom||''}`.trim() : (currentUser ? currentUser.name : ''),
+    texte, date: new Date().toISOString()
+  };
+  const comments = [...(s.commentaires||[]), comment];
+  input.disabled = true;
+  try {
+    await spPatch(CONFIG.lists.suggestions, id, { Commentaires: JSON.stringify(comments) });
+    await loadData();
+    renderSuggestions();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+    input.disabled = false;
+  }
+}
+async function setSuggestionStatus(id, statut) {
+  if (!hasStrictAdminAccess()) return;
+  try {
+    await spPatch(CONFIG.lists.suggestions, id, { Statut: statut });
+    await loadData();
+    renderSuggestions();
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
 }
 
 function renderImport() {
@@ -6313,14 +6969,14 @@ function getCollabExportRows() {
   const c = collabEdit;
   const poste = buildVirtualPosteForCollab(c);
   const grouped = {};
-  SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
+  getEffectiveSkillsForTeams(c.teamIds || []).forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
 
   const rows = [];
   getSortedDomains().forEach(dom => {
     const list = grouped[dom.id] || [];
     list.forEach(sk => {
       const lvl    = c._comps[sk.id] || 0;
-      const target = poste.targets[sk.id];
+      const target = getEffectiveTarget(c, sk.id, poste.targets[sk.id]).target;
       const descPosteId = (poste._sourceBySkill && poste._sourceBySkill[sk.id]) || getPrimaryPosteId(c);
       const cm     = c._comments[sk.id] || {};
       const hasCm  = cm.manager || cm.collaborateur || cm.pending;
