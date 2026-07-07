@@ -363,7 +363,8 @@ const CONFIG = {
     parcours:       'Parcours',
     axesStrategiques:'AxesStrategiques',
     competencesEquipe: 'CompetencesEquipe',
-    suggestions:    'Suggestions'
+    suggestions:    'Suggestions',
+    connaissances:  'Connaissances'
   }
 };
 // =====================================================================
@@ -376,6 +377,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: true,
     simulation_utilisateur: true,
     equipe_consultation: true, equipe_validation: true, equipe_modification: true,
+    equipe_membres_gestion: true, equipe_fonctions_modification: true, equipe_connaissances_administration: true,
     attendus_personnalisation: true, competences_equipe_administration: true,
     toutes_consultation: true, toutes_modification: true,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: true, parcours_consultation: true, parcours_administration: true,
@@ -386,6 +388,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: false, equipe_modification: false,
+    equipe_membres_gestion: false, equipe_fonctions_modification: false, equipe_connaissances_administration: false,
     attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: true, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: true, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: true,
@@ -396,6 +399,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: true, equipe_validation: true, equipe_modification: false,
+    equipe_membres_gestion: true, equipe_fonctions_modification: true, equipe_connaissances_administration: true,
     attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: true, strategie_consultation: true, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
@@ -406,6 +410,7 @@ const DROITS_DEFAUT = {
     fiche_propre_consultation: true, fiche_propre_modification: true, fiche_entete_modification: false,
     simulation_utilisateur: false,
     equipe_consultation: false, equipe_validation: false, equipe_modification: false,
+    equipe_membres_gestion: false, equipe_fonctions_modification: false, equipe_connaissances_administration: false,
     attendus_personnalisation: false, competences_equipe_administration: false,
     toutes_consultation: false, toutes_modification: false,
     recherche: false, strategie_consultation: false, strategie_administration: false, formations_consultation: true, formations_administration: false, parcours_consultation: true, parcours_administration: false,
@@ -422,6 +427,9 @@ const DROITS_LABELS = {
   equipe_consultation:       'Fiches équipe : consultation',
   equipe_validation:         'Fiches équipe : validation compétences',
   equipe_modification:       'Fiches équipe : modification',
+  equipe_membres_gestion:    'Mon équipe : gestion des membres (ajout / retrait)',
+  equipe_fonctions_modification: 'Mon équipe : modification des fonctions et pondérations',
+  equipe_connaissances_administration: 'Mon équipe : gestion des connaissances',
   attendus_personnalisation: 'Fiches équipe : personnalisation des attendus par compétence',
   competences_equipe_administration: 'Matrice équipe : gestion des descriptions et nouvelles compétences',
   toutes_consultation:       'Toutes les fiches : consultation',
@@ -511,6 +519,7 @@ async function spGetOptional(listName, filter = '', select = '') {
     if (listName === CONFIG.lists.axesStrategiques) strategyListAvailable = false;
     if (listName === CONFIG.lists.competencesEquipe) competencesEquipeListAvailable = false;
     if (listName === CONFIG.lists.suggestions) suggestionsListAvailable = false;
+    if (listName === CONFIG.lists.connaissances) connaissancesListAvailable = false;
     console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
     return [];
   }
@@ -686,12 +695,18 @@ let formationTypeFilter = '', formationSkillFilter = '';
 let parcoursStatusFilter = 'active', parcoursDomainFilter = '', parcoursScopeFilter = 'mine';
 let strategyTeamFilter = '', strategyStatusFilter = 'active';
 let collabEdit = {}, editCtx = {}, formationEdit = {}, parcoursEdit = {}, strategyEdit = {};
-let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], parcours:[], axesStrategiques:[], competencesEquipe:[], suggestions:[] };
+let db = { collaborateurs:[], competences:[], commentaires:[], historique:[], equipes:[], roles:[], formations:[], parcours:[], axesStrategiques:[], competencesEquipe:[], suggestions:[], connaissances:[] };
 let formationsListAvailable = true;
 let parcoursListAvailable = true;
 let strategyListAvailable = true;
 let competencesEquipeListAvailable = true;
 let suggestionsListAvailable = true;
+let connaissancesListAvailable = true;
+let searchSkillConnFilter = [];   // feature 4 : filtre connaissance(s) dans la recherche
+let matrixHideSuggestions = false; // feature 9 : masquer les compétences proposées dans la matrice
+let myTeamSelected = '';           // feature 2 : équipe active dans la vue « Mon équipe »
+let parcoursScopeInit = false;     // feature 11 : périmètre par défaut calculé une seule fois
+let collabScopeInit = false;       // feature 5 : filtre équipe par défaut calculé une seule fois
 let pendingSaves = 0; // ← ajouter ici
 
 window.addEventListener('beforeunload', e => {
@@ -963,8 +978,108 @@ function getMatrixScopeTeamIds() {
 }
 
 // =====================================================================
+// CONNAISSANCES (feature 3/4) + GESTION D'ÉQUIPE MANAGER (feature 2/6)
+// =====================================================================
+const CONN_NIVEAUX = { notion:'Notion', maitrise:'Maîtrise', expertise:'Expertise' };
+const CONN_NIVEAU_ORDER = ['notion','maitrise','expertise'];
+
+function connNiveauLabel(n) { return CONN_NIVEAUX[n] || ''; }
+function getConnaissanceById(id) { return (db.connaissances || []).find(k => String(k.id) === String(id)) || null; }
+
+// Connaissances qu'on peut proposer/attribuer à un·e collaborateur·ice :
+// partagées, celles de ses équipes, celles gérées par l'utilisateur, ou toutes pour l'admin.
+function getSelectableConnaissancesForCollab(c) {
+  const teamIds = (c && c.teamIds || []).map(String);
+  const managed = getManagedTeamIdsForCurrentUser();
+  return (db.connaissances || []).filter(k =>
+    hasStrictAdminAccess() || hasDroit('toutes_consultation') || hasDroit('toutes_modification') ||
+    k.partagee || teamIds.includes(String(k.teamId)) || managed.includes(String(k.teamId))
+  ).slice().sort((a,b) => nameCompareFr(a.title, b.title));
+}
+function getCollabConnaissances(c) { return (c && c.connaissances) || {}; }
+function getCollabSkillConnaissances(c, skillId) {
+  const m = (c && c.competencesConnaissances) || {};
+  return Array.isArray(m[skillId]) ? m[skillId].map(String) : [];
+}
+
+function canManageTeamMembers(teamId) {
+  if (hasStrictAdminAccess()) return true;
+  return hasDroit('equipe_membres_gestion') && getManagedTeamIdsForCurrentUser().includes(String(teamId));
+}
+function canManageAnyTeamMembers() {
+  if (hasStrictAdminAccess()) return true;
+  return hasDroit('equipe_membres_gestion') && getManagedTeamIdsForCurrentUser().length > 0;
+}
+function canEditCollabFunctions(collabId) {
+  if (canEditCollabHeader()) return true;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  return hasDroit('equipe_fonctions_modification') && isManagerOfCollab(collabId);
+}
+function canManageConnaissancesForCollab(collabId) {
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  return hasDroit('equipe_connaissances_administration') && isManagerOfCollab(collabId);
+}
+function canManageConnaissancesForTeam(teamId) {
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  return hasDroit('equipe_connaissances_administration') && getManagedTeamIdsForCurrentUser().includes(String(teamId));
+}
+function canManageAnyConnaissances() {
+  if (hasStrictAdminAccess()) return true;
+  return hasDroit('equipe_connaissances_administration') && getManagedTeamIdsForCurrentUser().length > 0;
+}
+function hasAnyTeamManagementRight() {
+  return canManageAnyTeamMembers() || canManageAnyConnaissances() || canManageAnyTeamSkillVersions()
+    || (hasDroit('equipe_fonctions_modification') && getManagedTeamIdsForCurrentUser().length > 0);
+}
+
+// Crée une connaissance dans SharePoint (avec déduplication sur les connaissances partagées de même nom),
+// l'ajoute en mémoire et renvoie son identifiant.
+async function createConnaissance(title, teamId, opts = {}) {
+  const clean = String(title || '').trim();
+  if (!clean) return null;
+  const existing = (db.connaissances || []).find(k => k.partagee && k.title.toLowerCase().trim() === clean.toLowerCase());
+  if (existing) return existing.id;
+  const me = getCurrentCollab();
+  const data = {
+    Title: clean,
+    Description: String(opts.description || ''),
+    TeamId: String(teamId || ''),
+    Partagee: opts.partagee === undefined ? true : !!opts.partagee,
+    AuteurEmail: currentUser ? currentUser.email : '',
+    AuteurNom: me ? `${me.prenom || ''} ${me.Nom || ''}`.trim() : (currentUser ? currentUser.name : ''),
+    DateCreation: new Date().toISOString()
+  };
+  const res = await spPost(CONFIG.lists.connaissances, data);
+  const id = String(res.Id);
+  db.connaissances.push({ id, title:clean, description:data.Description, teamId:data.TeamId, partagee:data.Partagee, auteurEmail:data.AuteurEmail, auteurNom:data.AuteurNom, dateCreation:data.DateCreation });
+  db.connaissances.sort((a,b) => nameCompareFr(a.title, b.title));
+  return id;
+}
+
+// =====================================================================
 // ÉDITEUR DE VERSION DE COMPÉTENCE PAR ÉQUIPE — feature 4/5
 // =====================================================================
+function teamSkillVersionCardHtml(v, sk, teamId, skillId, activeVersion) {
+  const isOfficial = !v;
+  const isActive = isOfficial ? !activeVersion : (activeVersion && String(activeVersion.id) === String(v.id));
+  const niveaux = isOfficial ? {} : (v.niveaux || {});
+  const title = isOfficial ? 'Libellé officiel' : escapeHtml(v.auteurNom || 'Manager');
+  const sub = isOfficial ? 'Référentiel EVEA' : `${escapeHtml((db.equipes.find(t => String(t.id) === String(v.teamId)) || {}).name || '')}${v.dateCreation ? ' · ' + fmtDate(v.dateCreation) : ''}`;
+  const canDel = !isOfficial && canDeleteTeamSkillVersion(v);
+  const levels = [1,2,3,4].map(n => {
+    const txt = isOfficial ? ((sk && sk.levels && sk.levels[n]) || '') : (niveaux[n] || (sk && sk.levels && sk.levels[n]) || '');
+    return `<div style="margin-bottom:4px;line-height:1.35"><span class="lb l${n}" style="width:18px;height:18px;font-size:10px;display:inline-flex;vertical-align:top">${n}</span> <span style="font-size:11px;color:#444">${txt ? escapeHtml(txt) : '<span style="color:#bbb">—</span>'}</span></div>`;
+  }).join('');
+  return `<div style="min-width:230px;max-width:260px;flex-shrink:0;border:.5px solid ${isActive ? '#534AB7' : '#D3D1C7'};border-radius:10px;padding:9px;background:${isActive ? '#F6F5FF' : '#fff'}">
+    <div style="font-size:12px;font-weight:600">${title}${isActive ? ' <span class="tag" style="background:#EEEDFE;color:#534AB7">active</span>' : ''}</div>
+    <div style="font-size:10px;color:#aaa;margin-bottom:6px">${sub}</div>
+    ${levels}
+    <div style="display:flex;gap:5px;margin-top:6px">
+      ${isActive ? '' : `<button class="btn btn-sm" onclick="useTeamSkillVersion('${teamId}','${skillId}','${isOfficial ? '' : v.id}')">Utiliser</button>`}
+      ${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteTeamSkillVersion('${v.id}')" title="Supprimer ce libellé"><i class="ti ti-trash"></i></button>` : ''}
+    </div>
+  </div>`;
+}
 function openTeamSkillVersionModal(skillId, defaultTeamId) {
   const isAdmin = hasStrictAdminAccess() || hasDroit('toutes_modification');
   const teamsForSelect = isAdmin ? db.equipes.map(t => String(t.id)) : getManagedTeamIdsForCurrentUser();
@@ -991,20 +1106,17 @@ function openTeamSkillVersionModal(skillId, defaultTeamId) {
     </div>
     ${[1,2,3,4].map(n => `<div class="field full"><label>Niveau ${n}</label><textarea id="tsv-level-${n}" placeholder="${escapeHtml((sk && sk.levels && sk.levels[n]) || '')}" style="min-height:44px">${escapeHtml((niveauxSource && niveauxSource[n]) || '')}</textarea></div>`).join('')}
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:10px;cursor:pointer">
-      <input type="checkbox" id="tsv-shared" ${activeVersion && activeVersion.partagee ? 'checked' : ''}>
+      <input type="checkbox" id="tsv-shared" ${(activeVersion ? activeVersion.partagee : true) ? 'checked' : ''}>
       Partager cette version avec les autres managers et l'administrateur
     </label>
-    ${!isNew && versions.length ? `
+    ${!isNew ? `
       <div style="border-top:.5px solid #D3D1C7;padding-top:10px;margin-top:4px">
-        <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px">Versions disponibles pour cette compétence</div>
-        <div class="form-link-row" style="margin-bottom:4px">
-          <span style="flex:1;font-size:12px">Version officielle</span>
-          <button class="btn btn-sm" onclick="useTeamSkillVersion('${teamId}','${skillId}','')">Utiliser pour cette équipe</button>
+        <div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px">Comparer les libellés disponibles pour cette compétence</div>
+        <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+          ${teamSkillVersionCardHtml(null, sk, teamId, skillId, activeVersion)}
+          ${versions.map(v => teamSkillVersionCardHtml(v, sk, teamId, skillId, activeVersion)).join('')}
         </div>
-        ${versions.map(v => `<div class="form-link-row" style="margin-bottom:4px">
-          <span style="flex:1;font-size:12px">${escapeHtml(v.auteurNom || 'Manager')} (${escapeHtml((db.equipes.find(t => String(t.id) === String(v.teamId)) || {}).name || '')})${v.dateCreation ? ' — ' + fmtDate(v.dateCreation) : ''}</span>
-          <button class="btn btn-sm" onclick="useTeamSkillVersion('${teamId}','${skillId}','${v.id}')">Utiliser pour cette équipe</button>
-        </div>`).join('')}
+        <div class="lock-note" style="margin-top:4px">La version « active » est celle affichée pour l’équipe sélectionnée. Cliquez sur « Utiliser » pour en choisir une autre.</div>
       </div>` : ''}
   `;
   document.getElementById('m-footer').innerHTML = `
@@ -1090,6 +1202,20 @@ async function useTeamSkillVersion(teamId, skillId, versionId) {
 function getPendingSkillSuggestions() {
   return (db.competencesEquipe || []).filter(v => v.estNouvelle && v.statutValidation === 'nouvelle');
 }
+// Compétences proposées visibles en suggestion dans la matrice (feature 9) :
+// vue complète (admin) = toutes ; sinon les siennes + celles partagées + celles de ses équipes gérées.
+function getVisibleProposedSkills() {
+  const email = (currentUser && currentUser.email || '').toLowerCase();
+  const managed = getManagedTeamIdsForCurrentUser();
+  return (db.competencesEquipe || [])
+    .filter(v => v.estNouvelle && v.statutValidation === 'nouvelle' && (
+      hasDroit('matrice_complete') || hasStrictAdminAccess() ||
+      (v.auteurEmail || '').toLowerCase() === email ||
+      v.partagee || managed.includes(String(v.teamId))
+    ))
+    .map(v => getProposedSkillById('PROP_' + v.id))
+    .filter(Boolean);
+}
 async function validateSkillSuggestion(versionId) {
   if (!ensureStrictAdminAccess()) return;
   const v = (db.competencesEquipe || []).find(x => String(x.id) === String(versionId));
@@ -1126,6 +1252,50 @@ async function rejectSkillSuggestion(versionId) {
   } catch(e) {
     hideSave('Erreur !');
     alert('Erreur : ' + e.message);
+  }
+}
+// feature 8 : suppression d'un libellé (version de compétence) ou d'une compétence proposée.
+function canDeleteTeamSkillVersion(v) {
+  if (!v) return false;
+  if (hasStrictAdminAccess() || hasDroit('toutes_modification')) return true;
+  const isAuthor = (v.auteurEmail || '').toLowerCase() === (currentUser && currentUser.email || '').toLowerCase();
+  return isAuthor && canManageTeamSkillVersionsForTeam(v.teamId);
+}
+async function deleteTeamSkillVersion(versionId) {
+  const v = (db.competencesEquipe || []).find(x => String(x.id) === String(versionId));
+  if (!v) return;
+  if (!canDeleteTeamSkillVersion(v)) { alert('Vous ne pouvez supprimer que les libellés que vous avez créés.'); return; }
+  const msg = v.estNouvelle
+    ? 'Supprimer cette compétence proposée ?\n\nLes niveaux et commentaires déjà saisis pour cette compétence proposée seront également retirés.'
+    : 'Supprimer ce libellé personnalisé ?\n\nLes équipes qui l’utilisent reviendront automatiquement au libellé officiel de la compétence.';
+  if (!confirm(msg)) return;
+  showSave('Suppression...');
+  try {
+    // Retire cette version des compétences actives de toutes les équipes qui la référencent.
+    for (const t of db.equipes) {
+      const act = t.competencesActives || {};
+      const keys = Object.keys(act).filter(sid => String(act[sid]) === String(versionId));
+      if (keys.length) {
+        const next = { ...act };
+        keys.forEach(k => delete next[k]);
+        await spPatch(CONFIG.lists.equipes, t.id, { CompetencesActives: JSON.stringify(next) });
+      }
+    }
+    // Pour une compétence proposée, nettoie les niveaux et commentaires rattachés à PROP_<id>.
+    if (v.estNouvelle) {
+      const propId = 'PROP_' + v.id;
+      for (const c of db.competences.filter(c => (c.SkillId || c.Title) === propId)) await spDelete(CONFIG.lists.competences, c.Id);
+      for (const c of db.commentaires.filter(c => c.SkillId === propId)) await spDelete(CONFIG.lists.commentaires, c.Id);
+    }
+    await spDelete(CONFIG.lists.competencesEquipe, versionId);
+    await loadData();
+    hideSave('Supprimé ✓');
+    closeModal();
+    if (currentView === 'matrix') renderMatrix();
+    else if (currentView === 'my-team') renderMyTeam();
+  } catch(e) {
+    hideSave('Erreur !');
+    alert('Erreur lors de la suppression : ' + e.message);
   }
 }
 
@@ -1255,6 +1425,11 @@ function resetFiltersAfterUserSwitch() {
   matrixPosteFilter = '';
   matrixTeamFilter = '__default__';
   matrixHideEmpty = false;
+  searchSkillConnFilter = [];
+  matrixHideSuggestions = false;
+  myTeamSelected = '';
+  parcoursScopeInit = false;
+  collabScopeInit = false;
   const search = document.getElementById('search-input');
   if (search) search.value = '';
 }
@@ -1266,6 +1441,7 @@ function canAccessView(v) {
   if (v === 'formations') return hasDroit('formations_consultation');
   if (v === 'parcours') return hasDroit('parcours_consultation');
   if (v === 'collabs') return hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation');
+  if (v === 'my-team') return hasAnyTeamManagementRight();
   if (v === 'suggestions') return true;
   if (['admin-collabs','admin-teams','admin-postes','admin-skills','admin-roles','import'].includes(v)) return hasStrictAdminAccess();
   return false;
@@ -1347,7 +1523,9 @@ function canSaveCollab(collabId) {
     || canSuggestCompetencesForCollab(collabId)
     || canValidateCompetencesForCollab(collabId)
     || canEditManagerCommentForCollab(collabId)
-    || canEditOfficialUpdate(collabId);
+    || canEditOfficialUpdate(collabId)
+    || (!!collabId && canEditCollabFunctions(collabId))
+    || (!!collabId && canManageConnaissancesForCollab(collabId));
 }
 
 function commentHistoryHtml(cm, type) {
@@ -1365,13 +1543,26 @@ function getSearchSkillCollabs() {
   if (searchSkillTeam) collabs = collabs.filter(c => (c.teamIds||[]).includes(String(searchSkillTeam)));
   return collabs;
 }
+function collabSkillHasConn(c, skillId) {
+  if (!searchSkillConnFilter.length) return true;
+  const arr = getCollabSkillConnaissances(c, skillId).map(String);
+  return arr.some(id => searchSkillConnFilter.map(String).includes(id));
+}
 function getSkillStats(skillId, collabs = getSearchSkillCollabs()) {
   const stats = { 1:[], 2:[], 3:[], 4:[] };
   collabs.forEach(c => {
     const lvl = getCollabComps(c.Id)[skillId];
-    if (lvl && stats[lvl]) stats[lvl].push(c);
+    if (lvl && stats[lvl] && collabSkillHasConn(c, skillId)) stats[lvl].push(c);
   });
   return stats;
+}
+// Connaissances présentes parmi les personnes du périmètre de recherche (pour proposer le filtre).
+function getSearchScopeConnaissanceIds() {
+  const ids = new Set();
+  getSearchSkillCollabs().forEach(c => {
+    Object.values(c.competencesConnaissances || {}).forEach(arr => (arr || []).forEach(id => ids.add(String(id))));
+  });
+  return Array.from(ids);
 }
 
 function canManageFormations() {
@@ -1949,7 +2140,8 @@ async function loadData() {
   strategyListAvailable = true;
   competencesEquipeListAvailable = true;
   suggestionsListAvailable = true;
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw, competencesEquipeRaw, suggestionsRaw] = await Promise.all([
+  connaissancesListAvailable = true;
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw, competencesEquipeRaw, suggestionsRaw, connaissancesRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -1963,7 +2155,8 @@ async function loadData() {
   spGetOptional(CONFIG.lists.parcours),
   spGetOptional(CONFIG.lists.axesStrategiques),
   spGetOptional(CONFIG.lists.competencesEquipe),
-  spGetOptional(CONFIG.lists.suggestions)
+  spGetOptional(CONFIG.lists.suggestions),
+  spGetOptional(CONFIG.lists.connaissances)
 ]);
 
   // Rôles
@@ -1994,7 +2187,9 @@ if (postesRaw.length) {
       prenom:  c.Title || '',
       Nom:     c.Prenom || '',
       teamIds: c.TeamIds ? c.TeamIds.split(',').filter(Boolean) : [],
-      attendusPersonnalises: c.AttendusPersonnalises ? safeJsonParse(c.AttendusPersonnalises, {}) : {}
+      attendusPersonnalises: c.AttendusPersonnalises ? safeJsonParse(c.AttendusPersonnalises, {}) : {},
+      connaissances: c.Connaissances ? safeJsonParse(c.Connaissances, {}) : {},
+      competencesConnaissances: c.CompetencesConnaissances ? safeJsonParse(c.CompetencesConnaissances, {}) : {}
     };
     const fonctionIds = getCollabFunctionIds(mapped);
     mapped.fonctionIds = fonctionIds;
@@ -2037,6 +2232,16 @@ if (postesRaw.length) {
     dateCreation: s.DateCreation || '',
     commentaires: s.Commentaires ? safeJsonParse(s.Commentaires, []) : []
   }));
+  db.connaissances = (connaissancesRaw || []).map(k => ({
+    id: String(k.Id),
+    title: k.Title || '',
+    description: k.Description || '',
+    teamId: String(k.TeamId || ''),
+    partagee: !!k.Partagee,
+    auteurEmail: k.AuteurEmail || '',
+    auteurNom: k.AuteurNom || '',
+    dateCreation: k.DateCreation || ''
+  })).sort((a,b) => nameCompareFr(a.title, b.title));
 
 // Remplace le tableau DOMAINS statique si des données existent en base
 if (domainesRaw.length) {
@@ -2373,6 +2578,9 @@ function buildSidebar() {
   if (hasDroit('fiche_propre_consultation') || hasDroit('equipe_consultation') || hasDroit('toutes_consultation')) {
     nav += `<div class="nav-item" onclick="showView('collabs')" id="nav-collabs"><i class="ti ti-users"></i>Collaborateur·ices</div>`;
   }
+  if (hasAnyTeamManagementRight()) {
+    nav += `<div class="nav-item" onclick="showView('my-team')" id="nav-my-team"><i class="ti ti-users-group"></i>Mon équipe</div>`;
+  }
   nav += `<div class="nav-item" onclick="showView('suggestions')" id="nav-suggestions"><i class="ti ti-message-report"></i>Bugs &amp; suggestions</div>`;
 
   if (hasStrictAdminAccess()) {
@@ -2399,6 +2607,7 @@ function showView(v) {
     'admin-postes':'Fonctions', 'admin-skills':'Compétences', import:'Import / Export',
     'search-skills':'Recherche par compétence',
     'admin-roles': 'Administration des rôles',
+    'my-team':'Mon équipe',
     suggestions: 'Bugs & suggestions'
   };
   document.getElementById('topbar-title').textContent = titles[v] || v;
@@ -2416,6 +2625,7 @@ else if (v === 'strategy')      renderStrategy();
 else if (v === 'formations')    renderFormations();
 else if (v === 'parcours')      renderParcours();
 else if (v === 'collabs')       renderCollabs();
+else if (v === 'my-team')       renderMyTeam();
 else if (v === 'admin-collabs') renderAdminCollabs();
 else if (v === 'admin-teams')   renderAdminTeams();
 else if (v === 'admin-postes')  renderAdminPostes();
@@ -2542,7 +2752,13 @@ function renderMatrix() {
   const rareMap = getRareSkills();
   const scopeTeamIds = getMatrixScopeTeamIds();
   const effectiveSkills = getEffectiveSkillsForTeams(scopeTeamIds);
-  const skills = effectiveSkills.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
+  let displaySkills = effectiveSkills.slice();
+  const proposedSuggestions = getVisibleProposedSkills();
+  if (!matrixHideSuggestions && proposedSuggestions.length) {
+    const present = new Set(displaySkills.map(s => s.id));
+    proposedSuggestions.forEach(ps => { if (ps && !present.has(ps.id)) { displaySkills.push(ps); present.add(ps.id); } });
+  }
+  const skills = displaySkills.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
   const singleScopeTeamId = scopeTeamIds.length === 1 ? scopeTeamIds[0] : '';
   let collabs = applyMatrixTeamFilter(getMatrixBaseCollabs());
   if (matrixPosteFilter) collabs = collabs.filter(c => collabHasFunction(c, matrixPosteFilter));
@@ -2575,6 +2791,10 @@ function renderMatrix() {
       <input type="checkbox" ${matrixHideEmpty?'checked':''} onchange="matrixHideEmpty=this.checked;applyFilters()">
       Masquer les compétences sans niveau
     </label>
+    ${proposedSuggestions.length ? `<label class="tcheck${matrixHideSuggestions?' checked':''}">
+      <input type="checkbox" ${matrixHideSuggestions?'checked':''} onchange="matrixHideSuggestions=this.checked;applyFilters()">
+      Masquer les compétences proposées
+    </label>` : ''}
     <span class="stat-pill">${collabs.length} personne(s)</span>
     ${canManageAnyTeamSkillVersions() ? `<button class="btn btn-sm" onclick="openTeamSkillVersionModal(null,'${singleScopeTeamId}')"><i class="ti ti-plus"></i>Ajouter une compétence</button>` : ''}
   </div>
@@ -2596,7 +2816,7 @@ function renderMatrix() {
     list.forEach(sk => {
       renderedRows++;
       const isRare = !!rareMap[sk.id];
-      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${sk._proposed?' <span class="tag" style="background:#EEEDFE;color:#534AB7">proposée</span>':''}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${canManageAnyTeamSkillVersions() ? `<button type="button" class="btn btn-sm" style="padding:1px 5px;margin-left:2px" onclick="openTeamSkillVersionModal('${sk.id}','${singleScopeTeamId}')" title="Gérer la description pour mon équipe"><i class="ti ti-edit" style="font-size:11px"></i></button>` : ''}${skillTT(sk)}</span></td>`;
+      h += `<tr><td><span class="twrap${isRare?' sk-rare':''}">${escapeHtml(sk.name)}${sk._proposed?' <span class="tag" style="background:#EEEDFE;color:#534AB7">proposée</span>':''}${sk._proposed && canDeleteTeamSkillVersion((db.competencesEquipe||[]).find(v=>String(v.id)===String(sk._versionId))) ? `<button type="button" class="btn btn-sm btn-danger" style="padding:1px 5px;margin-left:2px" onclick="deleteTeamSkillVersion('${sk._versionId}')" title="Supprimer cette compétence proposée"><i class="ti ti-trash" style="font-size:11px"></i></button>` : ''}${isRare?`<span class="rare-pill">rare</span>`:''}${strategyTagsHtml(sk.id)}${!sk._proposed && canManageAnyTeamSkillVersions() ? `<button type="button" class="btn btn-sm" style="padding:1px 5px;margin-left:2px" onclick="openTeamSkillVersionModal('${sk.id}','${singleScopeTeamId}')" title="Gérer la description pour mon équipe"><i class="ti ti-edit" style="font-size:11px"></i></button>` : ''}${skillTT(sk)}</span></td>`;
       collabs.forEach(c => {
         const comps  = getCollabComps(c.Id);
         const lvl    = comps[sk.id] || 0;
@@ -3268,6 +3488,12 @@ async function deleteFormation(id) {
 function renderParcours() {
   const me = getCurrentCollab();
   if (parcoursScopeFilter === 'mine' && !me) parcoursScopeFilter = 'team';
+  // feature 11 : à la première ouverture, un manager voit par défaut le périmètre de son équipe.
+  if (!parcoursScopeInit) {
+    parcoursScopeInit = true;
+    const managesTeam = getManagedTeamIdsForCurrentUser().length > 0 || hasDroit('equipe_consultation');
+    if (managesTeam && !hasDroit('toutes_consultation')) parcoursScopeFilter = 'team';
+  }
   const list = getVisibleParcours();
   const canSeeScope = hasDroit('equipe_consultation') || hasDroit('toutes_consultation') || canManageParcours();
   let h = `${sharepointParcoursWarningHtml()}
@@ -3704,17 +3930,29 @@ async function deleteParcours(id) {
 // =====================================================================
 function renderCollabs() {
   const q = (document.getElementById('search-input') || {value:''}).value.toLowerCase();
+  const managedTeamIds = getManagedTeamIdsForCurrentUser();
+  // feature 5 : par défaut, un manager ne voit que les membres de ses équipes (filtre modifiable ensuite).
+  if (!collabScopeInit) {
+    collabScopeInit = true;
+    if (!filterTeam && managedTeamIds.length && !hasDroit('toutes_consultation')) filterTeam = '__my_teams__';
+  }
+  const matchesTeamFilter = c => {
+    if (!filterTeam) return true;
+    if (filterTeam === '__my_teams__') return (c.teamIds || []).some(tid => managedTeamIds.includes(String(tid)));
+    return c.teamIds && c.teamIds.includes(filterTeam);
+  };
   let list = getVisibleCollabs().filter(c => {
     const fn = ((c.prenom||'') + ' ' + (c.Nom||'')).toLowerCase();
     const functions = collabFunctionLabel(c).toLowerCase();
-    return (!filterTeam || c.teamIds && c.teamIds.includes(filterTeam))
+    return matchesTeamFilter(c)
         && (!filterPoste || collabHasFunction(c, filterPoste))
         && (!q || fn.includes(q) || functions.includes(q));
   });
   list = sortCollabsForCards(list);
   let h = `<div class="filters">
     <select onchange="filterTeam=this.value;applyFilters()">
-      <option value="">Toutes les équipes</option>
+      <option value=""${filterTeam===''?' selected':''}>Toutes les équipes</option>
+      ${managedTeamIds.length ? `<option value="__my_teams__"${filterTeam==='__my_teams__'?' selected':''}>Mes équipes</option>` : ''}
       ${db.equipes.map(t => `<option value="${t.id}"${filterTeam===t.id?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
     </select>
     <select onchange="filterPoste=this.value;applyFilters()">
@@ -3751,6 +3989,224 @@ function renderCollabs() {
 
 
 // =====================================================================
+// MON ÉQUIPE (feature 2) — membres, compétences d'équipe, connaissances
+// =====================================================================
+function renderMyTeam() {
+  if (!hasAnyTeamManagementRight()) { showView(getDefaultViewForCurrentUser()); return; }
+  const isAdmin = hasStrictAdminAccess();
+  const teamsForView = (isAdmin ? db.equipes.slice() : getManagedTeamIdsForCurrentUser().map(id => teamById(id)).filter(Boolean))
+    .slice().sort((a,b) => nameCompareFr(a.name, b.name));
+  if (!teamsForView.length) {
+    document.getElementById('content').innerHTML = `<div class="empty"><i class="ti ti-users-group"></i>Vous ne gérez aucune équipe pour le moment.</div>`;
+    return;
+  }
+  if (!myTeamSelected || !teamsForView.some(t => String(t.id) === String(myTeamSelected))) myTeamSelected = String(teamsForView[0].id);
+  const team = teamById(myTeamSelected);
+  if (!team) { document.getElementById('content').innerHTML = ''; return; }
+
+  const canMembers = canManageTeamMembers(team.id);
+  const canConn = canManageConnaissancesForTeam(team.id) && connaissancesListAvailable;
+  const canSkills = canManageTeamSkillVersionsForTeam(team.id);
+
+  const members = db.collaborateurs
+    .filter(c => (c.teamIds || []).includes(String(team.id)))
+    .sort((a,b) => nameCompareFr((a.Nom||'')+' '+(a.prenom||''), (b.Nom||'')+' '+(b.prenom||'')));
+  const nonMembers = db.collaborateurs
+    .filter(c => !(c.teamIds || []).includes(String(team.id)))
+    .sort((a,b) => nameCompareFr((a.Nom||'')+' '+(a.prenom||''), (b.Nom||'')+' '+(b.prenom||'')));
+
+  let h = `<div class="filters">
+    <select onchange="myTeamSelected=this.value;renderMyTeam()">
+      ${teamsForView.map(t => `<option value="${t.id}"${String(t.id)===String(myTeamSelected)?' selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+    </select>
+    <span class="stat-pill">${members.length} membre(s)</span>
+  </div>`;
+
+  // --- Membres ---
+  h += `<div class="admin-card"><div class="admin-hdr"><h3>Membres de l’équipe</h3></div>
+    <table class="adm"><thead><tr><th>Nom</th><th>Fonction(s)</th><th>Connaissances</th>${canMembers?'<th></th>':''}</tr></thead><tbody>`;
+  if (!members.length) h += `<tr><td colspan="${canMembers?4:3}" style="color:#aaa">Aucun membre pour le moment.</td></tr>`;
+  members.forEach(c => {
+    const connCount = Object.keys(getCollabConnaissances(c)).length;
+    h += `<tr>
+      <td style="font-weight:500"><button class="clickable-text" onclick="openCollabModal('${c.Id}')">${escapeHtml((c.prenom||'')+' '+(c.Nom||''))}</button></td>
+      <td>${escapeHtml(collabFunctionLabel(c, true))}</td>
+      <td>${connCount ? `<span class="stat-pill">${connCount}</span>` : '<span style="color:#aaa">—</span>'}</td>
+      ${canMembers ? `<td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="removeTeamMember('${team.id}','${c.Id}')" title="Retirer de l’équipe"><i class="ti ti-user-minus"></i></button></td>` : ''}
+    </tr>`;
+  });
+  h += `</tbody></table>`;
+  if (canMembers) {
+    h += `<div style="padding:10px 13px;border-top:.5px solid #f0efe8;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="mt-add-member" style="min-width:220px">
+        <option value="">Ajouter un·e collaborateur·ice existant·e…</option>
+        ${nonMembers.map(c => `<option value="${c.Id}">${escapeHtml((c.prenom||'')+' '+(c.Nom||''))}</option>`).join('')}
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="addTeamMemberFromSelect('${team.id}','mt-add-member')"><i class="ti ti-user-plus"></i>Ajouter à l’équipe</button>
+    </div>`;
+  }
+  h += `</div>`;
+
+  // --- Connaissances ---
+  const teamConn = (db.connaissances || []).filter(k => String(k.teamId) === String(team.id)).sort((a,b) => nameCompareFr(a.title, b.title));
+  const sharedOther = (db.connaissances || []).filter(k => String(k.teamId) !== String(team.id) && k.partagee).sort((a,b) => nameCompareFr(a.title, b.title));
+  h += `<div class="admin-card"><div class="admin-hdr"><h3>Connaissances de l’équipe</h3></div>
+    <table class="adm"><thead><tr><th>Connaissance</th><th>Portée</th>${canConn?'<th></th>':''}</tr></thead><tbody>`;
+  if (!teamConn.length) h += `<tr><td colspan="${canConn?3:2}" style="color:#aaa">Aucune connaissance créée pour cette équipe.</td></tr>`;
+  teamConn.forEach(k => {
+    h += `<tr>
+      <td style="font-weight:500">${escapeHtml(k.title)}</td>
+      <td>${k.partagee ? '<span class="tag" style="background:#E1F5EE;color:#085041">Partagée</span>' : '<span class="tag" style="background:#f5f5f0;color:#5F5E5A">Équipe uniquement</span>'}</td>
+      ${canConn ? `<td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" onclick="renameConnaissance('${k.id}')" title="Renommer"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm" onclick="toggleConnaissancePartage('${k.id}')" title="Basculer le partage"><i class="ti ti-share"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteConnaissanceGlobal('${k.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
+      </td>` : ''}
+    </tr>`;
+  });
+  h += `</tbody></table>`;
+  if (canConn) {
+    h += `<div style="padding:10px 13px;border-top:.5px solid #f0efe8;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="mt-new-conn" placeholder="Nouvelle connaissance (ex : Droit de l’environnement)" style="min-width:260px;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px">
+      <button class="btn btn-sm btn-primary" onclick="createTeamConnaissanceFromInput('${team.id}','mt-new-conn')"><i class="ti ti-plus"></i>Créer</button>
+      <span class="lock-note" style="margin:0">Les connaissances partagées sont réutilisables par les autres équipes.</span>
+    </div>`;
+  }
+  if (sharedOther.length) {
+    h += `<div style="padding:8px 13px;border-top:.5px solid #f0efe8;font-size:11px;color:#5F5E5A">Connaissances partagées par d’autres équipes (réutilisables sur les fiches) : ${sharedOther.map(k => `<span class="tag" style="background:#f5f5f0;color:#5F5E5A;margin:2px">${escapeHtml(k.title)}</span>`).join('')}</div>`;
+  }
+  h += `</div>`;
+
+  // --- Compétences de l'équipe ---
+  const proposedForTeam = (db.competencesEquipe || []).filter(v => v.estNouvelle && v.statutValidation === 'nouvelle' && String(v.teamId) === String(team.id));
+  const activeLabels = Object.entries(team.competencesActives || {}).map(([sid, vid]) => {
+    const v = (db.competencesEquipe || []).find(x => String(x.id) === String(vid));
+    const sk = skillById(sid);
+    return v && sk ? { sid, sk, v } : null;
+  }).filter(Boolean);
+  h += `<div class="admin-card"><div class="admin-hdr"><h3>Compétences de l’équipe</h3>
+    ${canSkills ? `<button class="btn btn-primary" onclick="openTeamSkillVersionModal(null,'${team.id}')"><i class="ti ti-plus"></i>Proposer une compétence</button>` : ''}
+  </div><div style="padding:12px 16px">`;
+  h += `<div style="font-size:12px;font-weight:600;color:#5F5E5A;margin-bottom:6px">Compétences proposées</div>`;
+  if (!proposedForTeam.length) h += `<div style="font-size:12px;color:#aaa;margin-bottom:10px">Aucune compétence proposée par cette équipe.</div>`;
+  else proposedForTeam.forEach(v => {
+    h += `<div class="form-link-row" style="margin-bottom:4px">
+      <span style="flex:1;font-size:13px">${escapeHtml(v.title || '(sans nom)')} <span class="tag" style="background:#EEEDFE;color:#534AB7">proposée</span></span>
+      ${canDeleteTeamSkillVersion(v) ? `<button class="btn btn-sm btn-danger" onclick="deleteTeamSkillVersion('${v.id}')"><i class="ti ti-trash"></i></button>` : ''}
+    </div>`;
+  });
+  h += `<div style="font-size:12px;font-weight:600;color:#5F5E5A;margin:12px 0 6px">Libellés personnalisés actifs</div>`;
+  if (!activeLabels.length) h += `<div style="font-size:12px;color:#aaa">Aucun libellé personnalisé actif pour cette équipe.</div>`;
+  else activeLabels.forEach(({sid, sk, v}) => {
+    h += `<div class="form-link-row" style="margin-bottom:4px">
+      <span style="flex:1;font-size:13px">${escapeHtml(sk.name)}${v.auteurNom ? ` <span style="font-size:11px;color:#aaa">— ${escapeHtml(v.auteurNom)}</span>` : ''}</span>
+      ${canSkills ? `<button class="btn btn-sm" onclick="openTeamSkillVersionModal('${sid}','${team.id}')"><i class="ti ti-edit"></i></button>` : ''}
+    </div>`;
+  });
+  h += `</div></div>`;
+
+  document.getElementById('content').innerHTML = h;
+}
+
+async function addTeamMemberFromSelect(teamId, selectId) {
+  const el = document.getElementById(selectId);
+  const cid = el ? el.value : '';
+  if (!cid) return;
+  if (!canManageTeamMembers(teamId)) { alert('Action non autorisée.'); return; }
+  const c = db.collaborateurs.find(x => String(x.Id) === String(cid));
+  if (!c) return;
+  const ids = Array.from(new Set([...(c.teamIds || []).map(String), String(teamId)]));
+  showSave('Enregistrement...');
+  try {
+    await spPatch(CONFIG.lists.collaborateurs, cid, { TeamIds: ids.join(',') });
+    await loadData();
+    hideSave('Enregistré ✓');
+    renderMyTeam();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+async function removeTeamMember(teamId, collabId) {
+  if (!canManageTeamMembers(teamId)) { alert('Action non autorisée.'); return; }
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+  if (!c) return;
+  if (!confirm(`Retirer ${c.prenom} ${c.Nom || ''} de cette équipe ?`)) return;
+  const ids = (c.teamIds || []).map(String).filter(id => id !== String(teamId));
+  showSave('Enregistrement...');
+  try {
+    await spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: ids.join(',') });
+    await loadData();
+    hideSave('Enregistré ✓');
+    renderMyTeam();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+async function createTeamConnaissanceFromInput(teamId, inputId) {
+  const el = document.getElementById(inputId);
+  const name = el ? el.value.trim() : '';
+  if (!name) return;
+  if (!canManageConnaissancesForTeam(teamId)) { alert('Action non autorisée.'); return; }
+  showSave('Enregistrement...');
+  try {
+    await createConnaissance(name, teamId, { partagee: true });
+    await loadData();
+    hideSave('Enregistré ✓');
+    if (currentView === 'my-team') renderMyTeam(); else if (currentView === 'admin-teams') renderAdminTeams();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+async function renameConnaissance(connId) {
+  const k = getConnaissanceById(connId);
+  if (!k) return;
+  if (!(hasStrictAdminAccess() || canManageConnaissancesForTeam(k.teamId))) { alert('Action non autorisée.'); return; }
+  const name = prompt('Nom de la connaissance :', k.title);
+  if (name === null) return;
+  const clean = name.trim();
+  if (!clean) return;
+  showSave('Enregistrement...');
+  try {
+    await spPatch(CONFIG.lists.connaissances, connId, { Title: clean });
+    await loadData();
+    hideSave('Enregistré ✓');
+    if (currentView === 'my-team') renderMyTeam(); else if (currentView === 'admin-teams') renderAdminTeams();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+async function toggleConnaissancePartage(connId) {
+  const k = getConnaissanceById(connId);
+  if (!k) return;
+  if (!(hasStrictAdminAccess() || canManageConnaissancesForTeam(k.teamId))) { alert('Action non autorisée.'); return; }
+  showSave('Enregistrement...');
+  try {
+    await spPatch(CONFIG.lists.connaissances, connId, { Partagee: !k.partagee });
+    await loadData();
+    hideSave('Enregistré ✓');
+    if (currentView === 'my-team') renderMyTeam(); else if (currentView === 'admin-teams') renderAdminTeams();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+async function deleteConnaissanceGlobal(connId) {
+  const k = getConnaissanceById(connId);
+  if (!k) return;
+  if (!(hasStrictAdminAccess() || canManageConnaissancesForTeam(k.teamId))) { alert('Action non autorisée.'); return; }
+  if (!confirm(`Supprimer la connaissance « ${k.title} » ?\n\nElle sera retirée de toutes les fiches où elle est utilisée.`)) return;
+  showSave('Suppression...');
+  try {
+    for (const c of db.collaborateurs) {
+      let changed = false;
+      const conn = { ...(c.connaissances || {}) };
+      if (conn[connId] !== undefined) { delete conn[connId]; changed = true; }
+      const sc = JSON.parse(JSON.stringify(c.competencesConnaissances || {}));
+      Object.keys(sc).forEach(sid => {
+        const before = (sc[sid] || []).length;
+        sc[sid] = (sc[sid] || []).filter(x => String(x) !== String(connId));
+        if (sc[sid].length !== before) changed = true;
+        if (!sc[sid].length) delete sc[sid];
+      });
+      if (changed) await spPatch(CONFIG.lists.collaborateurs, c.Id, { Connaissances: JSON.stringify(conn), CompetencesConnaissances: JSON.stringify(sc) });
+    }
+    await spDelete(CONFIG.lists.connaissances, connId);
+    await loadData();
+    hideSave('Supprimé ✓');
+    if (currentView === 'my-team') renderMyTeam(); else if (currentView === 'admin-teams') renderAdminTeams();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+// =====================================================================
 // COLLAB MODAL
 // =====================================================================
 function openCollabModal(id, focusSkill) {
@@ -3770,6 +4226,8 @@ function openCollabModal(id, focusSkill) {
   collabEdit._history  = id ? getCollabHistory(id) : [];
   collabEdit._lastUpdate = id ? getCollabLastUpdate(id) : { text:'', spId:null, ts:0 };
   collabEdit._changes  = {};
+  collabEdit._connaissances = c ? JSON.parse(JSON.stringify(c.connaissances || {})) : {};
+  collabEdit._skillConn = c ? JSON.parse(JSON.stringify(c.competencesConnaissances || {})) : {};
 
   document.getElementById('m-av').textContent = (collabEdit.prenom||'?')[0] + (collabEdit.Nom||'?')[0];
   document.getElementById('m-title').textContent = id ? `${collabEdit.prenom} ${collabEdit.Nom||''}` : 'Nouveau collaborateur·ice';
@@ -3906,6 +4364,98 @@ function collabFunctionsEditorHtml(c, canHeader) {
     <div id="function-weight-summary" class="function-weight-summary"></div>`;
 }
 
+function collabConnaissancesEditorHtml(c) {
+  if (!connaissancesListAvailable) return '<div class="lock-note"><i class="ti ti-info-circle"></i> La liste SharePoint « Connaissances » doit être créée pour activer cette fonctionnalité.</div>';
+  if (!c.Id) return '<div class="lock-note">Enregistrez d’abord la fiche pour pouvoir renseigner des connaissances.</div>';
+  const canEdit = canManageConnaissancesForCollab(c.Id);
+  const current = collabEdit._connaissances || {};
+  const entries = Object.keys(current);
+  const selectable = getSelectableConnaissancesForCollab(c).filter(k => !(k.id in current));
+  let html = '';
+  if (!entries.length) html += '<div style="font-size:12px;color:#aaa;margin-bottom:6px">Aucune connaissance renseignée.</div>';
+  else {
+    html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">';
+    entries.forEach(id => {
+      const k = getConnaissanceById(id);
+      const niv = current[id] || 'notion';
+      html += `<div style="display:flex;align-items:center;gap:8px">
+        <span style="flex:1;font-size:13px">${escapeHtml(k ? k.title : '(connaissance supprimée)')}</span>
+        ${canEdit ? `<select onchange="setCollabConnaissanceNiveau('${id}',this.value)" style="width:140px">
+          ${CONN_NIVEAU_ORDER.map(n => `<option value="${n}"${niv===n?' selected':''}>${CONN_NIVEAUX[n]}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeCollabConnaissance('${id}')" title="Retirer"><i class="ti ti-trash"></i></button>`
+        : `<span class="tag" style="background:#EEEDFE;color:#3C3489">${CONN_NIVEAUX[niv]||''}</span>`}
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (canEdit) {
+    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <select id="c-add-conn" style="min-width:200px">
+        <option value="">Ajouter une connaissance existante…</option>
+        ${selectable.map(k => `<option value="${k.id}">${escapeHtml(k.title)}</option>`).join('')}
+      </select>
+      <button type="button" class="btn btn-sm" onclick="addCollabConnaissanceFromSelect()"><i class="ti ti-plus"></i>Ajouter</button>
+      <button type="button" class="btn btn-sm" onclick="createAndAddCollabConnaissance()"><i class="ti ti-bulb"></i>Créer une connaissance</button>
+    </div>
+    <div class="lock-note">Le niveau (notion / maîtrise / expertise) qualifie la connaissance. Rattachez-la ensuite aux compétences concernées via l’icône <i class="ti ti-bulb"></i> sur chaque ligne de compétence.</div>`;
+  }
+  return html;
+}
+function setCollabConnaissanceNiveau(id, niveau) { if (!collabEdit._connaissances) collabEdit._connaissances = {}; collabEdit._connaissances[id] = niveau; }
+function removeCollabConnaissance(id) {
+  if (collabEdit._connaissances) delete collabEdit._connaissances[id];
+  Object.keys(collabEdit._skillConn || {}).forEach(sid => {
+    collabEdit._skillConn[sid] = (collabEdit._skillConn[sid] || []).filter(x => String(x) !== String(id));
+    if (!collabEdit._skillConn[sid].length) delete collabEdit._skillConn[sid];
+  });
+  renderCollabBody();
+}
+function addCollabConnaissanceFromSelect() {
+  const el = document.getElementById('c-add-conn');
+  const id = el ? el.value : '';
+  if (!id) return;
+  if (!collabEdit._connaissances) collabEdit._connaissances = {};
+  collabEdit._connaissances[id] = 'notion';
+  renderCollabBody();
+}
+async function createAndAddCollabConnaissance() {
+  const c = collabEdit;
+  if (!canManageConnaissancesForCollab(c.Id)) { alert('Action non autorisée.'); return; }
+  const name = prompt('Nom de la nouvelle connaissance :');
+  if (name === null) return;
+  const clean = name.trim();
+  if (!clean) return;
+  const managed = getManagedTeamIdsForCurrentUser();
+  const teamId = (c.teamIds || []).find(t => managed.includes(String(t))) || (c.teamIds || [])[0] || managed[0] || '';
+  showSave('Création...');
+  try {
+    const id = await createConnaissance(clean, teamId, { partagee: true });
+    if (id) { if (!collabEdit._connaissances) collabEdit._connaissances = {}; collabEdit._connaissances[id] = 'notion'; }
+    hideSave('Créé ✓');
+    renderCollabBody();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+function getSkillConnState(skillId) { return (collabEdit._skillConn && collabEdit._skillConn[skillId]) || []; }
+function toggleSkillConn(skillId, connId, checked) {
+  if (!collabEdit._skillConn) collabEdit._skillConn = {};
+  const arr = new Set((collabEdit._skillConn[skillId] || []).map(String));
+  if (checked) arr.add(String(connId)); else arr.delete(String(connId));
+  collabEdit._skillConn[skillId] = Array.from(arr);
+  if (!collabEdit._skillConn[skillId].length) delete collabEdit._skillConn[skillId];
+  renderCollabBody();
+}
+function skillConnChipsHtml(c, skillId) {
+  const ids = getSkillConnState(skillId);
+  if (!ids.length) return '';
+  return ' ' + ids.map(id => {
+    const k = getConnaissanceById(id);
+    const niv = (collabEdit._connaissances || {})[id];
+    return `<span class="tag" style="background:#E1F5EE;color:#085041;font-size:10px">${escapeHtml(k ? k.title : '?')}${niv ? ' · ' + CONN_NIVEAUX[niv] : ''}</span>`;
+  }).join(' ');
+}
+function toggleKp(skillId) { const el = document.getElementById('kp-' + skillId); if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+
 function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   const lvl    = c._comps[sk.id] || 0;
   const rawTarget = poste.targets[sk.id];
@@ -3923,6 +4473,17 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
   const canValidateLevel = pending && canValidateCompetencesForCollab(c.Id);
   const canEditMgrComment = canEditManagerCommentForCollab(c.Id);
   const canEditColComment = canEditCollaborateurCommentForCollab(c.Id);
+  const collabConnEntries = Object.keys(collabEdit._connaissances || {});
+  const canConnEdit = canManageConnaissancesForCollab(c.Id);
+  const attachedConn = getSkillConnState(sk.id);
+  const kpBtn = (collabConnEntries.length && canConnEdit) ? `<button class="cm-btn${attachedConn.length?' has':''}" onclick="toggleKp('${sk.id}')" title="Connaissances mobilisées sur cette compétence"><i class="ti ti-bulb"></i></button>` : '';
+  const kpPanel = (collabConnEntries.length && canConnEdit) ? `<div class="cm-panel" id="kp-${sk.id}" style="display:${sk.id===focusSkill?'block':'none'}">
+    <div class="cm-block"><div class="cm-lbl"><i class="ti ti-bulb"></i> Connaissances mobilisées sur cette compétence</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${collabConnEntries.map(cid => { const k = getConnaissanceById(cid); return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" ${attachedConn.map(String).includes(String(cid))?'checked':''} onchange="toggleSkillConn('${sk.id}','${cid}',this.checked)">${escapeHtml(k?k.title:'?')}${collabEdit._connaissances[cid]?' · '+CONN_NIVEAUX[collabEdit._connaissances[cid]]:''}</label>`; }).join('')}
+      </div>
+    </div>
+  </div>` : '';
   const pendingLevel = pending ? Number(pending.niveau || 0) : null;
   const devOptions = getDevelopmentOptionsForSkill(sk.id, lvl, target);
   const targetArg = target != null ? Number(target) : 'null';
@@ -3953,6 +4514,7 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
         ${targetEff.overridden ? ` <span class="tt-tag" style="border:.5px solid #856404;color:#856404;background:#FFF3CD" title="${escapeHtml((targetEff.override.mode==='excluded'?'Non attendu pour cette personne':'Niveau personnalisé : '+targetEff.override.niveau) + (targetEff.override.auteurNom?' — modifié par '+targetEff.override.auteurNom:'') + (targetEff.override.date?' le '+fmtDate(targetEff.override.date):'') + (targetEff.override.comment?String.fromCharCode(10,10)+targetEff.override.comment:''))}"><i class="ti ti-user-edit"></i> ${targetEff.override.mode==='excluded'?'non attendu':'perso.'}</span>` : ''}
         ${canEditOverride ? `<button type="button" class="btn btn-sm" style="padding:1px 5px;margin-left:2px" onclick="editExpectedOverride('${sk.id}')" title="Personnaliser l'attendu pour cette personne"><i class="ti ti-adjustments" style="font-size:11px"></i></button>` : ''}
         ${strategyTagsHtml(sk.id)}
+        ${skillConnChipsHtml(c, sk.id)}
         ${pending ? ` <span class="tt-tag" style="border:.5px dashed #A32D2D;color:#7A3A28;background:#fffaf5">en attente:${pendingLevelLabel(pending)}</span>` : ''}
         ${skillTT(sk,'tup',posteIdForDesc)}
       </span>
@@ -3968,9 +4530,11 @@ function renderSkillRow(sk, c, poste, focusSkill, isExtra, displayPosteId) {
         }).join('')}
       </div>
       ${devBtn}
+      ${kpBtn}
       <button class="cm-btn${hasCm?' has':''}" onclick="toggleCm('${sk.id}')"><i class="ti ti-message"></i></button>
     </div>
     ${pendingBox}
+    ${kpPanel}
     <div class="cm-panel" id="cp-${sk.id}">
       ${hasDroit('equipe_validation') || hasStrictAdminAccess() ? `<div class="cm-block">
         <div class="cm-lbl mgr"><i class="ti ti-shield-check"></i> Manager</div>
@@ -3998,6 +4562,7 @@ function renderCollabBody(focusSkill) {
   const projectionPoste = projectionId ? posteById(projectionId) : null;
   const isProjection = !!projectionId;
   const canHeader = canEditCollabHeader();
+  const canFunctions = canEditCollabFunctions(c.Id);
   const headerDisabled = canHeader ? '' : ' disabled';
   const headerNote = canHeader ? '' : '<div class="lock-note"><i class="ti ti-lock"></i> Entête modifiable uniquement par les rôles autorisés.</div>';
   const grouped = {};
@@ -4024,8 +4589,8 @@ function renderCollabBody(focusSkill) {
     <div class="field"><label>Nom</label><input type="text" id="c-nom" value="${escapeHtml(c.Nom||'')}" oninput="collabEdit.Nom=this.value"${headerDisabled}></div>
     <div class="field"><label>Email</label><input type="text" id="c-email" value="${escapeHtml(c.Email||'')}" oninput="collabEdit.Email=this.value"${headerDisabled}></div>
     <div class="field"><label>Fonctions et pondération</label>
-      ${collabFunctionsEditorHtml(c, canHeader)}
-      ${!canHeader ? '' : '<div class="lock-note">La pondération sert au calcul du pourcentage de maîtrise lorsque plusieurs fonctions sont associées.</div>'}
+      ${collabFunctionsEditorHtml(c, canFunctions)}
+      ${!canFunctions ? '' : '<div class="lock-note">La pondération sert au calcul du pourcentage de maîtrise lorsque plusieurs fonctions sont associées.</div>'}
     </div>
     <div class="field full"><label>Équipes</label><div class="team-checks" id="team-checks-wrap">
       ${tchecks}${showAllBtn}
@@ -4036,6 +4601,9 @@ function renderCollabBody(focusSkill) {
         <option value="">— Aucun —</option>
         ${db.collaborateurs.filter(x => String(x.Id) !== String(c.Id)).map(x => `<option value="${x.Id}"${String(c.ManagerID)===String(x.Id)?' selected':''}>${escapeHtml((x.prenom||'') + ' ' + (x.Nom||''))}</option>`).join('')}
       </select>
+    </div>
+    <div class="field full"><label>Connaissances</label>
+      ${collabConnaissancesEditorHtml(c)}
     </div>
     <div class="field full"><label>Se projeter dans une fonction</label>
       <select id="c-projection-poste" onchange="collabEdit._projectionPosteId=this.value;collabEdit._showExtra=false;renderCollabBody()">
@@ -4538,6 +5106,18 @@ async function saveCollab(id) {
         TeamIds:   (collabEdit.teamIds || []).join(','),
         ManagerID: document.getElementById('c-manager').value || ''
       });
+    } else if (id && canEditCollabFunctions(id)) {
+      // feature 6 : un manager autorisé peut modifier uniquement les fonctions et pondérations.
+      ensureCollabFunctionState();
+      const fonctionIds = getCollabFunctionIds(collabEdit);
+      const fonctionWeights = normalizeCollabFunctionWeights(collabEdit.fonctionWeights || {}, fonctionIds);
+      const weightsValidation = validateCollabFunctionWeights(fonctionIds, fonctionWeights);
+      if (!weightsValidation.valid) { alert(weightsValidation.message); hideSave('Erreur !'); return; }
+      Object.assign(collabData, {
+        PosteId:   fonctionIds[0] || '',
+        PosteIds:  JSON.stringify(fonctionIds),
+        FonctionsPonderation: JSON.stringify(fonctionWeights)
+      });
     }
 
     if (id) {
@@ -4545,6 +5125,14 @@ async function saveCollab(id) {
     } else {
       const res = await spPost(CONFIG.lists.collaborateurs, collabData);
       collabSpId = res.Id;
+    }
+
+    // Connaissances (feature 3) : portefeuille + rattachements par compétence.
+    if (collabSpId && canManageConnaissancesForCollab(collabSpId)) {
+      await spPatch(CONFIG.lists.collaborateurs, collabSpId, {
+        Connaissances: JSON.stringify(collabEdit._connaissances || {}),
+        CompetencesConnaissances: JSON.stringify(collabEdit._skillConn || {})
+      });
     }
 
     const canCompetenceEdit = canEditCompetencesForCollab(collabSpId);
@@ -4769,7 +5357,7 @@ function renderAdminTeams() {
     <button class="btn btn-primary" onclick="openTeamModal(null)"><i class="ti ti-plus"></i>Nouvelle équipe</button>
   </div>
   <table class="adm"><thead><tr><th>Nom</th><th>Managers</th><th>Membres</th><th></th></tr></thead><tbody>`;
-  db.equipes.forEach(t => {
+  db.equipes.slice().sort((a,b) => nameCompareFr(a.name, b.name)).forEach(t => {
     const membres = db.collaborateurs.filter(c => c.teamIds && c.teamIds.includes(String(t.id)));
     const managers = (t.managerIds||[]).map(mid => {
       const m = db.collaborateurs.find(x => String(x.Id) === String(mid));
@@ -4789,6 +5377,39 @@ function renderAdminTeams() {
     </tr>`;
   });
   h += `</tbody></table></div>`;
+
+  // Panneau d'administration des connaissances (feature 3) : l'admin peut tout modifier/supprimer.
+  if (connaissancesListAvailable) {
+    const allConn = (db.connaissances || []).slice().sort((a,b) => nameCompareFr(a.title, b.title));
+    h += `<div class="admin-card"><div class="admin-hdr"><h3>Connaissances (${allConn.length})</h3></div>
+      <table class="adm"><thead><tr><th>Connaissance</th><th>Équipe d’origine</th><th>Portée</th><th>Utilisée par</th><th></th></tr></thead><tbody>`;
+    if (!allConn.length) h += `<tr><td colspan="5" style="color:#aaa">Aucune connaissance enregistrée.</td></tr>`;
+    allConn.forEach(k => {
+      const team = teamById(k.teamId);
+      const usedBy = db.collaborateurs.filter(c => (c.connaissances || {})[k.id] !== undefined).length;
+      h += `<tr>
+        <td style="font-weight:500">${escapeHtml(k.title)}</td>
+        <td>${team ? escapeHtml(team.name) : '<span style="color:#aaa">—</span>'}</td>
+        <td>${k.partagee ? '<span class="tag" style="background:#E1F5EE;color:#085041">Partagée</span>' : '<span class="tag" style="background:#f5f5f0;color:#5F5E5A">Équipe uniquement</span>'}</td>
+        <td><span class="stat-pill">${usedBy}</span></td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="renameConnaissance('${k.id}')" title="Renommer"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm" onclick="toggleConnaissancePartage('${k.id}')" title="Basculer le partage"><i class="ti ti-share"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deleteConnaissanceGlobal('${k.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+    h += `</tbody></table>
+      <div style="padding:10px 13px;border-top:.5px solid #f0efe8;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="adm-conn-team">
+          <option value="">Équipe d’origine…</option>
+          ${db.equipes.slice().sort((a,b) => nameCompareFr(a.name, b.name)).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+        </select>
+        <input type="text" id="adm-new-conn" placeholder="Nouvelle connaissance" style="min-width:240px;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px">
+        <button class="btn btn-sm btn-primary" onclick="createTeamConnaissanceFromInput(document.getElementById('adm-conn-team').value,'adm-new-conn')"><i class="ti ti-plus"></i>Créer</button>
+      </div>
+    </div>`;
+  }
   document.getElementById('content').innerHTML = h;
 }
 
@@ -6362,7 +6983,7 @@ ${plan.staticOnly.length} compétence(s) statique(s) corrigée(s) dans le fichie
 function backupRows() {
   return {
     Collaborateurs: db.collaborateurs.map(c => ({
-      Id:c.Id, Title:c.prenom||'', Prenom:c.Nom||'', Email:c.Email||'', PosteId:c.PosteId||'', PosteIds:JSON.stringify(getCollabFunctionIds(c)), FonctionsPonderation:JSON.stringify(getCollabFunctionWeights(c)), TeamIds:(c.teamIds||[]).join(','), ManagerID:c.ManagerID||c.ManagerId||'', AttendusPersonnalises:JSON.stringify(c.attendusPersonnalises||{})
+      Id:c.Id, Title:c.prenom||'', Prenom:c.Nom||'', Email:c.Email||'', PosteId:c.PosteId||'', PosteIds:JSON.stringify(getCollabFunctionIds(c)), FonctionsPonderation:JSON.stringify(getCollabFunctionWeights(c)), TeamIds:(c.teamIds||[]).join(','), ManagerID:c.ManagerID||c.ManagerId||'', AttendusPersonnalises:JSON.stringify(c.attendusPersonnalises||{}), Connaissances:JSON.stringify(c.connaissances||{}), CompetencesConnaissances:JSON.stringify(c.competencesConnaissances||{})
     })),
     Competences: db.competences.map(c => ({ Id:c.Id, Title:(c.SkillId||c.Title)||'', SkillId:(c.SkillId||c.Title)||'', CollabId:c.CollabId||'', Niveau:c.Niveau||'' })),
     Commentaires: db.commentaires.map(c => ({ Id:c.Id, Title:c.Title||'', SkillId:c.SkillId||'', TypeAuteur:c.TypeAuteur||'', Contenu:c.Contenu||'', DateSaisie:c.DateSaisie||'' })),
@@ -6376,7 +6997,8 @@ function backupRows() {
     Parcours: db.parcours.map(p => ({ Id:p.id, Title:p.title||'', Description:p.description||'', Jalons:JSON.stringify(normalizeParcoursMilestones(p.jalons||[])), Cibles:JSON.stringify(normalizeParcoursTargets(p.cibles||{})), Actif:p.actif!==false })),
     AxesStrategiques: db.axesStrategiques.map(a => ({ Id:a.id, Title:a.title||'', Description:a.description||'', Couleur:a.couleur||'', CompetencesNiveaux:JSON.stringify(normalizeStrategyLinks(a.skills||[])), Objectifs:JSON.stringify(a.objectifs||{}), ObjectifsEquipes:JSON.stringify(a.objectifsEquipes||{}), Actif:a.actif!==false })),
     CompetencesEquipe: db.competencesEquipe.map(v => ({ Id:v.id, Title:v.title||'', SkillId:v.skillId||'', DomainId:v.domainId||'', TeamId:v.teamId||'', Niveaux:JSON.stringify(v.niveaux||{}), EstNouvelle:v.estNouvelle, Partagee:v.partagee, StatutValidation:v.statutValidation||'nouvelle', AuteurEmail:v.auteurEmail||'', AuteurNom:v.auteurNom||'', DateCreation:v.dateCreation||'' })),
-    Suggestions: db.suggestions.map(s => ({ Id:s.id, Title:s.title||'', Description:s.description||'', TypeSuggestion:s.type||'suggestion', Statut:s.statut||'nouveau', AuteurEmail:s.auteurEmail||'', AuteurNom:s.auteurNom||'', DateCreation:s.dateCreation||'', Commentaires:JSON.stringify(s.commentaires||[]) }))
+    Suggestions: db.suggestions.map(s => ({ Id:s.id, Title:s.title||'', Description:s.description||'', TypeSuggestion:s.type||'suggestion', Statut:s.statut||'nouveau', AuteurEmail:s.auteurEmail||'', AuteurNom:s.auteurNom||'', DateCreation:s.dateCreation||'', Commentaires:JSON.stringify(s.commentaires||[]) })),
+    Connaissances: (db.connaissances||[]).map(k => ({ Id:k.id, Title:k.title||'', Description:k.description||'', TeamId:k.teamId||'', Partagee:!!k.partagee, AuteurEmail:k.auteurEmail||'', AuteurNom:k.auteurNom||'', DateCreation:k.dateCreation||'' }))
   };
 }
 function exportFullBackup() {
@@ -6470,8 +7092,8 @@ async function importFullBackup(event) {
     showSave('Lecture de la sauvegarde...');
     try {
       const wb = XLSX.read(ev.target.result, { type:'array' });
-      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','CompetencesEquipe','Suggestions','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
-      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {}, competencesEquipeMap = {};
+      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','CompetencesEquipe','Suggestions','Connaissances','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
+      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {}, competencesEquipeMap = {}, connaissanceMap = {};
       await loadData();
 
       for (const r of rows.Domaines) {
@@ -6537,13 +7159,36 @@ async function importFullBackup(event) {
         };
         await upsertFromBackup(CONFIG.lists.suggestions, r.Id, null, data);
       }
+      for (const r of (rows.Connaissances || [])) {
+        const oldId = String(r.Id || '');
+        const data = {
+          Title:String(r.Title||''), Description:String(r.Description||''),
+          TeamId: teamMap[String(r.TeamId||'')] || String(r.TeamId||''),
+          Partagee: r.Partagee === '' ? true : !!r.Partagee,
+          AuteurEmail:String(r.AuteurEmail||''), AuteurNom:String(r.AuteurNom||''),
+          DateCreation:String(r.DateCreation||new Date().toISOString())
+        };
+        const newId = await upsertFromBackup(CONFIG.lists.connaissances, oldId, null, data);
+        if (oldId) connaissanceMap[oldId] = newId;
+      }
       await loadData();
       for (const r of rows.Collaborateurs) {
         const newId = collabMap[String(r.Id||'')];
         if (!newId) continue;
         const teamIds = String(r.TeamIds||'').split(',').map(x => x.trim()).filter(Boolean).map(id => teamMap[id] || id).join(',');
         const managerId = collabMap[String(r.ManagerID||'')] || String(r.ManagerID||'');
-        await spPatch(CONFIG.lists.collaborateurs, newId, { TeamIds:teamIds, ManagerID:managerId });
+        // Connaissances (remap des identifiants de connaissance).
+        const connRaw = safeJsonParse(r.Connaissances || '{}', {});
+        const conn = {};
+        Object.entries(connRaw || {}).forEach(([cid, niv]) => { conn[connaissanceMap[String(cid)] || String(cid)] = niv; });
+        // CompetencesConnaissances (remap des clés compétence + des identifiants de connaissance).
+        const scRaw = safeJsonParse(r.CompetencesConnaissances || '{}', {});
+        const sc = {};
+        Object.entries(scRaw || {}).forEach(([sid, arr]) => {
+          const key = skillMap[String(sid)] || String(sid);
+          sc[key] = (Array.isArray(arr) ? arr : []).map(cid => connaissanceMap[String(cid)] || String(cid));
+        });
+        await spPatch(CONFIG.lists.collaborateurs, newId, { TeamIds:teamIds, ManagerID:managerId, Connaissances:JSON.stringify(conn), CompetencesConnaissances:JSON.stringify(sc) });
       }
       for (const r of rows.Equipes) {
         const newId = teamMap[String(r.Id||'')];
@@ -7142,8 +7787,24 @@ function renderSearchSkills() {
         <option value="">Tous les axes stratégiques</option>
         ${strategyOptionsHtml(filterStrategy)}
       </select>
+      ${(() => {
+        const connIds = getSearchScopeConnaissanceIds();
+        const available = connIds.map(id => getConnaissanceById(id)).filter(Boolean).sort((a,b) => nameCompareFr(a.title, b.title));
+        if (!available.length && !searchSkillConnFilter.length) return '';
+        const remaining = available.filter(k => !searchSkillConnFilter.map(String).includes(String(k.id)));
+        return `<select onchange="addSearchConnFilter(this.value)">
+          <option value="">Filtrer par connaissance…</option>
+          ${remaining.map(k => `<option value="${k.id}">${escapeHtml(k.title)}</option>`).join('')}
+        </select>`;
+      })()}
       <span class="stat-pill">${scopedCollabs.length} personne(s)</span>
     </div>
+    ${searchSkillConnFilter.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 10px;align-items:center">
+      <span style="font-size:12px;color:#5F5E5A">Connaissances filtrées :</span>
+      ${searchSkillConnFilter.map(id => { const k = getConnaissanceById(id); return `<span class="tag" style="background:#E1F5EE;color:#085041">${escapeHtml(k?k.title:'?')} <span style="cursor:pointer;font-weight:700" onclick="removeSearchConnFilter('${id}')">×</span></span>`; }).join('')}
+      <button class="btn btn-sm" onclick="clearSearchConnFilter()">Tout effacer</button>
+      <span class="lock-note" style="margin:0">Seules les personnes ayant rattaché l’une de ces connaissances à la compétence sont comptées.</span>
+    </div>` : ''}
     <div id="skill-search-results"></div>
     <div id="skill-search-all">`;
 
@@ -7179,6 +7840,19 @@ function renderSearchSkills() {
   if (searchSkillQuery.trim()) filterSkillSearch(searchSkillQuery);
 }
 
+function addSearchConnFilter(id) {
+  if (!id) return;
+  if (!searchSkillConnFilter.map(String).includes(String(id))) searchSkillConnFilter.push(String(id));
+  renderSearchSkills();
+}
+function removeSearchConnFilter(id) {
+  searchSkillConnFilter = searchSkillConnFilter.filter(x => String(x) !== String(id));
+  renderSearchSkills();
+}
+function clearSearchConnFilter() {
+  searchSkillConnFilter = [];
+  renderSearchSkills();
+}
 function filterSkillSearch(query = searchSkillQuery) {
   searchSkillQuery = query;
   const resultsEl = document.getElementById('skill-search-results');
@@ -7243,11 +7917,13 @@ function showSkillDetail(skillId) {
     byLevel[n].forEach(c => {
       const functions = collabFunctionLabel(c, true);
       const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? `<span class="team-tag">${escapeHtml(t.name)}</span>` : ''; }).join('');
+      const connIds = getCollabSkillConnaissances(c, skillId);
+      const connChips = connIds.map(id => { const k = getConnaissanceById(id); const niv = (c.connaissances||{})[id]; return k ? `<span class="tag" style="background:#E1F5EE;color:#085041;font-size:10px">${escapeHtml(k.title)}${niv?' · '+connNiveauLabel(niv):''}</span>` : ''; }).join(' ');
       body += `<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;background:#f5f5f0;margin-bottom:4px">
         <div style="flex:1">
           <button class="clickable-text" style="font-weight:500;font-size:13px" onclick="openCollabModal('${c.Id}','${skillId}')">${escapeHtml((c.prenom||'') + ' ' + (c.Nom||''))}</button>
           <div style="font-size:11px;color:#5F5E5A">${escapeHtml(functions)}</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${teams}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${teams}${connChips ? ' '+connChips : ''}</div>
         </div>
       </div>`;
     });
