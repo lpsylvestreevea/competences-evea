@@ -530,6 +530,27 @@ async function spGetOptional(listName, filter = '', select = '') {
   }
 }
 
+// Renvoie, pour une liste, quels champs (noms internes) existent réellement.
+// Retourne null si la vérification n'a pas pu être faite (réseau/permission) —
+// dans ce cas on ne présume rien et on laisse les écritures se protéger elles-mêmes.
+async function spFieldsPresent(listName, names) {
+  const token = await getToken();
+  if (!token) return null;
+  try {
+    const filter = names.map(n => `InternalName eq '${n}'`).join(' or ');
+    const url = `${CONFIG.siteUrl}/_api/web/lists/getbytitle('${listName}')/fields?$select=InternalName&$filter=${encodeURIComponent(filter)}`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json;odata=nometadata' } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const present = new Set((d.value || []).map(f => f.InternalName));
+    const out = {};
+    names.forEach(n => out[n] = present.has(n));
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function spPost(listName, data) {
   const token = await getToken();
   if (!token) return null;
@@ -545,7 +566,9 @@ async function spPost(listName, data) {
   if (!r.ok) {
     const errBody = await r.text();
     console.error(`spPost ${listName} erreur détail :`, errBody);
-    throw new Error(`spPost ${listName} → ${r.status}`);
+    const err = new Error(`spPost ${listName} → ${r.status}`);
+    err.body = errBody;
+    throw err;
   }
   return await r.json();
 }
@@ -567,7 +590,9 @@ async function spPatch(listName, id, data) {
 if (!r.ok) {
   const errBody = await r.text();
   console.error(`spPatch ${listName}(${id}) erreur détail :`, errBody);
-  throw new Error(`spPatch ${listName}(${id}) → ${r.status}`);
+  const err = new Error(`spPatch ${listName}(${id}) → ${r.status}`);
+  err.body = errBody;
+  throw err;
 }
 }
 
@@ -712,8 +737,17 @@ let competencesEquipeListAvailable = true;
 let suggestionsListAvailable = true;
 let connaissancesListAvailable = true;
 let buListAvailable = true;
+let buFieldOk = true;            // colonne BUId présente sur la liste Postes
+let nomSecondaireFieldOk = true; // colonne NomSecondaire présente sur la liste Postes
 let matrixBUFilter = '';   // filtre BU dans la matrice globale
 let filterBU = '';         // filtre BU dans la vue collaborateur·ices
+// État de l'onglet Compétences (recherche / filtre domaine)
+let adminSkillQuery = '';
+let adminSkillDomainFilter = '';
+// État de tri de l'onglet Collaborateur·ices (admin)
+let adminCollabFilterPoste = '';
+let adminCollabSortKey = 'nom';
+let adminCollabSortDir = 1;
 let searchSkillConnFilter = [];   // feature 4 : filtre connaissance(s) dans la recherche
 let matrixHideSuggestions = false; // feature 9 : masquer les compétences proposées dans la matrice
 let myTeamSelected = '';           // feature 2 : équipe active dans la vue « Mon équipe »
@@ -2307,6 +2341,14 @@ BUS.length = 0;
   });
 });
 
+// Vérifie une seule fois si les colonnes optionnelles de la liste Postes existent.
+// Si la vérification échoue (réseau/permission), on ne présume rien : les écritures
+// se protègent elles-mêmes (voir writePoste).
+try {
+  const pf = await spFieldsPresent(CONFIG.lists.postes, ['BUId', 'NomSecondaire']);
+  if (pf) { buFieldOk = pf.BUId; nomSecondaireFieldOk = pf.NomSecondaire; }
+} catch (e) { /* on garde les valeurs par défaut */ }
+
 // Remplace le tableau SKILLS statique si des données existent en base
 if (skillsRaw.length) {
   SKILLS.length = 0;
@@ -2812,6 +2854,7 @@ function renderMatrix() {
   const skills = displaySkills.filter(s => (!filterDomain || s.did === filterDomain) && (!filterStrategy || isSkillInStrategy(s.id, filterStrategy)) && (!q || s.name.toLowerCase().includes(q)));
   const singleScopeTeamId = scopeTeamIds.length === 1 ? scopeTeamIds[0] : '';
   let collabs = applyMatrixTeamFilter(getMatrixBaseCollabs());
+  const baseCollabCount = collabs.length;
   if (matrixPosteFilter) collabs = collabs.filter(c => collabHasFunction(c, matrixPosteFilter));
   if (matrixBUFilter && buById(matrixBUFilter)) collabs = collabs.filter(c => collabMatchesBU(c, matrixBUFilter));
   collabs = sortCollabsForMatrix(collabs);
@@ -2851,7 +2894,7 @@ function renderMatrix() {
       <input type="checkbox" ${matrixHideSuggestions?'checked':''} onchange="matrixHideSuggestions=this.checked;applyFilters()">
       Masquer les compétences proposées
     </label>` : ''}
-    <span class="stat-pill">${collabs.length} personne(s)</span>
+    <span class="stat-pill">${(matrixPosteFilter || (matrixBUFilter && buById(matrixBUFilter))) ? `${collabs.length} sur ${baseCollabCount}` : collabs.length} personne(s)</span>
     ${canManageAnyTeamSkillVersions() ? `<button class="btn btn-sm" onclick="openTeamSkillVersionModal(null,'${singleScopeTeamId}')"><i class="ti ti-plus"></i>Ajouter une compétence</button>` : ''}
   </div>
   <div class="matrix-wrap"><table class="mx"><thead><tr>
@@ -4025,6 +4068,7 @@ function renderCollabs() {
       <option value="team"${collabSort==='team'?' selected':''}>Tri : équipe</option>
       <option value="mastery"${collabSort==='mastery'?' selected':''}>Tri : maîtrise de la fonction</option>
     </select>
+    <span class="stat-pill" style="margin-left:auto">${(filterTeam || filterPoste || (filterBU && buById(filterBU)) || q) ? `${list.length} sur ${getVisibleCollabs().length}` : list.length} personne(s)</span>
   </div><div class="collab-grid">`;
   list.forEach(c => {
     const funcs = collabFunctionLabel(c, true);
@@ -5261,39 +5305,65 @@ async function deleteCollab(id) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
   if (!confirm('Supprimer ce/cette collaborateur·ice ?')) return;
   showSave('Suppression...');
-  await spDelete(CONFIG.lists.collaborateurs, id);
-  await loadData();
-  hideSave('Supprimé ✓');
-  closeModal();
-  if (currentView === 'matrix') renderMatrix(); else renderCollabs();
+  try {
+    await spDelete(CONFIG.lists.collaborateurs, id);
+    await loadData();
+    hideSave('Supprimé ✓');
+    closeModal();
+    if (currentView === 'matrix') renderMatrix(); else renderCollabs();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
   async function deleteHistItem(spId) {
   if (!confirm('Supprimer cet élément d\'historique ?')) return;
   showSave('Suppression...');
-  await spDelete(CONFIG.lists.historique, spId);
-  await loadData();
-  // Rafraîchir l'historique dans collabEdit
-  collabEdit._history = getCollabHistory(collabEdit.Id);
-  hideSave('Supprimé ✓');
-  renderCollabBody();
+  try {
+    await spDelete(CONFIG.lists.historique, spId);
+    await loadData();
+    // Rafraîchir l'historique dans collabEdit
+    collabEdit._history = getCollabHistory(collabEdit.Id);
+    hideSave('Supprimé ✓');
+    renderCollabBody();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
 // =====================================================================
 // ADMIN COLLABS
 // =====================================================================
+// Change la colonne / le sens de tri de l'onglet Collaborateur·ices (A2).
+function setAdminCollabSort(key) {
+  if (adminCollabSortKey === key) adminCollabSortDir = -adminCollabSortDir;
+  else { adminCollabSortKey = key; adminCollabSortDir = 1; }
+  renderAdminCollabs(adminCollabFilterPoste);
+}
+
 function renderAdminCollabs(filterPoste = '') {
   if (!ensureStrictAdminAccess()) return;
-  let list = db.collaborateurs.slice().sort((a,b) => ((a.Nom||'')+(a.prenom||'')).localeCompare((b.Nom||'')+(b.prenom||'')));
+  adminCollabFilterPoste = filterPoste;
+  const total = db.collaborateurs.length;
+  let list = db.collaborateurs.slice();
   if (filterPoste) list = list.filter(c => collabHasFunction(c, filterPoste));
+  // Tri selon la colonne sélectionnée (A2)
+  const dir = adminCollabSortDir;
+  const keyFns = {
+    nom:      c => `${c.Nom||''} ${c.prenom||''}`.trim(),
+    email:    c => c.Email || '',
+    fonction: c => collabFunctionLabel(c, true) || '',
+    role:     c => roleDisplayName(getUserRole(c.Email || '') || '')
+  };
+  const kf = keyFns[adminCollabSortKey] || keyFns.nom;
+  list.sort((a,b) => kf(a).localeCompare(kf(b), 'fr', { sensitivity:'base' }) * dir);
   const posteOptions = POSTES.map(p => `<option value="${p.id}" ${filterPoste===p.id?'selected':''}>${p.name}</option>`).join('');
+  const arrow = k => adminCollabSortKey === k ? (adminCollabSortDir === 1 ? ' ▲' : ' ▼') : '';
+  const sortableTh = (k, label, extra = '') => `<th style="cursor:pointer;user-select:none${extra}" onclick="setAdminCollabSort('${k}')" title="Trier">${label}${arrow(k)}</th>`;
+  const countLabel = filterPoste ? `${list.length} sur ${total}` : `${total}`;
   let h = `<div class="admin-card">
-    <div class="admin-hdr"><h3>Collaborateur·ices (${list.length})</h3>
+    <div class="admin-hdr"><h3>Collaborateur·ices (${countLabel})</h3>
       <select onchange="renderAdminCollabs(this.value)" style="font-size:13px">
         <option value="">— Toutes les fonctions —</option>
         ${posteOptions}
       </select>
     </div>
-  <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Fonction(s)</th><th>Équipe</th><th>Manager</th><th>Rôle</th><th></th></tr></thead><tbody>`;
+  <div style="overflow:auto"><table class="adm"><thead><tr>${sortableTh('nom','Prénom / Nom')}${sortableTh('email','Email')}${sortableTh('fonction','Fonction(s)')}<th>Équipe</th><th>Manager</th>${sortableTh('role','Rôle')}<th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const functionsLabel = collabFunctionLabel(c, true);
     const selectedTeamNames = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean);
@@ -5339,8 +5409,8 @@ function renderAdminCollabs(filterPoste = '') {
       <td>${roleSelect}</td>
       <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
         ${isRealAdmin() ? `<button class="btn btn-sm" onclick="startImpersonation('${c.Id}')" title="Voir comme cet utilisateur"><i class="ti ti-user-scan"></i></button>` : ''}
-        <button class="btn btn-sm" onclick="openCollabModal('${c.Id}')"><i class="ti ti-edit"></i></button>
-        <button class="btn btn-sm btn-danger" onclick="deleteCollab('${c.Id}')"><i class="ti ti-trash"></i></button>
+        <button class="btn btn-sm" onclick="openCollabModal('${c.Id}')" title="Modifier la fiche"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCollab('${c.Id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
       </td>
     </tr>`;
   });
@@ -5387,35 +5457,9 @@ async function quickUpdateRole(collabId, email, newRole) {
     }
     await loadData();
     hideSave('Rôle mis à jour ✓');
-    renderAdminCollabs();
+    renderAdminCollabs(adminCollabFilterPoste);
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
-  async function toggleTeam(collabId, teamId, el) {
-  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
-  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
-  if (!c) return;
-  const isSelected = c.teamIds.includes(String(teamId));
-  if (!isSelected && c.teamIds.length >= 2) {
-    alert('Maximum 2 équipes.');
-    return;
-  }
-  if (isSelected) {
-    c.teamIds = c.teamIds.filter(t => t !== String(teamId));
-    el.style.background = '#fff';
-    el.style.borderColor = '#D3D1C7';
-    el.style.color = '#5F5E5A';
-  } else {
-    c.teamIds.push(String(teamId));
-    el.style.background = '#EEEDFE';
-    el.style.borderColor = '#534AB7';
-    el.style.color = '#534AB7';
-  }
-  pendingSaves++;
-  spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: c.teamIds.join(',') })
-    .catch(e => alert('Erreur : ' + e.message))
-    .finally(() => pendingSaves--);
-}
-
 // Version « case à cocher » de la sélection d'équipes (colonne Équipe de l'onglet Collaborateur·ices).
 async function toggleTeamCheckbox(collabId, teamId, checkbox) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); checkbox.checked = !checkbox.checked; return; }
@@ -5642,13 +5686,19 @@ function renderAdminPostes() {
   ${hasStaticPostes ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>Fonctions non persistées et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateur·ices seront mises à jour en conséquence).
   </div>` : ''}
-  ${!buListAvailable ? `<div style="padding:8px 16px;background:#EEEDFE;font-size:12px;color:#3C3489;border-bottom:.5px solid #D3D1C7">
-    <i class="ti ti-info-circle"></i> Créez la liste SharePoint « BU » pour activer le regroupement des fonctions par Business Unit.
-  </div>` : ''}
+  ${!buListAvailable
+    ? `<div style="padding:8px 16px;background:#EEEDFE;font-size:12px;color:#3C3489;border-bottom:.5px solid #D3D1C7">
+        <i class="ti ti-info-circle"></i> Créez la liste SharePoint « BU » pour activer le regroupement des fonctions par Business Unit.
+      </div>`
+    : (!buFieldOk
+        ? `<div style="padding:8px 16px;background:#EEEDFE;font-size:12px;color:#3C3489;border-bottom:.5px solid #D3D1C7">
+            <i class="ti ti-info-circle"></i> Ajoutez la colonne « BUId » (texte) à la liste SharePoint « Postes » pour pouvoir rattacher les fonctions à une BU.
+          </div>`
+        : '')}
   <table class="adm"><thead><tr><th>Nom</th><th>Réf. OPIIEC</th><th>Compétences cibles</th><th>Collaborateur·ices</th><th></th></tr></thead><tbody>`;
 
   const sortedBUs = getSortedBUs();
-  if (sortedBUs.length) {
+  if (sortedBUs.length && buFieldOk) {
     sortedBUs.forEach(bu => {
       const inBU = POSTES_STATE.filter(p => String(p.buId||'') === String(bu.id)).sort((a,b) => nameCompareFr(a.name, b.name));
       h += posteBUHeaderRow(bu, inBU.length);
@@ -5682,8 +5732,9 @@ function posteAdminRowHtml(p) {
       <span class="stat-pill" style="cursor:pointer" onclick="showPosteCollabs('${p.id}')">${collabs.length} collaborateur·ice(s)</span>
     </td>
     <td style="text-align:right;white-space:nowrap">
-      <button class="btn btn-sm" onclick="openPosteModal('${p.id}')"><i class="ti ti-edit"></i></button>
-      ${collabs.length === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
+      <button class="btn btn-sm" onclick="openPosteModal('${p.id}')" title="Modifier"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm" onclick="duplicatePoste('${p.id}')" title="Dupliquer cette fonction"><i class="ti ti-copy"></i></button>
+      ${collabs.length === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>` : ''}
     </td>
   </tr>`;
 }
@@ -5882,14 +5933,18 @@ function showPosteCollabs(id) {
   document.getElementById('modal').style.display = 'flex';
 }
 
-function openPosteModal(id) {
+function openPosteModal(id, source) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
-  const p = id ? POSTES_STATE.find(x => x.id === id) : { id: null, name: '', targets: {}, customLevels: {} };
+  const p = id
+    ? POSTES_STATE.find(x => x.id === id)
+    : (source
+        ? { id:null, name:'Copie de ' + (source.name || ''), buId:source.buId || '', nomSecondaire:source.nomSecondaire || '', targets:{ ...(source.targets || {}) }, customLevels:JSON.parse(JSON.stringify(source.customLevels || {})) }
+        : { id: null, name: '', targets: {}, customLevels: {} });
   const targets = p.targets || {};
   const customLevels = p.customLevels || {};
   document.getElementById('m-av').innerHTML = '<i class="ti ti-briefcase" style="font-size:20px"></i>';
-  document.getElementById('m-title').textContent = id ? 'Modifier la fonction' : 'Nouvelle fonction';
-  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-title').textContent = id ? 'Modifier la fonction' : (source ? 'Dupliquer la fonction' : 'Nouvelle fonction');
+  document.getElementById('m-sub').textContent = source ? `Compétences reprises depuis « ${source.name || ''} » — ajustez puis enregistrez.` : '';
   let skillRows = getSortedDomains().map(dom => {
     const domSkills = SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name));
     const rows = domSkills.map(sk => {
@@ -5933,14 +5988,18 @@ function openPosteModal(id) {
     <div class="fg" style="margin-bottom:14px">
       <div class="field"><label>Nom de la fonction</label><input type="text" id="p-name" value="${escapeHtml(p.name)}" placeholder="Ex: Chef de projet"></div>
       <div class="field"><label>BU (Business Unit)</label>
-        ${buListAvailable
+        ${(buListAvailable && buFieldOk)
           ? `<select id="p-bu"><option value="">— Aucune BU —</option>${buOptions}</select>`
-          : `<input type="text" id="p-bu" value="" disabled placeholder="Liste « BU » non créée">`}
+          : `<input type="text" disabled value="" placeholder="${buListAvailable ? 'Colonne « BUId » absente de Postes' : 'Liste « BU » non créée'}">`}
       </div>
     </div>
-    <div class="field" style="margin-bottom:14px"><label>Nom secondaire / correspondance référentiel OPIIEC</label>
-      <input type="text" id="p-nom-secondaire" value="${escapeHtml(p.nomSecondaire||'')}" placeholder="Ex: Chef·fe de projet (intitulé OPIIEC)">
-    </div>
+    ${nomSecondaireFieldOk
+      ? `<div class="field" style="margin-bottom:14px"><label>Nom secondaire / correspondance référentiel OPIIEC</label>
+          <input type="text" id="p-nom-secondaire" value="${escapeHtml(p.nomSecondaire||'')}" placeholder="Ex: Chef·fe de projet (intitulé OPIIEC)">
+        </div>`
+      : `<div class="field" style="margin-bottom:14px"><label>Nom secondaire / correspondance référentiel OPIIEC</label>
+          <input type="text" disabled value="" placeholder="Colonne « NomSecondaire » absente de Postes">
+        </div>`}
     <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour cette fonction.</div>
     <div class="field" style="margin-bottom:8px"><input type="text" id="poste-skill-search" placeholder="Rechercher une compétence par son nom…" oninput="filterPosteSkillRows(this.value)"></div>
     <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px" id="poste-skill-table">
@@ -5986,6 +6045,28 @@ function toggleLevelDesc(sid) {
   if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
 }
 
+// Écriture d'une fonction résiliente à l'absence des colonnes BUId / NomSecondaire :
+// si l'une de ces colonnes n'existe pas dans SharePoint, elle est retirée et l'écriture
+// est retentée sans elle (au lieu de faire échouer tout l'enregistrement). Les indicateurs
+// buFieldOk / nomSecondaireFieldOk sont mis à jour pour masquer ensuite les champs concernés.
+async function writePoste(spId, fullData) {
+  const data = { ...fullData };
+  if (!buFieldOk) delete data.BUId;
+  if (!nomSecondaireFieldOk) delete data.NomSecondaire;
+  try {
+    return spId ? await spPatch(CONFIG.lists.postes, spId, data) : await spPost(CONFIG.lists.postes, data);
+  } catch (e) {
+    const body = (e && e.body) || '';
+    let retried = false;
+    if (('BUId' in data) && /['"]?BUId['"]?/.test(body)) { buFieldOk = false; delete data.BUId; retried = true; }
+    if (('NomSecondaire' in data) && /['"]?NomSecondaire['"]?/.test(body)) { nomSecondaireFieldOk = false; delete data.NomSecondaire; retried = true; }
+    if (retried) {
+      return spId ? await spPatch(CONFIG.lists.postes, spId, data) : await spPost(CONFIG.lists.postes, data);
+    }
+    throw e;
+  }
+}
+
 async function savePoste(id) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
   const name = document.getElementById('p-name').value.trim();
@@ -6006,25 +6087,24 @@ async function savePoste(id) {
     if (Object.keys(overrides).length) customLevels[sk.id] = overrides;
   });
   const buEl = document.getElementById('p-bu');
-  const buId = (buListAvailable && buEl && !buEl.disabled) ? buEl.value : '';
+  const buId = (buListAvailable && buFieldOk && buEl && buEl.tagName === 'SELECT') ? buEl.value : '';
   const nomSecondaireEl = document.getElementById('p-nom-secondaire');
   const nomSecondaire = nomSecondaireEl ? nomSecondaireEl.value.trim() : '';
+  const buWas = buFieldOk, nsWas = nomSecondaireFieldOk;
   showSave();
   try {
     const data = { Title: name, BUId: buId, NomSecondaire: nomSecondaire, Targets: JSON.stringify(targets), NiveauxPersos: JSON.stringify(customLevels) };
     const isSpId = id && !isNaN(Number(id));
-    if (isSpId) {
-      await spPatch(CONFIG.lists.postes, id, data);
-    } else {
-      // Fonction statique non encore migré : on en crée une version SharePoint.
-      // Les collaborateurs référençant l'ancien identifiant statique devront être
-      // mis à jour via "Migrer vers SharePoint" pour les autres fonctions restantes.
-      await spPost(CONFIG.lists.postes, data);
-    }
+    await writePoste(isSpId ? id : null, data);
     await loadData();
     closeModal();
     renderAdminPostes();
     hideSave('Fonction enregistrée ✓');
+    // Si une colonne s'est révélée absente pendant l'écriture, on prévient sans bloquer.
+    if ((buWas && !buFieldOk) || (nsWas && !nomSecondaireFieldOk)) {
+      const manquantes = [!buFieldOk ? 'BUId' : null, !nomSecondaireFieldOk ? 'NomSecondaire' : null].filter(Boolean).join(' et ');
+      alert(`La fonction a été enregistrée, mais la/les colonne(s) ${manquantes} n'existe(nt) pas dans la liste SharePoint « Postes ». Ces champs ont été ignorés. Créez-les pour activer la BU et/ou le nom secondaire.`);
+    }
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
@@ -6043,6 +6123,16 @@ async function deletePoste(id) {
     hideSave('Supprimé ✓');
     renderAdminPostes();
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+// Duplique une fonction : ouvre la modale de création pré-remplie avec les compétences
+// cibles, les niveaux personnalisés, la BU et le nom OPIIEC de la fonction source (point 1).
+// L'enregistrement crée une nouvelle fonction (l'originale n'est pas modifiée).
+function duplicatePoste(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  const src = POSTES_STATE.find(x => String(x.id) === String(id)) || POSTES.find(x => String(x.id) === String(id));
+  if (!src) { alert('Fonction introuvable.'); return; }
+  openPosteModal(null, src);
 }
 
 // Table de correspondance ancien id (COMP_xxx, avant migration des compétences) -> nom,
@@ -6218,15 +6308,23 @@ function renderAdminSkills() {
   SKILLS.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
   const hasStaticSkills = SKILLS.some(s => isNaN(Number(s.id)));
   const hasOrphanSkills = SKILLS.some(s => !DOMAINS.some(d => d.id === s.did));
-  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Compétences (${SKILLS.length})</h3>
+  let h = `<div class="admin-card"><div class="admin-hdr"><h3>Compétences (<span id="adm-skill-count">${SKILLS.length}</span>)</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticSkills ? `<button class="btn" onclick="migrateSkills()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
       ${hasOrphanSkills ? `<button class="btn" onclick="migrateDomains()" style="border-color:#A32D2D;color:#A32D2D"><i class="ti ti-tool"></i>Réparer les domaines</button>` : ''}
       <button class="btn" onclick="showView('import');setTimeout(renderLevelDescriptionFixPreview,0)" style="border-color:#534AB7;color:#534AB7"><i class="ti ti-replace"></i>Correctif niveaux</button>
       <button class="btn" onclick="exportSkillsReferentiel()"><i class="ti ti-download"></i>Exporter référentiel</button>
+      <button class="btn" onclick="exportFonctionsCompetencesMatrix()"><i class="ti ti-table"></i>Exporter matrice fonctions×compétences</button>
       <button class="btn" onclick="openDomainModal(null)"><i class="ti ti-folder-plus"></i>Nouveau domaine</button>
       <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
     </div>
+  </div>
+  <div style="padding:10px 16px;border-bottom:.5px solid #D3D1C7;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="adm-skill-search" value="${escapeHtml(adminSkillQuery)}" placeholder="🔍 Rechercher une compétence…" oninput="adminSkillQuery=this.value;applyAdminSkillFilter()" style="flex:1;min-width:200px;padding:7px 10px;border:.5px solid #D3D1C7;border-radius:8px;font-size:13px">
+    <select id="adm-skill-domfilter" onchange="adminSkillDomainFilter=this.value;applyAdminSkillFilter()" style="font-size:13px">
+      <option value="">Tous les domaines</option>
+      ${getSortedDomains().map(d => `<option value="${d.id}"${adminSkillDomainFilter===d.id?' selected':''}>${escapeHtml(d.name)}</option>`).join('')}
+    </select>
   </div>
   ${hasStaticSkills ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>${SKILLS.filter(s=>isNaN(Number(s.id))).length} compétence(s) non persistées</b> — cliquez sur <b>Migrer vers SharePoint</b> pour les enregistrer définitivement.
@@ -6261,34 +6359,68 @@ function renderAdminSkills() {
   }
   getSortedDomains().forEach(dom => {
     const list = grouped[dom.id] || [];
-    h += `<div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
+    h += `<div class="adm-dom-block" data-domain="${dom.id}"><div style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
       letter-spacing:.05em;background:${dom.bg};color:${dom.c};border-top:.5px solid #D3D1C7;
       display:flex;align-items:center;justify-content:space-between">
       <span>${dom.name}</span>
       <div style="display:flex;gap:4px">
-        <button class="btn btn-sm" style="padding:2px 6px" onclick="openDomainModal('${dom.id}')"><i class="ti ti-edit"></i></button>
-        ${list.length === 0 ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="deleteDomain('${dom.id}')"><i class="ti ti-trash"></i></button>` : ''}
+        <button class="btn btn-sm" style="padding:2px 6px" onclick="openDomainModal('${dom.id}')" title="Modifier le domaine"><i class="ti ti-edit"></i></button>
+        ${list.length === 0 ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="deleteDomain('${dom.id}')" title="Supprimer le domaine"><i class="ti ti-trash"></i></button>` : ''}
       </div>
     </div>`;
-    h += `<table class="adm"><tbody>`;
+    h += `<table class="adm"><thead><tr>
+      <th>Compétence</th>
+      <th>Niveaux</th>
+      <th style="text-align:center;width:90px">Fonctions</th>
+      <th style="width:120px"></th>
+    </tr></thead><tbody>`;
     list.forEach(sk => {
       const isStatic = isNaN(Number(sk.id));
       const reqCount = POSTES.filter(p => p.targets && p.targets[sk.id] !== undefined).length;
-      h += `<tr>
-        <td style="font-weight:500;max-width:280px">${sk.name}${isStatic ? ' <span style="background:#FFF3CD;color:#856404;border-radius:4px;font-size:9px;padding:1px 4px;font-weight:600">non migré</span>' : ''}
-          <div style="margin-top:3px"><span class="stat-pill" style="cursor:pointer;font-size:10px;font-weight:400" onclick="showSkillFunctions('${sk.id}')"><i class="ti ti-target" style="font-size:11px"></i> Requise par ${reqCount} fonction(s)</span></div>
+      h += `<tr data-skill-row="1" data-skill-name="${escapeHtml(normalizeText(sk.name))}">
+        <td style="font-weight:500;max-width:280px">${sk.name}${isStatic ? ' <span style="background:#FFF3CD;color:#856404;border-radius:4px;font-size:9px;padding:1px 4px;font-weight:600">non migré</span>' : ''}</td>
+        <td style="font-size:11px;color:#5F5E5A">${[1,2,3,4].map(n => `<div style="padding:2px 0${n<4?';border-bottom:.5px solid #f0efe8':''}"><b>${n}.</b> ${escapeHtml(sk.levels[n]||'—')}</div>`).join('')}</td>
+        <td style="text-align:center">
+          <span class="stat-pill" style="cursor:pointer" onclick="showSkillFunctions('${sk.id}')" title="Voir les fonctions et le niveau requis">${reqCount}</span>
         </td>
-        <td style="font-size:11px;color:#5F5E5A">${[1,2,3,4].map(n => `<b>${n}.</b> ${sk.levels[n]||'—'}`).join(' &nbsp;·&nbsp; ')}</td>
-        <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
-          <button class="btn btn-sm" onclick="openSkillModal('${sk.id}')"><i class="ti ti-edit"></i></button>
-          <button class="btn btn-sm btn-danger" onclick="deleteSkill('${sk.id}')"><i class="ti ti-trash"></i></button>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-sm" onclick="openSkillModal('${sk.id}')" title="Modifier"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm" onclick="duplicateSkill('${sk.id}')" title="Dupliquer"><i class="ti ti-copy"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSkill('${sk.id}')" title="Supprimer"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
     });
-    h += `</tbody></table>`;
+    h += `</tbody></table></div>`;
   });
   h += `</div>`;
   document.getElementById('content').innerHTML = h;
+  applyAdminSkillFilter();
+}
+
+// Filtre l'onglet Compétences (recherche texte + domaine) sans re-rendu complet,
+// et met à jour le compteur « X sur Y » (A1 + A3).
+function applyAdminSkillFilter() {
+  const q = normalizeText(adminSkillQuery || '');
+  const domFilter = adminSkillDomainFilter || '';
+  const filterActive = !!(q || domFilter);
+  let shown = 0;
+  document.querySelectorAll('#content .adm-dom-block').forEach(block => {
+    const domId = block.getAttribute('data-domain');
+    if (domFilter && domId !== domFilter) { block.style.display = 'none'; return; }
+    let visibleInBlock = 0;
+    block.querySelectorAll('tr[data-skill-row]').forEach(row => {
+      const name = row.getAttribute('data-skill-name') || '';
+      const match = !q || name.indexOf(q) > -1;
+      row.style.display = match ? '' : 'none';
+      if (match) visibleInBlock++;
+    });
+    // Un domaine vide (sans compétence) reste visible sauf si un filtre est actif.
+    const hasRows = block.querySelectorAll('tr[data-skill-row]').length > 0;
+    block.style.display = (filterActive && hasRows && visibleInBlock === 0) ? 'none' : '';
+    shown += visibleInBlock;
+  });
+  const countEl = document.getElementById('adm-skill-count');
+  if (countEl) countEl.textContent = filterActive ? `${shown} sur ${SKILLS.length}` : String(SKILLS.length);
 }
 
 // Export Excel du référentiel de compétences (point 7).
@@ -6311,6 +6443,37 @@ function exportSkillsReferentiel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Référentiel compétences');
     XLSX.writeFile(wb, 'referentiel_competences.xlsx');
+  } catch(e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+    console.error(e);
+  }
+}
+
+// Export Excel d'une matrice croisée : lignes = compétences (par domaine), colonnes = fonctions,
+// cellule = niveau cible requis (vide si la compétence n'est pas requise pour la fonction) (A5).
+function exportFonctionsCompetencesMatrix() {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  try {
+    const postes = POSTES.slice().sort((a,b) => nameCompareFr(a.name, b.name));
+    if (!postes.length) { alert('Aucune fonction à exporter.'); return; }
+    const header = ['Domaine', 'Compétence', ...postes.map(p => p.name)];
+    const rows = [];
+    const pushSkillRow = (domName, sk) => {
+      rows.push([domName, sk.name, ...postes.map(p => {
+        const v = (p.targets && p.targets[sk.id] !== undefined) ? p.targets[sk.id] : undefined;
+        return (v === undefined || v === null) ? '' : v;
+      })]);
+    };
+    getSortedDomains().forEach(dom => {
+      SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name)).forEach(sk => pushSkillRow(dom.name, sk));
+    });
+    SKILLS.filter(s => !DOMAINS.some(d => d.id === s.did)).sort((a,b) => nameCompareFr(a.name, b.name)).forEach(sk => pushSkillRow('(sans domaine)', sk));
+    if (!rows.length) { alert('Aucune compétence à exporter.'); return; }
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [{wch:16},{wch:42}, ...postes.map(() => ({wch:16}))];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Matrice fonctions-compétences');
+    XLSX.writeFile(wb, 'matrice_fonctions_competences.xlsx');
   } catch(e) {
     alert('Erreur lors de l\'export : ' + e.message);
     console.error(e);
@@ -6423,13 +6586,17 @@ async function deleteDomain(id) {
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
-function openSkillModal(id) {
+function openSkillModal(id, source) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
   const sortedDomains = getSortedDomains();
-  const sk = id ? SKILLS.find(s => s.id === id) : { id:null, name:'', did: sortedDomains[0]?.id || '', levels:{1:'',2:'',3:'',4:''} };
+  const sk = id
+    ? SKILLS.find(s => s.id === id)
+    : (source
+        ? { id:null, name:'Copie de ' + (source.name || ''), did: source.did, levels: { ...(source.levels || {}) } }
+        : { id:null, name:'', did: sortedDomains[0]?.id || '', levels:{1:'',2:'',3:'',4:''} });
   document.getElementById('m-av').innerHTML = '<i class="ti ti-award" style="font-size:20px"></i>';
-  document.getElementById('m-title').textContent = id ? 'Modifier la compétence' : 'Nouvelle compétence';
-  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-title').textContent = id ? 'Modifier la compétence' : (source ? 'Dupliquer la compétence' : 'Nouvelle compétence');
+  document.getElementById('m-sub').textContent = source ? `Niveaux repris depuis « ${source.name || ''} » — ajustez puis enregistrez.` : '';
   document.getElementById('m-body').innerHTML = `
     <div class="fg">
       <div class="field full"><label>Nom de la compétence</label><input type="text" id="sk-name" value="${sk.name}" placeholder="Ex: Gérer un projet"></div>
@@ -6515,6 +6682,14 @@ async function deleteSkill(id) {
     hideSave('Supprimée ✓');
     renderAdminSkills();
   } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+// Duplique une compétence : ouvre la modale de création pré-remplie (nom, domaine, 4 niveaux).
+function duplicateSkill(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  const src = SKILLS.find(s => s.id === id);
+  if (!src) { alert('Compétence introuvable.'); return; }
+  openSkillModal(null, src);
 }
 
 // Migration complète des compétences statiques vers SharePoint
@@ -7427,7 +7602,9 @@ async function importFullBackup(event) {
       await loadData();
       for (const r of rows.Postes) {
         const oldId = String(r.Id || '');
-        const data = { Title:String(r.Title||''), BUId:(buMap[String(r.BUId||'')] || ''), NomSecondaire:String(r.NomSecondaire||''), Targets:JSON.stringify(remapObjectKeys(r.Targets || '{}', skillMap)), NiveauxPersos:JSON.stringify(remapObjectKeys(r.NiveauxPersos || '{}', skillMap)) };
+        const data = { Title:String(r.Title||''), Targets:JSON.stringify(remapObjectKeys(r.Targets || '{}', skillMap)), NiveauxPersos:JSON.stringify(remapObjectKeys(r.NiveauxPersos || '{}', skillMap)) };
+        if (buFieldOk) data.BUId = (buMap[String(r.BUId||'')] || '');
+        if (nomSecondaireFieldOk) data.NomSecondaire = String(r.NomSecondaire||'');
         const newId = await upsertFromBackup(CONFIG.lists.postes, oldId, () => dbGetRawByName('postes', r.Title), data);
         if (oldId) posteMap[oldId] = newId;
       }
