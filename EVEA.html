@@ -81,6 +81,9 @@ table.mx tbody td{text-align:center;min-width:38px;height:34px}
 .cposte{font-size:11px;color:#5F5E5A;margin-bottom:6px}
 .stat-pill{background:#f5f5f0;border-radius:6px;padding:2px 7px;font-size:11px;color:#5F5E5A}
 .team-tag{background:#E6F1FB;color:#042C53;border-radius:6px;padding:2px 6px;font-size:11px}
+.team-multiselect summary{list-style:none}
+.team-multiselect summary::-webkit-details-marker{display:none}
+.team-multiselect summary::marker{content:""}
 .pbar{height:3px;background:#e8e7e0;border-radius:2px;overflow:hidden;margin-top:5px}
 .pfill{height:100%;background:#534AB7;border-radius:2px}
 .admin-card{background:#fff;border:.5px solid #D3D1C7;border-radius:12px;overflow:hidden;margin-bottom:18px}
@@ -356,6 +359,7 @@ const CONFIG = {
     historique:     'Historique',
     equipes:        'Equipes',
     postes:         'Postes',
+    bu:             'BU',
     domaines:       'Domaines',
     competencesRef: 'CompetencesRef',
     roles:          'Roles',
@@ -520,6 +524,7 @@ async function spGetOptional(listName, filter = '', select = '') {
     if (listName === CONFIG.lists.competencesEquipe) competencesEquipeListAvailable = false;
     if (listName === CONFIG.lists.suggestions) suggestionsListAvailable = false;
     if (listName === CONFIG.lists.connaissances) connaissancesListAvailable = false;
+    if (listName === CONFIG.lists.bu) buListAvailable = false;
     console.warn(`Liste SharePoint optionnelle indisponible : ${listName}`, e);
     return [];
   }
@@ -610,6 +615,10 @@ const DOMAINS = [
   {id:'DOM_06',name:'Pilotage',    c:'#173404',bg:'#EAF3DE'},
   {id:'DOM_07',name:'Formation',   c:'#2C2C2A',bg:'#F1EFE8'}
 ];
+
+// BU (Business Units) — regroupement des fonctions. Chargées depuis la liste SharePoint « BU ».
+// Vide par défaut : le regroupement par BU s'active dès qu'au moins une BU est créée.
+const BUS = [];
 
 const SKILLS = [
   {id:'COMP_001',did:'DOM_01',name:"Actualiser ses connaissances et s'adapter",levels:{1:"Analyser et comprendre les évolutions dans son domaine et les nouveaux besoins",2:"Mener un apprentissage autonome et être réactif face a un imprévu ou une nouveauté",3:"Créer des contenus actualisés et les diffuser auprès des équipes",4:"Coordonner une démarche d'adaptation et d'apprentissage dans un réseau professionnel (ex : plateforme en ligne)"}},
@@ -702,6 +711,9 @@ let strategyListAvailable = true;
 let competencesEquipeListAvailable = true;
 let suggestionsListAvailable = true;
 let connaissancesListAvailable = true;
+let buListAvailable = true;
+let matrixBUFilter = '';   // filtre BU dans la matrice globale
+let filterBU = '';         // filtre BU dans la vue collaborateur·ices
 let searchSkillConnFilter = [];   // feature 4 : filtre connaissance(s) dans la recherche
 let matrixHideSuggestions = false; // feature 9 : masquer les compétences proposées dans la matrice
 let myTeamSelected = '';           // feature 2 : équipe active dans la vue « Mon équipe »
@@ -768,6 +780,29 @@ function nameCompareFr(a, b) {
 }
 function getSortedDomains() {
   return DOMAINS.slice().sort((a,b) => nameCompareFr(a.name || '', b.name || ''));
+}
+function getSortedBUs() {
+  return BUS.slice().sort((a,b) => nameCompareFr(a.name || '', b.name || ''));
+}
+function buById(id) {
+  return BUS.find(b => String(b.id) === String(id)) || null;
+}
+function buTag(b) {
+  return `<span class="tag" style="background:${b.bg};color:${b.c}">${escapeHtml(b.name)}</span>`;
+}
+// Identifiants de fonctions rattachées à une BU donnée.
+function posteIdsForBU(buId) {
+  return POSTES.filter(p => String(p.buId || '') === String(buId)).map(p => String(p.id));
+}
+// Un·e collaborateur·ice « appartient » à une BU si l'une de ses fonctions y est rattachée.
+function collabMatchesBU(c, buId) {
+  if (!buId) return true;
+  const ids = new Set(posteIdsForBU(buId));
+  return getCollabFunctionIds(c).some(fid => ids.has(String(fid)));
+}
+// Options <option> de BU pour les menus de filtre (uniquement si des BU existent).
+function buFilterOptionsHtml(selected) {
+  return getSortedBUs().map(b => `<option value="${b.id}"${String(selected)===String(b.id)?' selected':''}>${escapeHtml(b.name)}</option>`).join('');
 }
 function collabAlphaKey(c) {
   return `${c.Nom||''} ${c.prenom||''}`.trim().toLowerCase();
@@ -2141,7 +2176,8 @@ async function loadData() {
   competencesEquipeListAvailable = true;
   suggestionsListAvailable = true;
   connaissancesListAvailable = true;
-  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw, competencesEquipeRaw, suggestionsRaw, connaissancesRaw] = await Promise.all([
+  buListAvailable = true;
+  const [collabs, comps, coms, hist, equipes, postesRaw, domainesRaw, rolesRaw, skillsRaw, formationsRaw, parcoursRaw, axesStrategiquesRaw, competencesEquipeRaw, suggestionsRaw, connaissancesRaw, buRaw] = await Promise.all([
   spGet(CONFIG.lists.collaborateurs),
   spGet(CONFIG.lists.competences),
   spGet(CONFIG.lists.commentaires),
@@ -2156,7 +2192,8 @@ async function loadData() {
   spGetOptional(CONFIG.lists.axesStrategiques),
   spGetOptional(CONFIG.lists.competencesEquipe),
   spGetOptional(CONFIG.lists.suggestions),
-  spGetOptional(CONFIG.lists.connaissances)
+  spGetOptional(CONFIG.lists.connaissances),
+  spGetOptional(CONFIG.lists.bu)
 ]);
 
   // Rôles
@@ -2174,6 +2211,8 @@ if (postesRaw.length) {
     POSTES.push({
       id:      String(p.Id),
       name:    p.Title || '',
+      buId:    p.BUId != null ? String(p.BUId) : '',
+      nomSecondaire: p.NomSecondaire || '',
       targets: p.Targets ? JSON.parse(p.Targets) : {},
       customLevels: p.NiveauxPersos ? (() => { try { return JSON.parse(p.NiveauxPersos); } catch { return {}; } })() : {}
     });
@@ -2255,6 +2294,18 @@ if (domainesRaw.length) {
     });
   });
 }
+
+// Charge les BU (Business Units) depuis SharePoint. La liste est optionnelle :
+// tant qu'elle n'existe pas ou qu'aucune BU n'est créée, le regroupement par BU reste inactif.
+BUS.length = 0;
+(buRaw || []).forEach(b => {
+  BUS.push({
+    id:   String(b.Id),
+    name: b.Title || '',
+    c:    b.Couleur || '#333333',
+    bg:   b.Fond || '#F5F5F5'
+  });
+});
 
 // Remplace le tableau SKILLS statique si des données existent en base
 if (skillsRaw.length) {
@@ -2762,6 +2813,7 @@ function renderMatrix() {
   const singleScopeTeamId = scopeTeamIds.length === 1 ? scopeTeamIds[0] : '';
   let collabs = applyMatrixTeamFilter(getMatrixBaseCollabs());
   if (matrixPosteFilter) collabs = collabs.filter(c => collabHasFunction(c, matrixPosteFilter));
+  if (matrixBUFilter && buById(matrixBUFilter)) collabs = collabs.filter(c => collabMatchesBU(c, matrixBUFilter));
   collabs = sortCollabsForMatrix(collabs);
   const grouped = {};
   skills.forEach(s => { if (!grouped[s.did]) grouped[s.did] = []; grouped[s.did].push(s); });
@@ -2783,6 +2835,10 @@ function renderMatrix() {
       <option value="">Toutes les fonctions</option>
       ${POSTES.map(p => `<option value="${p.id}"${matrixPosteFilter===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
     </select>
+    ${getSortedBUs().length ? `<select onchange="matrixBUFilter=this.value;applyFilters()">
+      <option value="">Toutes les BU</option>
+      ${buFilterOptionsHtml(matrixBUFilter)}
+    </select>` : ''}
     <select onchange="matrixSort=this.value;applyFilters()">
       <option value="alpha"${matrixSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
       <option value="team"${matrixSort==='team'?' selected':''}>Tri : équipe</option>
@@ -3946,6 +4002,7 @@ function renderCollabs() {
     const functions = collabFunctionLabel(c).toLowerCase();
     return matchesTeamFilter(c)
         && (!filterPoste || collabHasFunction(c, filterPoste))
+        && (!filterBU || !buById(filterBU) || collabMatchesBU(c, filterBU))
         && (!q || fn.includes(q) || functions.includes(q));
   });
   list = sortCollabsForCards(list);
@@ -3959,6 +4016,10 @@ function renderCollabs() {
       <option value="">Toutes les fonctions</option>
       ${POSTES.map(p => `<option value="${p.id}"${filterPoste===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('')}
     </select>
+    ${getSortedBUs().length ? `<select onchange="filterBU=this.value;applyFilters()">
+      <option value="">Toutes les BU</option>
+      ${buFilterOptionsHtml(filterBU)}
+    </select>` : ''}
     <select onchange="collabSort=this.value;applyFilters()">
       <option value="alpha"${collabSort==='alpha'?' selected':''}>Tri : ordre alphabétique</option>
       <option value="team"${collabSort==='team'?' selected':''}>Tri : équipe</option>
@@ -5235,14 +5296,21 @@ function renderAdminCollabs(filterPoste = '') {
   <div style="overflow:auto"><table class="adm"><thead><tr><th>Prénom / Nom</th><th>Email</th><th>Fonction(s)</th><th>Équipe</th><th>Manager</th><th>Rôle</th><th></th></tr></thead><tbody>`;
   list.forEach(c => {
     const functionsLabel = collabFunctionLabel(c, true);
-    const teamSelects = db.equipes.map(t => {
-      const isSelected = (c.teamIds||[]).includes(String(t.id));
-      return `<span onclick="toggleTeam('${c.Id}', '${t.id}', this)"
-        style="display:inline-block;margin:2px;padding:2px 8px;border-radius:6px;font-size:11px;cursor:pointer;
-        border:.5px solid ${isSelected ? '#534AB7' : '#D3D1C7'};
-        background:${isSelected ? '#EEEDFE' : '#fff'};
-        color:${isSelected ? '#534AB7' : '#5F5E5A'}">${t.name}</span>`;
-    }).join('');
+    const selectedTeamNames = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean);
+    const teamSelects = `<details class="team-multiselect" id="tms-${c.Id}">
+      <summary style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:.5px solid #D3D1C7;border-radius:8px;background:#fff;font-size:12px;max-width:210px">
+        <span id="tms-label-${c.Id}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${selectedTeamNames.length ? escapeHtml(selectedTeamNames.join(', ')) : '<span style="color:#aaa">Aucune équipe</span>'}</span>
+        <i class="ti ti-chevron-down" style="font-size:14px;color:#aaa;flex-shrink:0"></i>
+      </summary>
+      <div style="margin-top:4px;background:#fff;border:.5px solid #D3D1C7;border-radius:8px;padding:6px;max-width:220px;max-height:220px;overflow:auto">
+        ${db.equipes.slice().sort((a,b)=>nameCompareFr(a.name,b.name)).map(t => {
+          const checked = (c.teamIds||[]).includes(String(t.id));
+          return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12px">
+            <input type="checkbox" ${checked?'checked':''} onchange="toggleTeamCheckbox('${c.Id}','${t.id}',this)"> ${escapeHtml(t.name)}
+          </label>`;
+        }).join('') || '<div style="color:#aaa;font-size:12px;padding:4px 6px">Aucune équipe définie</div>'}
+      </div>
+    </details>`;
     const teamManagerIds = (c.teamIds||[]).flatMap(tid => {
       const t = db.equipes.find(e => String(e.id) === String(tid));
       return t ? (t.managerIds||[]) : [];
@@ -5348,6 +5416,32 @@ async function quickUpdateRole(collabId, email, newRole) {
     .finally(() => pendingSaves--);
 }
 
+// Version « case à cocher » de la sélection d'équipes (colonne Équipe de l'onglet Collaborateur·ices).
+async function toggleTeamCheckbox(collabId, teamId, checkbox) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); checkbox.checked = !checkbox.checked; return; }
+  const c = db.collaborateurs.find(x => String(x.Id) === String(collabId));
+  if (!c) return;
+  if (!Array.isArray(c.teamIds)) c.teamIds = [];
+  const already = c.teamIds.includes(String(teamId));
+  if (checkbox.checked && !already) {
+    if (c.teamIds.length >= 2) { alert('Maximum 2 équipes.'); checkbox.checked = false; return; }
+    c.teamIds.push(String(teamId));
+  } else if (!checkbox.checked && already) {
+    c.teamIds = c.teamIds.filter(t => t !== String(teamId));
+  } else {
+    return; // aucun changement effectif
+  }
+  const label = document.getElementById('tms-label-' + collabId);
+  if (label) {
+    const names = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? t.name : ''; }).filter(Boolean);
+    label.innerHTML = names.length ? escapeHtml(names.join(', ')) : '<span style="color:#aaa">Aucune équipe</span>';
+  }
+  pendingSaves++;
+  spPatch(CONFIG.lists.collaborateurs, collabId, { TeamIds: c.teamIds.join(',') })
+    .catch(e => alert('Erreur : ' + e.message))
+    .finally(() => pendingSaves--);
+}
+
 // =====================================================================
 // ADMIN TEAMS
 // =====================================================================
@@ -5391,7 +5485,7 @@ function renderAdminTeams() {
         <td style="font-weight:500">${escapeHtml(k.title)}</td>
         <td>${team ? escapeHtml(team.name) : '<span style="color:#aaa">—</span>'}</td>
         <td>${k.partagee ? '<span class="tag" style="background:#E1F5EE;color:#085041">Partagée</span>' : '<span class="tag" style="background:#f5f5f0;color:#5F5E5A">Équipe uniquement</span>'}</td>
-        <td><span class="stat-pill">${usedBy}</span></td>
+        <td><span class="stat-pill" style="cursor:pointer" onclick="showConnaissanceUsers('${k.id}')">${usedBy} personne(s)</span></td>
         <td style="text-align:right;white-space:nowrap">
           <button class="btn btn-sm" onclick="renameConnaissance('${k.id}')" title="Renommer"><i class="ti ti-edit"></i></button>
           <button class="btn btn-sm" onclick="toggleConnaissancePartage('${k.id}')" title="Basculer le partage"><i class="ti ti-share"></i></button>
@@ -5431,6 +5525,31 @@ function showTeamMembers(teamId) {
         </div>`;
       }).join('')
     : '<p style="color:#aaa;font-size:13px">Aucun membre dans cette équipe.</p>';
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+// Liste les personnes qui utilisent une connaissance donnée (point 5).
+function showConnaissanceUsers(connId) {
+  const k = getConnaissanceById(connId);
+  if (!k) return;
+  const users = db.collaborateurs.filter(c => (c.connaissances || {})[k.id] !== undefined)
+    .slice().sort((a,b) => collabAlphaKey(a).localeCompare(collabAlphaKey(b), 'fr'));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-bulb" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = k.title;
+  document.getElementById('m-sub').textContent = `${users.length} personne(s) utilisant cette connaissance`;
+  document.getElementById('m-body').innerHTML = users.length
+    ? users.map(c => {
+        const teams = (c.teamIds||[]).map(tid => { const t = teamById(tid); return t ? `<span class="team-tag">${escapeHtml(t.name)}</span>` : ''; }).join('');
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid #D3D1C7">
+          <div class="av" style="width:32px;height:32px;font-size:13px;flex-shrink:0">${escapeHtml((c.prenom||'?')[0])}${escapeHtml((c.Nom||'?')[0])}</div>
+          <div style="flex:1">
+            <div style="font-weight:500">${escapeHtml(c.prenom||'')} ${escapeHtml(c.Nom||'')}</div>
+            <div style="font-size:12px;color:#5F5E5A;display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">${teams||'—'}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<p style="color:#aaa;font-size:13px">Aucune personne n’utilise cette connaissance pour l’instant.</p>';
   document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
   document.getElementById('modal').style.display = 'flex';
 }
@@ -5516,38 +5635,145 @@ function renderAdminPostes() {
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${hasStaticPostes ? `<button class="btn" onclick="migratePostes()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
       <button class="btn" onclick="exportPostesReferentiel()"><i class="ti ti-download"></i>Exporter référentiel</button>
+      ${buListAvailable ? `<button class="btn" onclick="openBUModal(null)"><i class="ti ti-folder-plus"></i>Nouvelle BU</button>` : ''}
       ${btnLabel}
     </div>
   </div>
   ${hasStaticPostes ? `<div style="padding:10px 16px;background:#FFF3CD;font-size:12px;color:#856404;border-bottom:.5px solid #D3D1C7">
     <i class="ti ti-alert-triangle"></i> <b>Fonctions non persistées et cibles obsolètes</b> — depuis la migration des compétences, les niveaux cibles ci-dessous ne sont plus reconnus. Cliquez sur <b>Migrer vers SharePoint</b> pour les corriger automatiquement et les enregistrer définitivement (les fiches collaborateur·ices seront mises à jour en conséquence).
   </div>` : ''}
-  <table class="adm"><thead><tr><th>Nom</th><th>Compétences cibles</th><th>Collaborateur·ices</th><th></th></tr></thead><tbody>`;
-  POSTES_STATE.forEach(p => {
-    const nt = Object.keys(p.targets||{}).length;
-    const collabs = db.collaborateurs.filter(c => collabHasFunction(c, p.id));
-    h += `<tr>
-      <td style="font-weight:500">${p.name}</td>
-      <td>
-        <span class="stat-pill" style="cursor:pointer"
-          onclick="showPosteSkills('${p.id}')">
-          ${nt} compétence(s)
-        </span>
-      </td>
-      <td>
-        <span class="stat-pill" style="cursor:pointer"
-          onclick="showPosteCollabs('${p.id}')">
-          ${collabs.length} collaborateur·ice(s)
-        </span>
-      </td>
-      <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
-        <button class="btn btn-sm" onclick="openPosteModal('${p.id}')"><i class="ti ti-edit"></i></button>
-        ${collabs.length === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
-      </td>
-    </tr>`;
-  });
+  ${!buListAvailable ? `<div style="padding:8px 16px;background:#EEEDFE;font-size:12px;color:#3C3489;border-bottom:.5px solid #D3D1C7">
+    <i class="ti ti-info-circle"></i> Créez la liste SharePoint « BU » pour activer le regroupement des fonctions par Business Unit.
+  </div>` : ''}
+  <table class="adm"><thead><tr><th>Nom</th><th>Réf. OPIIEC</th><th>Compétences cibles</th><th>Collaborateur·ices</th><th></th></tr></thead><tbody>`;
+
+  const sortedBUs = getSortedBUs();
+  if (sortedBUs.length) {
+    sortedBUs.forEach(bu => {
+      const inBU = POSTES_STATE.filter(p => String(p.buId||'') === String(bu.id)).sort((a,b) => nameCompareFr(a.name, b.name));
+      h += posteBUHeaderRow(bu, inBU.length);
+      if (!inBU.length) h += `<tr><td colspan="5" style="color:#aaa;font-size:12px;padding:6px 13px">Aucune fonction dans cette BU.</td></tr>`;
+      inBU.forEach(p => { h += posteAdminRowHtml(p); });
+    });
+    const orphans = POSTES_STATE.filter(p => !p.buId || !buById(p.buId)).sort((a,b) => nameCompareFr(a.name, b.name));
+    if (orphans.length) {
+      h += `<tr><td colspan="5" style="padding:6px 13px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">Sans BU</td></tr>`;
+      orphans.forEach(p => { h += posteAdminRowHtml(p); });
+    }
+  } else {
+    POSTES_STATE.slice().sort((a,b) => nameCompareFr(a.name, b.name)).forEach(p => { h += posteAdminRowHtml(p); });
+  }
+
   h += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = h;
+}
+
+// Ligne de fonction dans l'onglet admin Fonctions.
+function posteAdminRowHtml(p) {
+  const nt = Object.keys(p.targets||{}).length;
+  const collabs = db.collaborateurs.filter(c => collabHasFunction(c, p.id));
+  return `<tr>
+    <td style="font-weight:500">${escapeHtml(p.name)}</td>
+    <td style="font-size:12px;color:#5F5E5A">${p.nomSecondaire ? escapeHtml(p.nomSecondaire) : '<span style="color:#ccc">—</span>'}</td>
+    <td>
+      <span class="stat-pill" style="cursor:pointer" onclick="showPosteSkills('${p.id}')">${nt} compétence(s)</span>
+    </td>
+    <td>
+      <span class="stat-pill" style="cursor:pointer" onclick="showPosteCollabs('${p.id}')">${collabs.length} collaborateur·ice(s)</span>
+    </td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-sm" onclick="openPosteModal('${p.id}')"><i class="ti ti-edit"></i></button>
+      ${collabs.length === 0 ? `<button class="btn btn-sm btn-danger" onclick="deletePoste('${p.id}')"><i class="ti ti-trash"></i></button>` : ''}
+    </td>
+  </tr>`;
+}
+
+// En-tête de groupe BU (avec actions de modification / suppression).
+function posteBUHeaderRow(bu, count) {
+  return `<tr><td colspan="5" style="padding:0">
+    <div style="padding:8px 13px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+      background:${bu.bg};color:${bu.c};display:flex;align-items:center;justify-content:space-between">
+      <span>${escapeHtml(bu.name)} · ${count} fonction(s)</span>
+      <span style="display:flex;gap:4px">
+        <button class="btn btn-sm" style="padding:2px 6px" onclick="openBUModal('${bu.id}')"><i class="ti ti-edit"></i></button>
+        ${count === 0 ? `<button class="btn btn-sm btn-danger" style="padding:2px 6px" onclick="deleteBU('${bu.id}')"><i class="ti ti-trash"></i></button>` : ''}
+      </span>
+    </div>
+  </td></tr>`;
+}
+
+// ---- CRUD des BU (Business Units) ----
+function openBUModal(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  if (!buListAvailable) { alert('La liste SharePoint « BU » doit être créée avant d’ajouter une BU.'); return; }
+  const bu = id ? BUS.find(b => String(b.id) === String(id)) : { id:null, name:'', c:'#3C3489', bg:'#EEEDFE' };
+  if (id && !bu) return;
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-building" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = id ? 'Modifier la BU' : 'Nouvelle BU';
+  document.getElementById('m-sub').textContent = '';
+  document.getElementById('m-body').innerHTML = `
+    <div class="fg">
+      <div class="field full"><label>Nom de la BU</label>
+        <input type="text" id="bu-name" value="${escapeHtml(bu.name)}" placeholder="Ex: Décarbonation">
+      </div>
+      <div class="field"><label>Couleur du texte</label>
+        <input type="color" id="bu-color" value="${bu.c}" style="height:38px;width:100%;cursor:pointer">
+      </div>
+      <div class="field"><label>Couleur de fond</label>
+        <input type="color" id="bu-bg" value="${bu.bg}" style="height:38px;width:100%;cursor:pointer">
+      </div>
+      <div class="field full"><label>Aperçu</label>
+        <div id="bu-preview" style="padding:8px 14px;border-radius:6px;font-size:12px;font-weight:600;
+          background:${bu.bg};color:${bu.c};display:inline-block">${escapeHtml(bu.name)||'Aperçu'}</div>
+      </div>
+    </div>`;
+  setTimeout(() => {
+    const updatePreview = () => {
+      const p = document.getElementById('bu-preview');
+      p.style.background = document.getElementById('bu-bg').value;
+      p.style.color = document.getElementById('bu-color').value;
+      p.textContent = document.getElementById('bu-name').value || 'Aperçu';
+    };
+    document.getElementById('bu-name').addEventListener('input', updatePreview);
+    document.getElementById('bu-color').addEventListener('input', updatePreview);
+    document.getElementById('bu-bg').addEventListener('input', updatePreview);
+  }, 0);
+  document.getElementById('m-footer').innerHTML = `
+    <button class="btn" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveBU('${id||''}')"><i class="ti ti-check"></i>Enregistrer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveBU(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  const name = document.getElementById('bu-name').value.trim();
+  if (!name) return alert('Nom requis.');
+  const c  = document.getElementById('bu-color').value;
+  const bg = document.getElementById('bu-bg').value;
+  showSave();
+  try {
+    const data = { Title: name, Couleur: c, Fond: bg };
+    if (id && !isNaN(Number(id))) await spPatch(CONFIG.lists.bu, id, data);
+    else                          await spPost(CONFIG.lists.bu, data);
+    await loadData();
+    closeModal();
+    renderAdminPostes();
+    hideSave('BU enregistrée ✓');
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
+}
+
+async function deleteBU(id) {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  const used = POSTES.filter(p => String(p.buId||'') === String(id));
+  if (used.length) return alert('Cette BU contient des fonctions. Réaffectez-les d’abord à une autre BU.');
+  if (!confirm('Supprimer cette BU ?')) return;
+  showSave('Suppression...');
+  try {
+    await spDelete(CONFIG.lists.bu, id);
+    await loadData();
+    hideSave('Supprimé ✓');
+    renderAdminPostes();
+  } catch(e) { hideSave('Erreur !'); alert('Erreur : ' + e.message); }
 }
 
 function exportPostesReferentiel() {
@@ -5555,11 +5781,14 @@ function exportPostesReferentiel() {
   try {
     const rows = [];
     POSTES_STATE.forEach(p => {
+      const bu = p.buId ? buById(p.buId) : null;
       Object.entries(p.targets || {}).forEach(([sid, lvl]) => {
         const sk  = SKILLS.find(s => s.id === sid);
         const dom = sk ? DOMAINS.find(d => d.id === sk.did) : null;
         rows.push([
           p.name,
+          bu ? bu.name : '',
+          p.nomSecondaire || '',
           dom ? dom.name : '',
           sk ? sk.name : sid,
           lvl != null ? lvl : '',
@@ -5570,9 +5799,9 @@ function exportPostesReferentiel() {
       });
     });
     if (!rows.length) { alert('Aucune compétence cible définie pour les fonctions.'); return; }
-    const headers = ['Fonction','Domaine','Compétence','Niveau cible','Description niveau cible','ID Fonction','ID Compétence'];
+    const headers = ['Fonction','BU','Réf. OPIIEC','Domaine','Compétence','Niveau cible','Description niveau cible','ID Fonction','ID Compétence'];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = [{wch:24},{wch:16},{wch:42},{wch:12},{wch:55},{wch:10},{wch:10}];
+    ws['!cols'] = [{wch:24},{wch:16},{wch:24},{wch:16},{wch:42},{wch:12},{wch:55},{wch:10},{wch:10}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Référentiel fonctions');
     XLSX.writeFile(wb, 'referentiel_fonctions_competences.xlsx');
@@ -5699,8 +5928,19 @@ function openPosteModal(id) {
     }).join('');
     return `<tr data-domain-row="${dom.id}"><td colspan="3" style="padding:6px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#5F5E5A;background:#f5f5f0">${dom.name}</td></tr>${rows}`;
   }).join('');
+  const buOptions = getSortedBUs().map(b => `<option value="${b.id}"${String(p.buId||'')===String(b.id)?' selected':''}>${escapeHtml(b.name)}</option>`).join('');
   document.getElementById('m-body').innerHTML = `
-    <div class="field" style="margin-bottom:14px"><label>Nom de la fonction</label><input type="text" id="p-name" value="${p.name}" placeholder="Ex: Chef de projet"></div>
+    <div class="fg" style="margin-bottom:14px">
+      <div class="field"><label>Nom de la fonction</label><input type="text" id="p-name" value="${escapeHtml(p.name)}" placeholder="Ex: Chef de projet"></div>
+      <div class="field"><label>BU (Business Unit)</label>
+        ${buListAvailable
+          ? `<select id="p-bu"><option value="">— Aucune BU —</option>${buOptions}</select>`
+          : `<input type="text" id="p-bu" value="" disabled placeholder="Liste « BU » non créée">`}
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:14px"><label>Nom secondaire / correspondance référentiel OPIIEC</label>
+      <input type="text" id="p-nom-secondaire" value="${escapeHtml(p.nomSecondaire||'')}" placeholder="Ex: Chef·fe de projet (intitulé OPIIEC)">
+    </div>
     <div style="font-size:12px;color:#5F5E5A;margin-bottom:8px;font-weight:500">Niveaux cibles par compétence (laisser — pour non ciblé). Cliquez sur l'icône <i class="ti ti-notes"></i> pour personnaliser la description d'un ou plusieurs niveaux pour cette fonction.</div>
     <div class="field" style="margin-bottom:8px"><input type="text" id="poste-skill-search" placeholder="Rechercher une compétence par son nom…" oninput="filterPosteSkillRows(this.value)"></div>
     <div style="overflow:auto;max-height:420px;border:.5px solid #D3D1C7;border-radius:8px" id="poste-skill-table">
@@ -5765,9 +6005,13 @@ async function savePoste(id) {
     });
     if (Object.keys(overrides).length) customLevels[sk.id] = overrides;
   });
+  const buEl = document.getElementById('p-bu');
+  const buId = (buListAvailable && buEl && !buEl.disabled) ? buEl.value : '';
+  const nomSecondaireEl = document.getElementById('p-nom-secondaire');
+  const nomSecondaire = nomSecondaireEl ? nomSecondaireEl.value.trim() : '';
   showSave();
   try {
-    const data = { Title: name, Targets: JSON.stringify(targets), NiveauxPersos: JSON.stringify(customLevels) };
+    const data = { Title: name, BUId: buId, NomSecondaire: nomSecondaire, Targets: JSON.stringify(targets), NiveauxPersos: JSON.stringify(customLevels) };
     const isSpId = id && !isNaN(Number(id));
     if (isSpId) {
       await spPatch(CONFIG.lists.postes, id, data);
@@ -5979,6 +6223,7 @@ function renderAdminSkills() {
       ${hasStaticSkills ? `<button class="btn" onclick="migrateSkills()" style="border-color:#856404;color:#856404"><i class="ti ti-database-import"></i>Migrer vers SharePoint</button>` : ''}
       ${hasOrphanSkills ? `<button class="btn" onclick="migrateDomains()" style="border-color:#A32D2D;color:#A32D2D"><i class="ti ti-tool"></i>Réparer les domaines</button>` : ''}
       <button class="btn" onclick="showView('import');setTimeout(renderLevelDescriptionFixPreview,0)" style="border-color:#534AB7;color:#534AB7"><i class="ti ti-replace"></i>Correctif niveaux</button>
+      <button class="btn" onclick="exportSkillsReferentiel()"><i class="ti ti-download"></i>Exporter référentiel</button>
       <button class="btn" onclick="openDomainModal(null)"><i class="ti ti-folder-plus"></i>Nouveau domaine</button>
       <button class="btn btn-primary" onclick="openSkillModal(null)"><i class="ti ti-plus"></i>Nouvelle compétence</button>
     </div>
@@ -6028,8 +6273,11 @@ function renderAdminSkills() {
     h += `<table class="adm"><tbody>`;
     list.forEach(sk => {
       const isStatic = isNaN(Number(sk.id));
+      const reqCount = POSTES.filter(p => p.targets && p.targets[sk.id] !== undefined).length;
       h += `<tr>
-        <td style="font-weight:500;max-width:280px">${sk.name}${isStatic ? ' <span style="background:#FFF3CD;color:#856404;border-radius:4px;font-size:9px;padding:1px 4px;font-weight:600">non migré</span>' : ''}</td>
+        <td style="font-weight:500;max-width:280px">${sk.name}${isStatic ? ' <span style="background:#FFF3CD;color:#856404;border-radius:4px;font-size:9px;padding:1px 4px;font-weight:600">non migré</span>' : ''}
+          <div style="margin-top:3px"><span class="stat-pill" style="cursor:pointer;font-size:10px;font-weight:400" onclick="showSkillFunctions('${sk.id}')"><i class="ti ti-target" style="font-size:11px"></i> Requise par ${reqCount} fonction(s)</span></div>
+        </td>
         <td style="font-size:11px;color:#5F5E5A">${[1,2,3,4].map(n => `<b>${n}.</b> ${sk.levels[n]||'—'}`).join(' &nbsp;·&nbsp; ')}</td>
         <td style="text-align:right;display:flex;gap:5px;justify-content:flex-end">
           <button class="btn btn-sm" onclick="openSkillModal('${sk.id}')"><i class="ti ti-edit"></i></button>
@@ -6042,7 +6290,61 @@ function renderAdminSkills() {
   h += `</div>`;
   document.getElementById('content').innerHTML = h;
 }
-  
+
+// Export Excel du référentiel de compétences (point 7).
+function exportSkillsReferentiel() {
+  if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
+  try {
+    const rows = [];
+    getSortedDomains().forEach(dom => {
+      SKILLS.filter(s => s.did === dom.id).sort((a,b) => nameCompareFr(a.name, b.name)).forEach(sk => {
+        rows.push([dom.name, sk.name, sk.levels[1]||'', sk.levels[2]||'', sk.levels[3]||'', sk.levels[4]||'', sk.id]);
+      });
+    });
+    SKILLS.filter(s => !DOMAINS.some(d => d.id === s.did)).sort((a,b) => nameCompareFr(a.name, b.name)).forEach(sk => {
+      rows.push(['(sans domaine)', sk.name, sk.levels[1]||'', sk.levels[2]||'', sk.levels[3]||'', sk.levels[4]||'', sk.id]);
+    });
+    if (!rows.length) { alert('Aucune compétence à exporter.'); return; }
+    const headers = ['Domaine','Compétence','Niveau 1','Niveau 2','Niveau 3','Niveau 4','ID Compétence'];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{wch:16},{wch:42},{wch:50},{wch:50},{wch:50},{wch:50},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Référentiel compétences');
+    XLSX.writeFile(wb, 'referentiel_competences.xlsx');
+  } catch(e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+    console.error(e);
+  }
+}
+
+// Affiche, pour une compétence, les fonctions qui la requièrent et à quel niveau (point 8).
+function showSkillFunctions(sid) {
+  const sk = skillById(sid);
+  if (!sk) return;
+  const entries = POSTES.filter(p => p.targets && p.targets[sid] !== undefined)
+    .map(p => ({ p, lvl: p.targets[sid] }))
+    .sort((a,b) => nameCompareFr(a.p.name, b.p.name));
+  document.getElementById('m-av').innerHTML = '<i class="ti ti-target" style="font-size:20px"></i>';
+  document.getElementById('m-title').textContent = sk.name;
+  document.getElementById('m-sub').textContent = `Requise sur ${entries.length} fonction(s)`;
+  document.getElementById('m-body').innerHTML = entries.length
+    ? entries.map(({p, lvl}) => {
+        const bu = p.buId ? buById(p.buId) : null;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 4px;border-bottom:.5px solid #f0f0e8">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${escapeHtml(p.name)}</div>
+            ${bu ? `<div style="margin-top:2px">${buTag(bu)}</div>` : ''}
+          </div>
+          ${lvl != null
+            ? `<span class="lb l${lvl}" style="width:22px;height:22px;font-size:11px;flex-shrink:0">${lvl}</span>`
+            : `<span class="lb" style="width:22px;height:22px;font-size:10px;border:1.5px dashed #ccc;color:#ccc;flex-shrink:0" title="Associée à la fonction, sans niveau cible">—</span>`}
+        </div>`;
+      }).join('')
+    : '<p style="color:#aaa;font-size:13px">Cette compétence n’est requise sur aucune fonction.</p>';
+  document.getElementById('m-footer').innerHTML = `<button class="btn" onclick="closeModal()">Fermer</button>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
   function openDomainModal(id) {
   if (!hasStrictAdminAccess()) { alert('Accès réservé aux rôles disposant du droit requis.'); return; }
   const dom = id ? DOMAINS.find(d => d.id === id) : { id:null, name:'', c:'#333333', bg:'#F5F5F5' };
@@ -6989,7 +7291,8 @@ function backupRows() {
     Commentaires: db.commentaires.map(c => ({ Id:c.Id, Title:c.Title||'', SkillId:c.SkillId||'', TypeAuteur:c.TypeAuteur||'', Contenu:c.Contenu||'', DateSaisie:c.DateSaisie||'' })),
     Historique: db.historique.map(h => ({ Id:h.Id, Title:h.Title||'', Role:h.Role||'', Description:h.Description||'', DateAction:h.DateAction||'' })),
     Equipes: db.equipes.map(t => ({ Id:t.Id||t.id, Title:t.name||t.Title||'', ManagersIds:(t.managerIds||[]).join(','), CompetencesActives:JSON.stringify(t.competencesActives||{}) })),
-    Postes: POSTES.map(p => ({ Id:p.id, Title:p.name||'', Targets:JSON.stringify(p.targets||{}), NiveauxPersos:JSON.stringify(p.customLevels||{}) })),
+    Postes: POSTES.map(p => ({ Id:p.id, Title:p.name||'', BUId:p.buId||'', NomSecondaire:p.nomSecondaire||'', Targets:JSON.stringify(p.targets||{}), NiveauxPersos:JSON.stringify(p.customLevels||{}) })),
+    BU: BUS.map(b => ({ Id:b.id, Title:b.name||'', Couleur:b.c||'', Fond:b.bg||'' })),
     Domaines: DOMAINS.map(d => ({ Id:d.id, Title:d.name||'', Couleur:d.c||'', Fond:d.bg||'' })),
     Roles: db.roles.map(r => ({ Id:r.spId||r.Id, Title:r.name||'', Emails:(r.emails||[]).join(','), Droits:JSON.stringify(r.droits||{}) })),
     CompetencesRef: SKILLS.map(sk => ({ Id:sk.id, Title:sk.name||'', DomainId:sk.did||'', Niveaux:JSON.stringify(sk.levels||{}) })),
@@ -7092,10 +7395,22 @@ async function importFullBackup(event) {
     showSave('Lecture de la sauvegarde...');
     try {
       const wb = XLSX.read(ev.target.result, { type:'array' });
-      const rows = Object.fromEntries(['Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','CompetencesEquipe','Suggestions','Connaissances','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
-      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {}, competencesEquipeMap = {}, connaissanceMap = {};
+      const rows = Object.fromEntries(['BU','Domaines','CompetencesRef','Postes','Collaborateurs','Equipes','Roles','Formations','Parcours','AxesStrategiques','CompetencesEquipe','Suggestions','Connaissances','Competences','Commentaires','Historique'].map(n => [n, sheetRows(wb,n)]));
+      const domainMap = {}, skillMap = {}, posteMap = {}, collabMap = {}, teamMap = {}, formationMap = {}, parcoursMap = {}, strategyMap = {}, competencesEquipeMap = {}, connaissanceMap = {}, buMap = {};
       await loadData();
 
+      // BU (optionnel : ignoré si la liste n'existe pas encore côté SharePoint).
+      if (buListAvailable) {
+        for (const r of (rows.BU || [])) {
+          const oldId = String(r.Id || '');
+          const data = { Title:String(r.Title||''), Couleur:String(r.Couleur||''), Fond:String(r.Fond||'') };
+          try {
+            const newId = await upsertFromBackup(CONFIG.lists.bu, oldId, () => dbGetRawByName('bu', r.Title), data);
+            if (oldId) buMap[oldId] = newId;
+          } catch(e) { console.warn('Restauration BU ignorée :', e); }
+        }
+        await loadData();
+      }
       for (const r of rows.Domaines) {
         const oldId = String(r.Id || '');
         const data = { Title:String(r.Title||''), Couleur:String(r.Couleur||''), Fond:String(r.Fond||'') };
@@ -7112,7 +7427,7 @@ async function importFullBackup(event) {
       await loadData();
       for (const r of rows.Postes) {
         const oldId = String(r.Id || '');
-        const data = { Title:String(r.Title||''), Targets:JSON.stringify(remapObjectKeys(r.Targets || '{}', skillMap)), NiveauxPersos:JSON.stringify(remapObjectKeys(r.NiveauxPersos || '{}', skillMap)) };
+        const data = { Title:String(r.Title||''), BUId:(buMap[String(r.BUId||'')] || ''), NomSecondaire:String(r.NomSecondaire||''), Targets:JSON.stringify(remapObjectKeys(r.Targets || '{}', skillMap)), NiveauxPersos:JSON.stringify(remapObjectKeys(r.NiveauxPersos || '{}', skillMap)) };
         const newId = await upsertFromBackup(CONFIG.lists.postes, oldId, () => dbGetRawByName('postes', r.Title), data);
         if (oldId) posteMap[oldId] = newId;
       }
@@ -7258,6 +7573,7 @@ async function importFullBackup(event) {
 function dbGetRawByName(kind, title) {
   const name = String(title || '').toLowerCase().trim();
   if (!name) return null;
+  if (kind === 'bu') return BUS.find(b => String(b.name||'').toLowerCase().trim() === name) ? { Id:BUS.find(b => String(b.name||'').toLowerCase().trim() === name).id } : null;
   if (kind === 'domaines') return DOMAINS.find(d => String(d.name||'').toLowerCase().trim() === name) ? { Id:DOMAINS.find(d => String(d.name||'').toLowerCase().trim() === name).id } : null;
   if (kind === 'skills') return SKILLS.find(sk => String(sk.name||'').toLowerCase().trim() === name) ? { Id:SKILLS.find(sk => String(sk.name||'').toLowerCase().trim() === name).id } : null;
   if (kind === 'postes') return POSTES.find(p => String(p.name||'').toLowerCase().trim() === name) ? { Id:POSTES.find(p => String(p.name||'').toLowerCase().trim() === name).id } : null;
@@ -7469,7 +7785,9 @@ async function handleImport(e) {
         const niveau     = parseInt(row['Niveau'] || row['niveau'] || 0);
         const commentaire = (row['Commentaire'] || row['commentaire'] || '').toString().trim();
 
-        if (!prenom && !email) return;
+        // On accepte une ligne dès qu'elle contient au moins un identifiant (mail, ou prénom/nom),
+        // même si les autres colonnes (fonction, compétence…) sont vides.
+        if (!prenom && !nom && !email) return;
         const key = email || `${prenom}_${nom}`;
         if (!collabMap[key]) collabMap[key] = { prenom, nom, email, posteName, comps:{}, comments:{} };
 
@@ -7486,22 +7804,21 @@ async function handleImport(e) {
         }
       });
 
-      let added = 0, updated = 0;
+      let added = 0, completed = 0, unchanged = 0;
       for (const c of Object.values(collabMap)) {
-        const poste = POSTES.find(p => p.name.toLowerCase().trim() === c.posteName.toLowerCase().trim());
+        const poste = c.posteName ? POSTES.find(p => p.name.toLowerCase().trim() === c.posteName.toLowerCase().trim()) : null;
         const ex    = db.collaborateurs.find(x =>
           (c.email && (x.Email||'').toLowerCase() === c.email) ||
-          ((x.prenom||'').toLowerCase() === c.prenom.toLowerCase() && (x.Nom||'').toLowerCase() === c.nom.toLowerCase())
+          (!c.email && c.prenom && c.nom && (x.prenom||'').toLowerCase() === c.prenom.toLowerCase() && (x.Nom||'').toLowerCase() === c.nom.toLowerCase())
         );
         let cid;
+        let touched = false; // a-t-on ajouté une donnée absente à une personne déjà présente ?
         if (ex) {
-          await spPatch(CONFIG.lists.collaborateurs, ex.Id, {
-            Title: c.prenom, Prenom: c.nom, Email: c.email,
-            PosteId: poste ? poste.id : (ex.PosteId || '')
-          });
+          // Personne déjà présente : on ne modifie AUCUNE donnée existante
+          // (ni le nom, ni le mail, ni la fonction, ni les niveaux déjà saisis).
           cid = ex.Id;
-          updated++;
         } else {
+          // Création possible avec des colonnes vides : seul un identifiant minimal est requis.
           const res = await spPost(CONFIG.lists.collaborateurs, {
             Title: c.prenom, Prenom: c.nom, Email: c.email,
             PosteId: poste ? poste.id : '', TeamIds: '', ManagerID: ''
@@ -7510,17 +7827,16 @@ async function handleImport(e) {
           added++;
         }
 
-        // Compétences
+        // Compétences : on ajoute uniquement celles qui ne sont pas déjà présentes (jamais d'écrasement).
         for (const [sid, lvl] of Object.entries(c.comps)) {
-          const existing = db.competences.find(x => String(x.CollabId) === String(cid) && x.SkillId === sid);
-          if (existing) {
-            if (parseInt(existing.Niveau) !== lvl) await spPatch(CONFIG.lists.competences, existing.Id, { Niveau: lvl });
-          } else {
+          const existing = db.competences.find(x => String(x.CollabId) === String(cid) && (x.SkillId || x.Title) === sid);
+          if (!existing) {
             await spPost(CONFIG.lists.competences, { Title: sid, CollabId: String(cid), Niveau: lvl });
+            if (ex) touched = true;
           }
         }
 
-        // Commentaires manager
+        // Commentaires manager : ajout uniquement si aucun commentaire manager n'existe déjà pour cette compétence.
         for (const [sid, com] of Object.entries(c.comments)) {
           const alreadyExists = db.commentaires.find(x => String(x.Title) === String(cid) && x.SkillId === sid && x.TypeAuteur === 'manager');
           if (!alreadyExists) {
@@ -7529,13 +7845,16 @@ async function handleImport(e) {
               TypeAuteur: 'manager', Contenu: com,
               DateSaisie: new Date().toISOString()
             });
+            if (ex) touched = true;
           }
         }
+
+        if (ex) { if (touched) completed++; else unchanged++; }
       }
 
       await loadData();
       hideSave('Import terminé ✓');
-      document.getElementById('fb').innerHTML = `<div class="fb-ok"><i class="ti ti-check"></i> ${added} collaborateur·ice(s) ajouté(s), ${updated} mis à jour.</div>`;
+      document.getElementById('fb').innerHTML = `<div class="fb-ok"><i class="ti ti-check"></i> ${added} personne(s) créée(s), ${completed} complétée(s), ${unchanged} inchangée(s). Les données déjà présentes n'ont pas été modifiées.</div>`;
     } catch (err) {
       hideSave('Erreur !');
       document.getElementById('fb').innerHTML = `<div class="fb-err"><i class="ti ti-alert-triangle"></i> Erreur : ${err.message}</div>`;
